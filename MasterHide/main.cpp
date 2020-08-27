@@ -126,18 +126,23 @@ extern "C" NTSTATUS NTAPI DriverEntry( PDRIVER_OBJECT pDriverObject, PUNICODE_ST
 			InitializeShadowSSDT();
 		}
 		else
+		{
 			DBGPRINT( "Not using kaspersky but (S)SSDT is not supported!\n" );
+			return STATUS_NOT_SUPPORTED;
+		}
 #else
 		DBGPRINT( "Using kaspersky!\n" );
 
 		if ( !kaspersky::is_klhk_loaded() )
 		{
+			UnloadImages();
 			DBGPRINT( "Kaspersky not loaded!\n" );
 			return STATUS_UNSUCCESSFUL;
 		}
 
 		if ( !kaspersky::initialize() )
 		{
+			UnloadImages();
 			DBGPRINT( "Kaspersky init failed!\n" );
 			return STATUS_UNSUCCESSFUL;
 		}
@@ -146,6 +151,7 @@ extern "C" NTSTATUS NTAPI DriverEntry( PDRIVER_OBJECT pDriverObject, PUNICODE_ST
 
 		if ( !kaspersky::hvm_init() )
 		{
+			UnloadImages();
 			DBGPRINT( "Hypervisor not loaded!\n" );
 			return STATUS_UNSUCCESSFUL;
 		}
@@ -245,7 +251,7 @@ extern "C" NTSTATUS NTAPI DriverEntry( PDRIVER_OBJECT pDriverObject, PUNICODE_ST
 	}
 	else
 		// No support for other OS
-		return STATUS_ACCESS_DENIED;
+		return STATUS_NOT_SUPPORTED;
 
 	return STATUS_SUCCESS;
 }
