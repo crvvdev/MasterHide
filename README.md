@@ -1,4 +1,5 @@
 
+
 # MasterHide
 
 MasterHide is a x64 Windows Driver created to monitor/hide or block access from processes, objects, files ( whatever you want, your imagination is the limit here ) using SSDT/Shadow SSDT hooks. 
@@ -63,3 +64,9 @@ KasperskyHook can be used without triggering the PatchGuard, no actually hooks c
 [zer0m0n](https://github.com/conix-security/zer0m0n) Some code can or was based on this project.
 
 Most other things can be found on Google, the code looks like shit yes but the main goal here is to have a PoC of something actually working.
+
+## Demo
+
+![Cheat Engine process not visible on process list](https://i.imgur.com/DG8qjFw.png)
+
+![Cheat Engine process not found or visible via windows using blacklisted methods](https://i.imgur.com/DG8qjFw.png)
