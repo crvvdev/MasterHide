@@ -1,7 +1,7 @@
 ﻿#include "stdafx.h"
 
-PVOID pNTDLL	= nullptr;
-PVOID pWin32u	= nullptr;
+PVOID pNTDLL = nullptr;
+PVOID pWin32u = nullptr;
 
 namespace Tools
 {
@@ -472,9 +472,9 @@ namespace Tools
 		if ( !pNTDLL )
 		{
 			UNICODE_STRING FileName = RTL_CONSTANT_STRING( L"\\SystemRoot\\System32\\ntdll.dll" );
-			
+
 			auto res = LoadFile( &FileName, &pNTDLL );
-			if( !NT_SUCCESS( res ) )
+			if ( !NT_SUCCESS( res ) )
 				DBGPRINT( "[ GetNtSyscall ] Failed to load ntdll.dll 0x%X\n", res )
 		}
 
@@ -501,7 +501,7 @@ namespace Tools
 		if ( !pWin32u )
 		{
 			UNICODE_STRING FileName = RTL_CONSTANT_STRING( L"\\SystemRoot\\System32\\win32u.dll" );
-			
+
 			auto res = LoadFile( &FileName, &pWin32u );
 			if ( !NT_SUCCESS( res ) )
 				DBGPRINT( "[ GetWin32Syscall ] Failed to load win32u.dll 0x%X\n", res )
@@ -530,7 +530,7 @@ namespace Tools
 		if ( pNTDLL )
 			ExFreePoolWithTag( pNTDLL, TAG );
 
-		if( pWin32u )
+		if ( pWin32u )
 			ExFreePoolWithTag( pWin32u, TAG );
 	}
 };

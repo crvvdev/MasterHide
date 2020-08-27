@@ -275,28 +275,28 @@ void InitializeShadowSSDT()
 		else
 			DBGPRINT( "Failed to hook NtUserQueryWindow!\n" );
 
-		if( HookSSSDT( pCode, ulCodeSize, &hkNtUserFindWindowEx, reinterpret_cast< PVOID* >( &oNtUserFindWindowEx ), SYSCALL_NTUSERFINDWNDEX ) )
+		if ( HookSSSDT( pCode, ulCodeSize, &hkNtUserFindWindowEx, reinterpret_cast< PVOID* >( &oNtUserFindWindowEx ), SYSCALL_NTUSERFINDWNDEX ) )
 		{
 			DBGPRINT( "NtUserFindWindowEx hooked successfully!\n" );
 		}
 		else
 			DBGPRINT( "Failed to hook NtUserFindWindowEx!\n" );
 
-		if( HookSSSDT( pCode, ulCodeSize, &hkNtUserWindowFromPoint, reinterpret_cast< PVOID* >( &oNtUserWindowFromPoint ), SYSCALL_NTUSERWNDFROMPOINT ) )
+		if ( HookSSSDT( pCode, ulCodeSize, &hkNtUserWindowFromPoint, reinterpret_cast< PVOID* >( &oNtUserWindowFromPoint ), SYSCALL_NTUSERWNDFROMPOINT ) )
 		{
 			DBGPRINT( "NtUserWindowFromPoint hooked successfully!\n" );
 		}
 		else
 			DBGPRINT( "Failed to hook NtUserWindowFromPoint!\n" );
 
-		if( HookSSSDT( pCode, ulCodeSize, &hkNtUserBuildHwndList, reinterpret_cast< PVOID* >( &oNtUserBuildHwndList ), SYSCALL_NTUSERBUILDWNDLIST ) )
+		if ( HookSSSDT( pCode, ulCodeSize, &hkNtUserBuildHwndList, reinterpret_cast< PVOID* >( &oNtUserBuildHwndList ), SYSCALL_NTUSERBUILDWNDLIST ) )
 		{
 			DBGPRINT( "NtUserBuildHwndList hooked successfully!\n" );
 		}
 		else
 			DBGPRINT( "Failed to hook NtUserBuildHwndList!\n" );
 
-		if( HookSSSDT( pCode, ulCodeSize, &hkNtUserGetForegroundWindow, reinterpret_cast< PVOID* >( &oNtUserGetForegroundWindow ), SYSCALL_NTGETFOREGROUNDWND ) )
+		if ( HookSSSDT( pCode, ulCodeSize, &hkNtUserGetForegroundWindow, reinterpret_cast< PVOID* >( &oNtUserGetForegroundWindow ), SYSCALL_NTGETFOREGROUNDWND ) )
 		{
 			DBGPRINT( "NtUserGetForegroundWindow hooked successfully!\n" );
 		}
@@ -324,18 +324,18 @@ void DestroyShadowSSDT()
 	KAPC_STATE apc{ };
 	KeStackAttachProcess( Process, &apc );
 
-	if( !UnhookSSSDT( oNtUserFindWindowEx, SYSCALL_NTUSERFINDWNDEX ) )
+	if ( !UnhookSSSDT( oNtUserFindWindowEx, SYSCALL_NTUSERFINDWNDEX ) )
 		DBGPRINT( "Failed to unhook NtUserFindWindowEx!\n" );
 
-	if ( !UnhookSSSDT( oNtUserWindowFromPoint, SYSCALL_NTUSERWNDFROMPOINT ) ) 
+	if ( !UnhookSSSDT( oNtUserWindowFromPoint, SYSCALL_NTUSERWNDFROMPOINT ) )
 		DBGPRINT( "Failed to unhook NtUserWindowFromPoint!\n" );
 
 	if ( !UnhookSSSDT( oNtUserBuildHwndList, SYSCALL_NTUSERBUILDWNDLIST ) )
 		DBGPRINT( "Failed to unhook NtUserBuildHwndList!\n" );
-			
+
 	if ( !UnhookSSSDT( oNtUserGetForegroundWindow, SYSCALL_NTGETFOREGROUNDWND ) )
 		DBGPRINT( "Failed to unhook NtUserGetForegroundWindow!\n" );
-			
+
 	if ( !UnhookSSSDT( oNtUserQueryWindow, SYSCALL_NTUSERQUERYWND ) )
 		DBGPRINT( "Failed to unhook NtUserQueryWindow!\n" );
 

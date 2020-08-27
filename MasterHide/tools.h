@@ -12,7 +12,7 @@ inline VOID AllocateUnicodeString( PUNICODE_STRING us, USHORT Size )
 		us->Length = 0;
 		us->MaximumLength = 0;
 		us->Buffer = ( PWSTR )ExAllocatePoolWithTag( NonPagedPool, Size, TAG );
-		if ( us->Buffer ) 
+		if ( us->Buffer )
 		{
 			us->Length = 0;
 			us->MaximumLength = Size;
@@ -23,10 +23,10 @@ inline VOID AllocateUnicodeString( PUNICODE_STRING us, USHORT Size )
 
 inline VOID FreeUnicodeString( PUNICODE_STRING us )
 {
-	if ( !us ) 
+	if ( !us )
 		return;
 
-	__try 
+	__try
 	{
 		if ( us->MaximumLength > 0 && us->Buffer )
 			ExFreePoolWithTag( us->Buffer, TAG );

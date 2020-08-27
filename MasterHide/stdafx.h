@@ -41,9 +41,9 @@ static char* szProtectedDrivers[] =
 
 //
 // Those processes will not appear on process list or via window methods
-static wchar_t* wsProtectedProcesses[] = 
-{ 
-	L"cheatengine", 
+static wchar_t* wsProtectedProcesses[] =
+{
+	L"cheatengine",
 	L"ProcessHacker"
 	//...
 };

@@ -5,22 +5,22 @@
 //
 // ntoskrnl.exe
 //
-static auto SYSCALL_NTUSERFINDWNDEX		= 0x106e;
-static auto SYSCALL_NTUSERWNDFROMPOINT	= 0x1014;
-static auto SYSCALL_NTUSERBUILDWNDLIST	= 0x101c;
-static auto SYSCALL_NTGETFOREGROUNDWND	= 0x103c;
-static auto SYSCALL_NTUSERQUERYWND		= 0x1010;
+static auto SYSCALL_NTUSERFINDWNDEX = 0x106e;
+static auto SYSCALL_NTUSERWNDFROMPOINT = 0x1014;
+static auto SYSCALL_NTUSERBUILDWNDLIST = 0x101c;
+static auto SYSCALL_NTGETFOREGROUNDWND = 0x103c;
+static auto SYSCALL_NTUSERQUERYWND = 0x1010;
 
 //
 // win32k.sys
 //
-static auto SYSCALL_NTQUERYSYSINFO		= 0x0033;
-static auto SYSCALL_NTOPENPROCESS		= 0x0023;
-static auto SYSCALL_NTALLOCVIRTUALMEM	= 0x0015;
-static auto SYSCALL_NTWRITEVIRTUALMEM	= 0x0037;
-static auto SYSCALL_NTFREEVIRTUALMEM	= 0x001b;
-static auto SYSCALL_NTDEVICEIOCTRLFILE  = 0x0004;
-static auto SYSCALL_NTLOADDRIVER		= 0x0004;
+static auto SYSCALL_NTQUERYSYSINFO = 0x0033;
+static auto SYSCALL_NTOPENPROCESS = 0x0023;
+static auto SYSCALL_NTALLOCVIRTUALMEM = 0x0015;
+static auto SYSCALL_NTWRITEVIRTUALMEM = 0x0037;
+static auto SYSCALL_NTFREEVIRTUALMEM = 0x001b;
+static auto SYSCALL_NTDEVICEIOCTRLFILE = 0x0004;
+static auto SYSCALL_NTLOADDRIVER = 0x0004;
 
 inline bool IsProtectedProcess( HANDLE PID )
 {
@@ -230,7 +230,7 @@ extern NtUserBuildHwndList_ oNtUserBuildHwndList;
 
 NTSTATUS NTAPI hkNtUserBuildHwndList( HDESK hdesk, HWND hwndNext, ULONG fEnumChildren, DWORD idThread, UINT cHwndMax, HWND* phwndFirst, ULONG* pcHwndNeeded );
 
-using NtUserGetForegroundWindow_ = HWND( NTAPI*)( VOID );
+using NtUserGetForegroundWindow_ = HWND( NTAPI* )( VOID );
 extern NtUserGetForegroundWindow_ oNtUserGetForegroundWindow;
 
 HWND NTAPI hkNtUserGetForegroundWindow( VOID );

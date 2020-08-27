@@ -57,7 +57,7 @@ bool HookSSDT( PUCHAR pCode, ULONG ulCodeSize, PVOID pNewFunction, PVOID* pOldFu
 	DBGPRINT( "[ HookSSDT ] Original: 0x%p\n", *pOldFunction );
 
 	*( PULONG64 )( jmp_trampoline + 3 ) = ULONG64( pNewFunction );
-	
+
 	//
 	// Find a suitable code cave inside the module .text section that we can use to trampoline to our hook
 	//
@@ -95,7 +95,7 @@ bool HookSSDT( PUCHAR pCode, ULONG ulCodeSize, PVOID pNewFunction, PVOID* pOldFu
 	// Modify SSDT table
 	//
 	auto ServiceTableBase = ( PULONG )g_KeServiceDescriptorTable->ServiceTableBase;
-	
+
 	auto irql = WPOFF();
 
 	RtlCopyMemory( Mapping, jmp_trampoline, sizeof( jmp_trampoline ) );
@@ -210,7 +210,7 @@ void DestroySSDT()
 	if ( !g_KeServiceDescriptorTable )
 		return;
 
-	if( !UnhookSSDT( oNtQuerySystemInformation, SYSCALL_NTQUERYSYSINFO ) )
+	if ( !UnhookSSDT( oNtQuerySystemInformation, SYSCALL_NTQUERYSYSINFO ) )
 		DBGPRINT( "Failed to unhook NtQuerySystemInformation!\n" );
 
 	if ( !UnhookSSDT( oNtOpenProcess, SYSCALL_NTOPENPROCESS ) )

@@ -179,7 +179,7 @@ NTSTATUS NTAPI hkNtDeviceIoControlFile( HANDLE FileHandle, HANDLE Event, PIO_APC
 			//
 			// Hardware Spoofing
 			//
-			switch ( IoControlCode ) 
+			switch ( IoControlCode )
 			{
 
 			case IOCTL_STORAGE_QUERY_PROPERTY:
@@ -227,7 +227,7 @@ NTSTATUS NTAPI hkNtDeviceIoControlFile( HANDLE FileHandle, HANDLE Event, PIO_APC
 							if ( strlen( Serial ) > 0 )
 							{
 								Tools::SwapEndianness( Serial, sizeof( Identify->SerialNumber ) );
-							
+
 								DBGPRINT( "%ws Spoofing Serial ( 0x%X ) Old: %s New: %s\n", ShortName, IoControlCode, Serial, szFakeSerial );
 								memset( Serial, 0, strlen( Serial ) );
 								strcpy( Serial, szFakeSerial );
@@ -434,7 +434,7 @@ NTSTATUS NTAPI hkNtQuerySystemInformation( SYSTEM_INFORMATION_CLASS SystemInform
 		//
 		// Hide from Process list
 		//
-		else if ( 
+		else if (
 			SystemInformationClass == SystemProcessInformation ||
 			SystemInformationClass == SystemSessionProcessInformation ||
 			SystemInformationClass == SystemExtendedProcessInformation )
@@ -524,7 +524,7 @@ NTSTATUS NTAPI hkNtQuerySystemInformation( SYSTEM_INFORMATION_CLASS SystemInform
 			PSYSTEM_CODEINTEGRITY_INFORMATION Integrity = PSYSTEM_CODEINTEGRITY_INFORMATION( Buffer );
 
 			// Spoof test sign flag if present
-			if( Integrity->CodeIntegrityOptions & CODEINTEGRITY_OPTION_TESTSIGN )
+			if ( Integrity->CodeIntegrityOptions & CODEINTEGRITY_OPTION_TESTSIGN )
 				Integrity->CodeIntegrityOptions &= ~CODEINTEGRITY_OPTION_TESTSIGN;
 
 			// Set as always enabled.
@@ -543,7 +543,7 @@ NTSTATUS NTAPI hkNtLoadDriver( PUNICODE_STRING DriverServiceName )
 	if ( DriverServiceName && DriverServiceName->Buffer )
 	{
 		/*
-		
+
 		For example:
 
 		if ( wcsstr( DriverServiceName->Buffer, L"BEDaisy.sys" ) )
