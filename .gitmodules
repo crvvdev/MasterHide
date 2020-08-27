@@ -1,0 +1,3 @@
+[submodule "KasperskyHook"]
+	path = KasperskyHook
+	url = https://github.com/iPower/KasperskyHook/
