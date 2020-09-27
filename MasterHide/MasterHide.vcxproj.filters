@@ -81,5 +81,8 @@
     <ClInclude Include="mh_hooks.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="globals.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

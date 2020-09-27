@@ -1,6 +1,5 @@
 #include "stdafx.h"
 
-using namespace Tools;
 PSYSTEM_SERVICE_TABLE g_KeServiceDescriptorTable = NULL;
 
 ULONGLONG GetKeServiceDescriptorTable64()
@@ -61,7 +60,7 @@ bool HookSSDT( PUCHAR pCode, ULONG ulCodeSize, PVOID pNewFunction, PVOID* pOldFu
 	//
 	// Find a suitable code cave inside the module .text section that we can use to trampoline to our hook
 	//
-	auto pCodeCave = FindSuitableCave( pCode, ulCodeSize, sizeof( jmp_trampoline ) );
+	auto pCodeCave = utils::FindCodeCave( pCode, ulCodeSize, sizeof( jmp_trampoline ) );
 	if ( !pCodeCave )
 	{
 		DBGPRINT( "[ HookSSDT ] Failed to find a suitable code cave.\n" );
@@ -96,7 +95,7 @@ bool HookSSDT( PUCHAR pCode, ULONG ulCodeSize, PVOID pNewFunction, PVOID* pOldFu
 	//
 	auto ServiceTableBase = ( PULONG )g_KeServiceDescriptorTable->ServiceTableBase;
 
-	auto irql = WPOFF();
+	auto irql = utils::WPOFF();
 
 	RtlCopyMemory( Mapping, jmp_trampoline, sizeof( jmp_trampoline ) );
 
@@ -105,7 +104,7 @@ bool HookSSDT( PUCHAR pCode, ULONG ulCodeSize, PVOID pNewFunction, PVOID* pOldFu
 	SsdtEntry += ServiceTableBase[ SyscallNum ] & 0x0F;
 	ServiceTableBase[ SyscallNum ] = SsdtEntry;
 
-	WPON( irql );
+	utils::WPON( irql );
 
 	//
 	// Restore protection
@@ -124,20 +123,21 @@ bool UnhookSSDT( PVOID pFunction, ULONG SyscallNum )
 
 	auto ServiceTableBase = ( PULONG )g_KeServiceDescriptorTable->ServiceTableBase;
 
-	auto irql = WPOFF();
+	auto irql = utils::WPOFF();
 
 	auto SsdtEntry = GetOffsetAddress( ULONG64( pFunction ) );
 	SsdtEntry &= 0xFFFFFFF0;
 	SsdtEntry += ServiceTableBase[ SyscallNum ] & 0x0F;
 	ServiceTableBase[ SyscallNum ] = SsdtEntry;
 
-	WPON( irql );
+	utils::WPON( irql );
 
 	return true;
 }
 
-void InitializeSSDT()
+void ssdt::Init()
 {
+#ifndef USE_KASPERSKY
 	g_KeServiceDescriptorTable = PSYSTEM_SERVICE_TABLE( GetKeServiceDescriptorTable64() );
 	DBGPRINT( "KeServiceDescriptorTable: 0x%p\n", g_KeServiceDescriptorTable );
 	if ( !g_KeServiceDescriptorTable )
@@ -150,13 +150,13 @@ void InitializeSSDT()
 
 	DBGPRINT( "KeServiceDescriptorTable->NumberOfServices: %lld\n", g_KeServiceDescriptorTable->NumberOfServices );
 
-	auto ntoskrnl = ULONG64( Tools::GetNtKernelBase() );
+	auto ntoskrnl = ULONG64( tools::GetNtKernelBase() );
 	DBGPRINT( "ntoskrnl: 0x%llx\n", ntoskrnl );
 	if ( !ntoskrnl )
 		return;
 
 	ULONG ulCodeSize = 0;
-	auto pCode = PUCHAR( Tools::GetImageTextSection( ntoskrnl, &ulCodeSize ) );
+	auto pCode = PUCHAR( tools::GetImageTextSection( ntoskrnl, &ulCodeSize ) );
 	if ( pCode )
 	{
 		DBGPRINT( "ntoskrnl.exe .text section %p\n", pCode );
@@ -203,10 +203,61 @@ void InitializeSSDT()
 		else
 			DBGPRINT( "Failed to hook NtDeviceIoControlFile!\n" );
 	}
+#else
+	if ( kaspersky::hook_ssdt_routine( SYSCALL_NTOPENPROCESS, hkNtOpenProcess, reinterpret_cast< PVOID* >( &oNtOpenProcess ) ) )
+	{
+		DBGPRINT( "NtOpenProcess ( 0x%X ) hooked successfully!\n", SYSCALL_NTOPENPROCESS );
+}
+	else
+		DBGPRINT( "Failed to hook NtOpenProcess!\n" );
+
+	if ( kaspersky::hook_ssdt_routine( SYSCALL_NTDEVICEIOCTRLFILE, hkNtDeviceIoControlFile, reinterpret_cast< PVOID* >( &oNtDeviceIoControlFile ) ) )
+	{
+		DBGPRINT( "NtDeviceIoControlFile ( 0x%X ) hooked successfully!\n", SYSCALL_NTDEVICEIOCTRLFILE );
+	}
+	else
+		DBGPRINT( "Failed to hook NtDeviceIoControlFile!\n" );
+
+	if ( kaspersky::hook_ssdt_routine( SYSCALL_NTQUERYSYSINFO, hkNtQuerySystemInformation, reinterpret_cast< PVOID* >( &oNtQuerySystemInformation ) ) )
+	{
+		DBGPRINT( "NtQuerySystemInformation ( 0x%X ) hooked successfully!\n", SYSCALL_NTQUERYSYSINFO );
+	}
+	else
+		DBGPRINT( "Failed to hook NtQuerySystemInformation!\n" );
+
+	if ( kaspersky::hook_ssdt_routine( SYSCALL_NTALLOCVIRTUALMEM, hkNtAllocateVirtualMemory, reinterpret_cast< PVOID* >( &oNtAllocateVirtualMemory ) ) )
+	{
+		DBGPRINT( "NtAllocateVirtualMemory ( 0x%X ) hooked successfully!\n", SYSCALL_NTALLOCVIRTUALMEM );
+	}
+	else
+		DBGPRINT( "Failed to hook NtAllocateVirtualMemory!\n" );
+
+	if ( kaspersky::hook_ssdt_routine( SYSCALL_NTFREEVIRTUALMEM, hkNtFreeVirtualMemory, reinterpret_cast< PVOID* >( &oNtFreeVirtualMemory ) ) )
+	{
+		DBGPRINT( "NtFreeVirtualMemory ( 0x%X ) hooked successfully!\n", SYSCALL_NTFREEVIRTUALMEM );
+	}
+	else
+		DBGPRINT( "Failed to hook NtFreeVirtualMemory!\n" );
+
+	if ( kaspersky::hook_ssdt_routine( SYSCALL_NTWRITEVIRTUALMEM, hkNtWriteVirtualMemory, reinterpret_cast< PVOID* >( &oNtWriteVirtualMemory ) ) )
+	{
+		DBGPRINT( "NtWriteVirtualMemory ( 0x%X ) hooked successfully!\n", SYSCALL_NTWRITEVIRTUALMEM );
+	}
+	else
+		DBGPRINT( "Failed to hook NtWriteVirtualMemory!\n" );
+
+	if ( kaspersky::hook_ssdt_routine( SYSCALL_NTLOADDRIVER, hkNtLoadDriver, reinterpret_cast< PVOID* >( &oNtLoadDriver ) ) )
+	{
+		DBGPRINT( "NtLoadDriver ( 0x%X ) hooked successfully!\n", SYSCALL_NTLOADDRIVER );
+	}
+	else
+		DBGPRINT( "Failed to hook NtLoadDriver!\n" );
+#endif
 }
 
-void DestroySSDT()
+void ssdt::Destroy()
 {
+#ifndef USE_KASPERSKY
 	if ( !g_KeServiceDescriptorTable )
 		return;
 
@@ -227,4 +278,29 @@ void DestroySSDT()
 
 	if ( !UnhookSSDT( oNtDeviceIoControlFile, SYSCALL_NTDEVICEIOCTRLFILE ) )
 		DBGPRINT( "Failed to unhook NtDeviceIoControlFile!\n" );
+#else
+	if ( !kaspersky::is_klhk_loaded() )
+		return;
+
+	if ( !kaspersky::unhook_ssdt_routine( SYSCALL_NTQUERYSYSINFO, oNtQuerySystemInformation ) )
+		DBGPRINT( "Failed to unhook NtQuerySystemInformation" );
+
+	if ( !kaspersky::unhook_ssdt_routine( SYSCALL_NTOPENPROCESS, oNtOpenProcess ) )
+		DBGPRINT( "Failed to unhook NtOpenProcess" );
+
+	if ( !kaspersky::unhook_ssdt_routine( SYSCALL_NTALLOCVIRTUALMEM, oNtAllocateVirtualMemory ) )
+		DBGPRINT( "Failed to unhook NtAllocateVirtualMemory" );
+
+	if ( !kaspersky::unhook_ssdt_routine( SYSCALL_NTFREEVIRTUALMEM, oNtFreeVirtualMemory ) )
+		DBGPRINT( "Failed to unhook NtFreeVirtualMemory" );
+
+	if ( !kaspersky::unhook_ssdt_routine( SYSCALL_NTWRITEVIRTUALMEM, oNtWriteVirtualMemory ) )
+		DBGPRINT( "Failed to unhook NtWriteVirtualMemory" );
+
+	if ( !kaspersky::unhook_ssdt_routine( SYSCALL_NTDEVICEIOCTRLFILE, oNtDeviceIoControlFile ) )
+		DBGPRINT( "Failed to unhook NtDeviceIoControlFile" );
+
+	if ( !kaspersky::unhook_ssdt_routine( SYSCALL_NTLOADDRIVER, oNtLoadDriver ) )
+		DBGPRINT( "Failed to unhook NtLoadDriver" );
+#endif
 }

@@ -1,17 +1,170 @@
 #include "stdafx.h"
 
+namespace masterhide
+{
+	namespace tools
+	{
+		bool IsProtectedProcess( HANDLE PID )
+		{
+			UNICODE_STRING wsProcName{ };
+			if ( !GetProcessName( PID, &wsProcName ) )
+				return false;
+
+			bool bResult = false;
+			if ( wsProcName.Buffer )
+			{
+				for ( int i = 0; i < ARRAYSIZE( globals::wsProtectedProcesses ); ++i )
+				{
+					if ( wcsstr( wsProcName.Buffer, globals::wsProtectedProcesses[ i ] ) )
+					{
+						bResult = true;
+						break;
+					}
+				}
+				FreeUnicodeString( &wsProcName );
+			}
+			return bResult;
+		}
+
+		bool IsProtectedProcess( PWCH Buffer )
+		{
+			if ( !Buffer )
+				return false;
+
+			for ( int i = 0; i < ARRAYSIZE( globals::wsProtectedProcesses ); ++i )
+			{
+				if ( wcsstr( Buffer, globals::wsProtectedProcesses[ i ] ) )
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+
+		bool IsProtectedProcessEx( PEPROCESS Process )
+		{
+			UNICODE_STRING wsProcName{ };
+			if ( !GetProcessNameByPEPROCESS( Process, &wsProcName ) )
+				return false;
+
+			bool bResult = false;
+			if ( wsProcName.Buffer )
+			{
+				for ( int i = 0; i < ARRAYSIZE( globals::wsProtectedProcesses ); ++i )
+				{
+					if ( wcsstr( wsProcName.Buffer, globals::wsProtectedProcesses[ i ] ) )
+					{
+						bResult = true;
+						break;
+					}
+				}
+				FreeUnicodeString( &wsProcName );
+			}
+			return bResult;
+		}
+
+		bool IsMonitoredProcess( HANDLE PID )
+		{
+			UNICODE_STRING wsProcName{ };
+			if ( !GetProcessName( PID, &wsProcName ) )
+				return false;
+
+			bool bResult = false;
+			if ( wsProcName.Buffer )
+			{
+				for ( int i = 0; i < ARRAYSIZE( globals::wsMonitoredProcesses ); ++i )
+				{
+					if ( wcsstr( wsProcName.Buffer, globals::wsMonitoredProcesses[ i ] ) )
+					{
+						bResult = true;
+						break;
+					}
+				}
+				FreeUnicodeString( &wsProcName );
+			}
+			return bResult;
+		}
+
+		bool IsMonitoredProcessEx( PEPROCESS Process )
+		{
+			UNICODE_STRING wsProcName{ };
+			if ( !GetProcessNameByPEPROCESS( Process, &wsProcName ) )
+				return false;
+
+			bool bResult = false;
+			if ( wsProcName.Buffer )
+			{
+				for ( int i = 0; i < ARRAYSIZE( globals::wsMonitoredProcesses ); ++i )
+				{
+					if ( wcsstr( wsProcName.Buffer, globals::wsMonitoredProcesses[ i ] ) )
+					{
+						bResult = true;
+						break;
+					}
+				}
+				FreeUnicodeString( &wsProcName );
+			}
+			return bResult;
+		}
+
+		bool IsBlacklistedProcess( HANDLE PID )
+		{
+			UNICODE_STRING wsProcName{ };
+			if ( !GetProcessName( PID, &wsProcName ) )
+				return false;
+
+			bool bResult = false;
+			if ( wsProcName.Buffer )
+			{
+				for ( int i = 0; i < ARRAYSIZE( globals::wsBlacklistedProcessess ); ++i )
+				{
+					if ( wcsstr( wsProcName.Buffer, globals::wsBlacklistedProcessess[ i ] ) )
+					{
+						bResult = true;
+						break;
+					}
+				}
+				FreeUnicodeString( &wsProcName );
+			}
+			return bResult;
+		}
+
+		bool IsBlacklistedProcessEx( PEPROCESS Process )
+		{
+			UNICODE_STRING wsProcName{ };
+			if ( !GetProcessNameByPEPROCESS( Process, &wsProcName ) )
+				return false;
+
+			bool bResult = false;
+			if ( wsProcName.Buffer )
+			{
+				for ( int i = 0; i < ARRAYSIZE( globals::wsBlacklistedProcessess ); ++i )
+				{
+					if ( wcsstr( wsProcName.Buffer, globals::wsBlacklistedProcessess[ i ] ) )
+					{
+						bResult = true;
+						break;
+					}
+				}
+				FreeUnicodeString( &wsProcName );
+			}
+			return bResult;
+		}
+	}
+};
+
 NtOpenProcess_ oNtOpenProcess = NULL;
 NTSTATUS NTAPI hkNtOpenProcess( PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes, PCLIENT_ID ClientId )
 {
 	const auto ret = oNtOpenProcess( ProcessHandle, DesiredAccess, ObjectAttributes, ClientId );
-	if ( PsIsProtectedProcess( PsGetCurrentProcess() ) || PsIsSystemProcess( PsGetCurrentProcess() ) || IsProtectedProcess( PsGetCurrentProcessId() ) )
+	if ( PsIsProtectedProcess( PsGetCurrentProcess() ) || PsIsSystemProcess( PsGetCurrentProcess() ) || tools::IsProtectedProcess( PsGetCurrentProcessId() ) )
 		return ret;
 
 	if ( NT_SUCCESS( ret ) )
 	{
-		if ( IsBlacklistedProcess( PsGetCurrentProcessId() ) )
+		if ( tools::IsBlacklistedProcess( PsGetCurrentProcessId() ) )
 		{
-			if ( IsProtectedProcess( ClientId->UniqueProcess ) )
+			if ( tools::IsProtectedProcess( ClientId->UniqueProcess ) )
 			{
 				DBGPRINT( "Denying access from PID %p to PID %p\n", PsGetCurrentProcessId(), ClientId->UniqueProcess );
 				ZwClose( *ProcessHandle );
@@ -20,10 +173,10 @@ NTSTATUS NTAPI hkNtOpenProcess( PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess
 			}
 		}
 
-		if ( IsMonitoredProcess( ClientId->UniqueProcess ) )
+		if ( tools::IsMonitoredProcess( ClientId->UniqueProcess ) )
 		{
 			UNICODE_STRING wsProcName{ };
-			if ( Tools::GetProcessName( ClientId->UniqueProcess, &wsProcName ) )
+			if ( tools::GetProcessName( ClientId->UniqueProcess, &wsProcName ) )
 			{
 				if ( wsProcName.Buffer )
 				{
@@ -41,7 +194,7 @@ NtWriteVirtualMemory_ oNtWriteVirtualMemory = NULL;
 NTSTATUS NTAPI hkNtWriteVirtualMemory( HANDLE ProcessHandle, PVOID BaseAddress, PVOID Buffer, ULONG NumberOfBytesToWrite, PULONG NumberOfBytesWritten )
 {
 	const auto res = oNtWriteVirtualMemory( ProcessHandle, BaseAddress, Buffer, NumberOfBytesToWrite, NumberOfBytesWritten );
-	if ( PsIsProtectedProcess( PsGetCurrentProcess() ) || PsIsSystemProcess( PsGetCurrentProcess() ) || IsProtectedProcess( PsGetCurrentProcessId() ) )
+	if ( PsIsProtectedProcess( PsGetCurrentProcess() ) || PsIsSystemProcess( PsGetCurrentProcess() ) || tools::IsProtectedProcess( PsGetCurrentProcessId() ) )
 		return res;
 
 	if ( NT_SUCCESS( res ) )
@@ -54,10 +207,10 @@ NTSTATUS NTAPI hkNtWriteVirtualMemory( HANDLE ProcessHandle, PVOID BaseAddress, 
 		if ( !NT_SUCCESS( ret ) )
 			return res;
 
-		if ( IsMonitoredProcessEx( Process ) )
+		if ( tools::IsMonitoredProcessEx( Process ) )
 		{
 			UNICODE_STRING wsProcName{ };
-			if ( Tools::GetProcessName( PsGetCurrentProcessId(), &wsProcName ) )
+			if ( tools::GetProcessName( PsGetCurrentProcessId(), &wsProcName ) )
 			{
 				if ( wsProcName.Buffer )
 				{
@@ -77,7 +230,7 @@ NtAllocateVirtualMemory_ oNtAllocateVirtualMemory = NULL;
 NTSTATUS NTAPI hkNtAllocateVirtualMemory( HANDLE ProcessHandle, PVOID* BaseAddress, ULONG_PTR ZeroBits, PSIZE_T RegionSize, ULONG AllocationType, ULONG Protect )
 {
 	const auto res = oNtAllocateVirtualMemory( ProcessHandle, BaseAddress, ZeroBits, RegionSize, AllocationType, Protect );
-	if ( PsIsProtectedProcess( PsGetCurrentProcess() ) || PsIsSystemProcess( PsGetCurrentProcess() ) || IsProtectedProcess( PsGetCurrentProcessId() ) )
+	if ( PsIsProtectedProcess( PsGetCurrentProcess() ) || PsIsSystemProcess( PsGetCurrentProcess() ) || tools::IsProtectedProcess( PsGetCurrentProcessId() ) )
 		return res;
 
 	if ( NT_SUCCESS( res ) && BaseAddress && RegionSize && *RegionSize >= 0x1000 )
@@ -90,10 +243,10 @@ NTSTATUS NTAPI hkNtAllocateVirtualMemory( HANDLE ProcessHandle, PVOID* BaseAddre
 		if ( !NT_SUCCESS( ret ) )
 			return res;
 
-		if ( IsMonitoredProcessEx( Process ) )
+		if ( tools::IsMonitoredProcessEx( Process ) )
 		{
 			UNICODE_STRING wsProcName{ };
-			if ( Tools::GetProcessName( PsGetCurrentProcessId(), &wsProcName ) )
+			if ( tools::GetProcessName( PsGetCurrentProcessId(), &wsProcName ) )
 			{
 				if ( wsProcName.Buffer )
 				{
@@ -113,7 +266,7 @@ NtFreeVirtualMemory_ oNtFreeVirtualMemory = NULL;
 NTSTATUS NTAPI hkNtFreeVirtualMemory( HANDLE ProcessHandle, PVOID* BaseAddress, PSIZE_T RegionSize, ULONG FreeType )
 {
 	const auto res = oNtFreeVirtualMemory( ProcessHandle, BaseAddress, RegionSize, FreeType );
-	if ( PsIsProtectedProcess( PsGetCurrentProcess() ) || PsIsSystemProcess( PsGetCurrentProcess() ) || IsProtectedProcess( PsGetCurrentProcessId() ) )
+	if ( PsIsProtectedProcess( PsGetCurrentProcess() ) || PsIsSystemProcess( PsGetCurrentProcess() ) || tools::IsProtectedProcess( PsGetCurrentProcessId() ) )
 		return res;
 
 	if ( NT_SUCCESS( res ) && BaseAddress && RegionSize && *RegionSize >= 0x1000 )
@@ -126,16 +279,16 @@ NTSTATUS NTAPI hkNtFreeVirtualMemory( HANDLE ProcessHandle, PVOID* BaseAddress, 
 		if ( !NT_SUCCESS( ret ) )
 			return res;
 
-		if ( IsMonitoredProcessEx( Process ) )
+		if ( tools::IsMonitoredProcessEx( Process ) )
 		{
 			UNICODE_STRING wsProcName{ };
-			if ( Tools::GetProcessName( PsGetCurrentProcessId(), &wsProcName ) )
+			if ( tools::GetProcessName( PsGetCurrentProcessId(), &wsProcName ) )
 			{
 				if ( wsProcName.Buffer )
 				{
 					auto ShortName = wcsrchr( wsProcName.Buffer, '\\' );
 					DBGPRINT( "[ FVM ] From: %p to %ws with BaseAddress 0x%p Length 0x%llx FreeType 0x%X\n", PsGetCurrentProcessId(), ShortName, *BaseAddress, *RegionSize, FreeType );
-					Tools::DumpMZ( PUCHAR( *BaseAddress ) );
+					tools::DumpMZ( PUCHAR( *BaseAddress ) );
 					FreeUnicodeString( &wsProcName );
 				}
 			}
@@ -154,16 +307,16 @@ NTSTATUS NTAPI hkNtDeviceIoControlFile( HANDLE FileHandle, HANDLE Event, PIO_APC
 	//
 	// If the callee process is a protected process we ignore it
 	//
-	if ( !IsBlacklistedProcess( PsGetCurrentProcessId() ) )
+	if ( !tools::IsBlacklistedProcess( PsGetCurrentProcessId() ) )
 		return ret;
 
 	if ( NT_SUCCESS( ret ) )
 	{
-		const auto szNewModel = szFakeModels[ 4 ];
+		const auto szNewModel = globals::szFakeModels[ 0 ];
 		wchar_t wsProcess[ MAX_PATH ] = L"\\Unknown";
 
 		UNICODE_STRING wsProcName{ };
-		if ( Tools::GetProcessName( PsGetCurrentProcessId(), &wsProcName ) )
+		if ( tools::GetProcessName( PsGetCurrentProcessId(), &wsProcName ) )
 		{
 			if ( wsProcName.Buffer )
 			{
@@ -195,9 +348,9 @@ NTSTATUS NTAPI hkNtDeviceIoControlFile( HANDLE FileHandle, HANDLE Event, PIO_APC
 							if ( Desc->SerialNumberOffset )
 							{
 								auto Serial = PCHAR( Desc ) + Desc->SerialNumberOffset;
-								DBGPRINT( "%ws Spoofing Serial ( 0x%X ) Old: %s New: %s\n", ShortName, IoControlCode, Serial, szFakeSerial );
+								DBGPRINT( "%ws Spoofing Serial ( 0x%X ) Old: %s New: %s\n", ShortName, IoControlCode, Serial, globals::szFakeSerial );
 								memset( Serial, 0, strlen( Serial ) );
-								strcpy( Serial, szFakeSerial );
+								strcpy( Serial, globals::szFakeSerial );
 							}
 
 							if ( Desc->ProductIdOffset )
@@ -226,13 +379,13 @@ NTSTATUS NTAPI hkNtDeviceIoControlFile( HANDLE FileHandle, HANDLE Event, PIO_APC
 							auto Serial = PCHAR( Identify->SerialNumber );
 							if ( strlen( Serial ) > 0 )
 							{
-								Tools::SwapEndianness( Serial, sizeof( Identify->SerialNumber ) );
+								tools::SwapEndianness( Serial, sizeof( Identify->SerialNumber ) );
 
-								DBGPRINT( "%ws Spoofing Serial ( 0x%X ) Old: %s New: %s\n", ShortName, IoControlCode, Serial, szFakeSerial );
+								DBGPRINT( "%ws Spoofing Serial ( 0x%X ) Old: %s New: %s\n", ShortName, IoControlCode, Serial, globals::szFakeSerial );
 								memset( Serial, 0, strlen( Serial ) );
-								strcpy( Serial, szFakeSerial );
+								strcpy( Serial, globals::szFakeSerial );
 
-								Tools::SwapEndianness( Serial, sizeof( Identify->SerialNumber ) );
+								tools::SwapEndianness( Serial, sizeof( Identify->SerialNumber ) );
 							}
 
 							auto Model = PCHAR( Identify->ModelNumber );
@@ -242,13 +395,13 @@ NTSTATUS NTAPI hkNtDeviceIoControlFile( HANDLE FileHandle, HANDLE Event, PIO_APC
 								Model[ sizeof( Identify->ModelNumber ) - 1 ] = 0;
 								Model[ sizeof( Identify->ModelNumber ) - 2 ] = 0;
 
-								Tools::SwapEndianness( Model, sizeof( Identify->ModelNumber ) - 2 );
+								tools::SwapEndianness( Model, sizeof( Identify->ModelNumber ) - 2 );
 
 								DBGPRINT( "%ws Spoofing Model ( 0x%X ) Old: %s New: %s\n", ShortName, IoControlCode, Model, szNewModel );
 								memset( Model, 0, strlen( Model ) );
 								strcpy( Model, szNewModel );
 
-								Tools::SwapEndianness( Model, sizeof( Identify->ModelNumber ) - 2 );
+								tools::SwapEndianness( Model, sizeof( Identify->ModelNumber ) - 2 );
 							}
 						}
 					}
@@ -269,13 +422,13 @@ NTSTATUS NTAPI hkNtDeviceIoControlFile( HANDLE FileHandle, HANDLE Event, PIO_APC
 							auto Serial = PCHAR( Sector->sSerialNumber );
 							if ( strlen( Serial ) > 0 )
 							{
-								Tools::SwapEndianness( Serial, sizeof( Sector->sSerialNumber ) );
+								tools::SwapEndianness( Serial, sizeof( Sector->sSerialNumber ) );
 
-								DBGPRINT( "%ws Spoofing Serial ( 0x%X ) Old: %s New: %s\n", ShortName, IoControlCode, Serial, szFakeSerial );
+								DBGPRINT( "%ws Spoofing Serial ( 0x%X ) Old: %s New: %s\n", ShortName, IoControlCode, Serial, globals::szFakeSerial );
 								memset( Serial, 0, strlen( Serial ) );
-								strcpy( Serial, szFakeSerial );
+								strcpy( Serial, globals::szFakeSerial );
 
-								Tools::SwapEndianness( Serial, sizeof( Sector->sSerialNumber ) );
+								tools::SwapEndianness( Serial, sizeof( Sector->sSerialNumber ) );
 							}
 
 							auto Model = PCHAR( Sector->sModelNumber );
@@ -285,13 +438,13 @@ NTSTATUS NTAPI hkNtDeviceIoControlFile( HANDLE FileHandle, HANDLE Event, PIO_APC
 								Model[ sizeof( Sector->sModelNumber ) - 1 ] = 0;
 								Model[ sizeof( Sector->sModelNumber ) - 2 ] = 0;
 
-								Tools::SwapEndianness( Model, sizeof( Sector->sModelNumber ) - 2 );
+								tools::SwapEndianness( Model, sizeof( Sector->sModelNumber ) - 2 );
 
 								DBGPRINT( "%ws Spoofing Model ( 0x%X ) Old: %s New: %s\n", ShortName, IoControlCode, Model, szNewModel );
 								memset( Model, 0, strlen( Model ) );
 								strcpy( Model, szNewModel );
 
-								Tools::SwapEndianness( Model, sizeof( Sector->sModelNumber ) - 2 );
+								tools::SwapEndianness( Model, sizeof( Sector->sModelNumber ) - 2 );
 							}
 						}
 					}
@@ -373,7 +526,7 @@ NTSTATUS NTAPI hkNtDeviceIoControlFile( HANDLE FileHandle, HANDLE Event, PIO_APC
 				case OID_802_5_PERMANENT_ADDRESS:
 				case OID_802_5_CURRENT_ADDRESS:
 					DBGPRINT( "%ws Spoofing permanent MAC\n", ShortName );
-					memcpy( OutputBuffer, szFakeMAC, sizeof( szFakeMAC ) );
+					memcpy( OutputBuffer, globals::szFakeMAC, sizeof( globals::szFakeMAC ) );
 					break;
 				}
 			}
@@ -396,7 +549,7 @@ NTSTATUS NTAPI hkNtQuerySystemInformation( SYSTEM_INFORMATION_CLASS SystemInform
 	//
 	// If the callee process is a protected process we ignore it
 	//
-	if ( IsProtectedProcess( PsGetCurrentProcessId() ) )
+	if ( tools::IsProtectedProcess( PsGetCurrentProcessId() ) )
 		return ret;
 
 	if ( NT_SUCCESS( ret ) )
@@ -413,9 +566,9 @@ NTSTATUS NTAPI hkNtQuerySystemInformation( SYSTEM_INFORMATION_CLASS SystemInform
 			{
 				if ( pEntry[ i ].ImageBase && pEntry[ i ].ImageSize && strlen( ( char* )pEntry[ i ].FullPathName ) > 2 )
 				{
-					for ( int x = 0; x < ARRAYSIZE( szProtectedDrivers ); ++x )
+					for ( int x = 0; x < ARRAYSIZE( globals::szProtectedDrivers ); ++x )
 					{
-						if ( strstr( ( char* )pEntry[ i ].FullPathName, szProtectedDrivers[ x ] ) )
+						if ( strstr( ( char* )pEntry[ i ].FullPathName, globals::szProtectedDrivers[ x ] ) )
 						{
 							const auto next_entry = i + 1;
 
@@ -450,7 +603,7 @@ NTSTATUS NTAPI hkNtQuerySystemInformation( SYSTEM_INFORMATION_CLASS SystemInform
 				//
 				// Erase our protected processes from the list
 				//
-				if ( pNext->ImageName.Buffer && IsProtectedProcess( pNext->ImageName.Buffer ) )
+				if ( pNext->ImageName.Buffer && tools::IsProtectedProcess( pNext->ImageName.Buffer ) )
 				{
 					if ( pNext->NextEntryOffset == 0 )
 					{
@@ -470,14 +623,14 @@ NTSTATUS NTAPI hkNtQuerySystemInformation( SYSTEM_INFORMATION_CLASS SystemInform
 		//
 		else if ( SystemInformationClass == SystemHandleInformation )
 		{
-			if ( IsBlacklistedProcess( PsGetCurrentProcessId() ) )
+			if ( tools::IsBlacklistedProcess( PsGetCurrentProcessId() ) )
 			{
 				const auto pHandle = PSYSTEM_HANDLE_INFORMATION( Buffer );
 				const auto pEntry = &pHandle->Information[ 0 ];
 
 				for ( unsigned i = 0; i < pHandle->NumberOfHandles; ++i )
 				{
-					if ( IsProtectedProcess( ULongToHandle( pEntry[ i ].ProcessId ) ) )
+					if ( tools::IsProtectedProcess( ULongToHandle( pEntry[ i ].ProcessId ) ) )
 					{
 						const auto next_entry = i + 1;
 
@@ -494,14 +647,14 @@ NTSTATUS NTAPI hkNtQuerySystemInformation( SYSTEM_INFORMATION_CLASS SystemInform
 		}
 		else if ( SystemInformationClass == SystemExtendedHandleInformation )
 		{
-			if ( IsBlacklistedProcess( PsGetCurrentProcessId() ) )
+			if ( tools::IsBlacklistedProcess( PsGetCurrentProcessId() ) )
 			{
 				const auto pHandle = PSYSTEM_HANDLE_INFORMATION_EX( Buffer );
 				const auto pEntry = &pHandle->Information[ 0 ];
 
 				for ( unsigned i = 0; i < pHandle->NumberOfHandles; ++i )
 				{
-					if ( IsProtectedProcess( ULongToHandle( pEntry[ i ].ProcessId ) ) )
+					if ( tools::IsProtectedProcess( ULongToHandle( pEntry[ i ].ProcessId ) ) )
 					{
 						const auto next_entry = i + 1;
 
@@ -570,7 +723,7 @@ HWND NTAPI hkNtUserWindowFromPoint( LONG x, LONG y )
 	if ( PsIsProtectedProcess( PsGetCurrentProcess() ) || PsIsSystemProcess( PsGetCurrentProcess() ) )
 		return res;
 
-	if ( !IsBlacklistedProcessEx( PsGetCurrentProcess() ) )
+	if ( !tools::IsBlacklistedProcessEx( PsGetCurrentProcess() ) )
 		return res;
 
 	return 0;
@@ -584,11 +737,11 @@ HANDLE NTAPI hkNtUserQueryWindow( HWND WindowHandle, HANDLE TypeInformation )
 	if ( PsIsProtectedProcess( PsGetCurrentProcess() ) || PsIsSystemProcess( PsGetCurrentProcess() ) )
 		return res;
 
-	if ( !IsBlacklistedProcessEx( PsGetCurrentProcess() ) )
+	if ( !tools::IsBlacklistedProcessEx( PsGetCurrentProcess() ) )
 		return res;
 
 	auto PID = oNtUserQueryWindow( WindowHandle, 0 );
-	if ( IsProtectedProcess( PID ) )
+	if ( tools::IsProtectedProcess( PID ) )
 		return 0;
 
 	return res;
@@ -602,13 +755,13 @@ HWND NTAPI hkNtUserFindWindowEx( HWND hWndParent, HWND hWndChildAfter, PUNICODE_
 	if ( PsIsProtectedProcess( PsGetCurrentProcess() ) || PsIsSystemProcess( PsGetCurrentProcess() ) )
 		return res;
 
-	if ( !IsBlacklistedProcessEx( PsGetCurrentProcess() ) )
+	if ( !tools::IsBlacklistedProcessEx( PsGetCurrentProcess() ) )
 		return res;
 
 	if ( res )
 	{
 		auto PID = oNtUserQueryWindow( res, 0 );
-		if ( IsProtectedProcess( PID ) )
+		if ( tools::IsProtectedProcess( PID ) )
 		{
 			return NULL;
 		}
@@ -624,13 +777,13 @@ NTSTATUS NTAPI hkNtUserBuildHwndList( HDESK hdesk, HWND hwndNext, ULONG fEnumChi
 	if ( PsIsProtectedProcess( PsGetCurrentProcess() ) || PsIsSystemProcess( PsGetCurrentProcess() ) )
 		return res;
 
-	if ( !IsBlacklistedProcessEx( PsGetCurrentProcess() ) )
+	if ( !tools::IsBlacklistedProcessEx( PsGetCurrentProcess() ) )
 		return res;
 
 	if ( fEnumChildren == 1 )
 	{
 		auto PID = oNtUserQueryWindow( hwndNext, 0 );
-		if ( IsProtectedProcess( PID ) )
+		if ( tools::IsProtectedProcess( PID ) )
 			return STATUS_UNSUCCESSFUL;
 	}
 
@@ -642,7 +795,7 @@ NTSTATUS NTAPI hkNtUserBuildHwndList( HDESK hdesk, HWND hwndNext, ULONG fEnumChi
 		while ( i < *pcHwndNeeded )
 		{
 			auto PID = oNtUserQueryWindow( phwndFirst[ i ], 0 );
-			if ( IsProtectedProcess( PID ) )
+			if ( tools::IsProtectedProcess( PID ) )
 			{
 				for ( j = i; j < ( *pcHwndNeeded ) - 1; j++ )
 					phwndFirst[ j ] = phwndFirst[ j + 1 ];
@@ -666,11 +819,11 @@ HWND NTAPI hkNtUserGetForegroundWindow( VOID )
 	if ( PsIsProtectedProcess( PsGetCurrentProcess() ) || PsIsSystemProcess( PsGetCurrentProcess() ) )
 		return res;
 
-	if ( !IsBlacklistedProcessEx( PsGetCurrentProcess() ) )
+	if ( !tools::IsBlacklistedProcessEx( PsGetCurrentProcess() ) )
 		return res;
 
 	auto PID = oNtUserQueryWindow( res, 0 );
-	if ( IsProtectedProcess( PID ) )
+	if ( tools::IsProtectedProcess( PID ) )
 		return LastForeWnd;
 	else
 		LastForeWnd = res;

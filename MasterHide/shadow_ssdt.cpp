@@ -18,7 +18,7 @@ ULONGLONG GetKeServiceDescriptorTableShadow64()
 			b1 = *i;
 			b2 = *( i + 1 );
 			b3 = *( i + 2 );
-			if ( b1 == 0x4c && b2 == 0x8d && b3 == 0x1d ) //4c8d1d
+			if ( b1 == 0x4c && b2 == 0x8d && b3 == 0x1d )
 			{
 				memcpy( &templong, i + 3, 4 );
 				addr = ( ULONGLONG )templong + ( ULONGLONG )i + 7;
@@ -66,7 +66,7 @@ bool HookSSSDT( PUCHAR pCode, ULONG ulCodeSize, PVOID pNewFunction, PVOID* pOldF
 	//
 	// Find a suitable code cave inside the module .text section that we can use to trampoline to our hook
 	//
-	auto pCodeCave = FindSuitableCave( pCode, ulCodeSize, sizeof( jmp_trampoline ) );
+	auto pCodeCave = utils::FindCodeCave( pCode, ulCodeSize, sizeof( jmp_trampoline ) );
 	if ( !pCodeCave )
 	{
 		DBGPRINT( "[ HookSSSDT ] Failed to find a suitable code cave.\n" );
@@ -99,7 +99,7 @@ bool HookSSSDT( PUCHAR pCode, ULONG ulCodeSize, PVOID pNewFunction, PVOID* pOldF
 	//
 	// Modify SSSDT table
 	//
-	irql = WPOFF();
+	irql = utils::WPOFF();
 
 	RtlCopyMemory( Mapping, jmp_trampoline, sizeof( jmp_trampoline ) );
 
@@ -110,7 +110,7 @@ bool HookSSSDT( PUCHAR pCode, ULONG ulCodeSize, PVOID pNewFunction, PVOID* pOldF
 
 	*( PLONG )qwTemp = dwTemp;
 
-	WPON( irql );
+	utils::WPON( irql );
 
 	//
 	// Restore protection
@@ -131,7 +131,7 @@ bool UnhookSSSDT( PVOID pFunction, ULONG SyscallNum )
 	LONG 					dwTemp = 0;
 	KIRQL					irql;
 
-	irql = WPOFF();
+	irql = utils::WPOFF();
 
 	W32pServiceTable = ( ULONGLONG )( g_KeServiceDescriptorTableShadow->ServiceTableBase );
 	qwTemp = W32pServiceTable + 4 * ( SyscallNum - 0x1000 );
@@ -140,7 +140,7 @@ bool UnhookSSSDT( PVOID pFunction, ULONG SyscallNum )
 
 	*( PLONG )qwTemp = dwTemp;
 
-	WPON( irql );
+	utils::WPON( irql );
 
 	return true;
 }
@@ -223,8 +223,9 @@ HANDLE GetCsrssPid()
 	return CsrId;
 }
 
-void InitializeShadowSSDT()
+void sssdt::Init()
 {
+#ifndef USE_KASPERSKY
 	g_KeServiceDescriptorTableShadow = PSYSTEM_SERVICE_TABLE( GetKeServiceDescriptorTableShadow64() + sizeof( SYSTEM_SERVICE_TABLE ) );
 	DBGPRINT( "KeServiceDescriptorTableShadow: 0x%p\n", g_KeServiceDescriptorTableShadow );
 
@@ -257,13 +258,13 @@ void InitializeShadowSSDT()
 	KAPC_STATE apc{ };
 	KeStackAttachProcess( Process, &apc );
 
-	auto win32k = ULONG64( Tools::GetModuleBase( "\\SystemRoot\\System32\\win32k.sys" ) );
+	auto win32k = ULONG64( tools::GetModuleBase( "\\SystemRoot\\System32\\win32k.sys" ) );
 	DBGPRINT( "win32k: 0x%llx\n", win32k );
 	if ( !win32k )
 		return;
 
 	ULONG ulCodeSize = 0;
-	auto pCode = PUCHAR( Tools::GetImageTextSection( win32k, &ulCodeSize ) );
+	auto pCode = PUCHAR( tools::GetImageTextSection( win32k, &ulCodeSize ) );
 	if ( pCode )
 	{
 		DBGPRINT( "win32k.sys .text section 0x%p\n", pCode );
@@ -306,10 +307,48 @@ void InitializeShadowSSDT()
 
 	KeUnstackDetachProcess( &apc );
 	ObDereferenceObject( Process );
+#else
+
+	if ( kaspersky::hook_shadow_ssdt_routine( SYSCALL_NTUSERQUERYWND, hkNtUserQueryWindow, reinterpret_cast< PVOID* >( &oNtUserQueryWindow ) ) )
+	{
+		DBGPRINT( "NtUserQueryWindow ( 0x%X ) hooked successfully!\n", SYSCALL_NTUSERQUERYWND );
+	}
+	else
+		DBGPRINT( "Failed to hook NtUserQueryWindow!\n" );
+
+	if ( kaspersky::hook_shadow_ssdt_routine( SYSCALL_NTUSERFINDWNDEX, hkNtUserFindWindowEx, reinterpret_cast< PVOID* >( &oNtUserFindWindowEx ) ) )
+	{
+		DBGPRINT( "NtUserFindWindowEx ( 0x%X ) hooked successfully!\n", SYSCALL_NTUSERFINDWNDEX );
+	}
+	else
+		DBGPRINT( "Failed to hook NtUserFindWindowEx!\n" );
+
+	if ( kaspersky::hook_shadow_ssdt_routine( SYSCALL_NTUSERWNDFROMPOINT, hkNtUserWindowFromPoint, reinterpret_cast< PVOID* >( &oNtUserWindowFromPoint ) ) )
+	{
+		DBGPRINT( "NtUserWindowFromPoint ( 0x%X ) hooked successfully!\n", SYSCALL_NTUSERWNDFROMPOINT );
+	}
+	else
+		DBGPRINT( "Failed to hook NtUserWindowFromPoint!\n" );
+
+	if ( kaspersky::hook_shadow_ssdt_routine( SYSCALL_NTUSERBUILDWNDLIST, hkNtUserBuildHwndList, reinterpret_cast< PVOID* >( &oNtUserBuildHwndList ) ) )
+	{
+		DBGPRINT( "NtUserBuildHwndList ( 0x%X ) hooked successfully!\n", SYSCALL_NTUSERBUILDWNDLIST );
+	}
+	else
+		DBGPRINT( "Failed to hook NtUserBuildHwndList!\n" );
+
+	if ( kaspersky::hook_shadow_ssdt_routine( SYSCALL_NTGETFOREGROUNDWND, hkNtUserGetForegroundWindow, reinterpret_cast< PVOID* >( &oNtUserGetForegroundWindow ) ) )
+	{
+		DBGPRINT( "NtUserGetForegroundWindow ( 0x%X ) hooked successfully!\n", SYSCALL_NTGETFOREGROUNDWND );
+	}
+	else
+		DBGPRINT( "Failed to hook NtUserGetForegroundWindow!\n" );
+#endif
 }
 
-void DestroyShadowSSDT()
+void sssdt::Destroy()
 {
+#ifndef USE_KASPERSKY
 	if ( !g_KeServiceDescriptorTableShadow )
 		return;
 
@@ -341,4 +380,23 @@ void DestroyShadowSSDT()
 
 	KeUnstackDetachProcess( &apc );
 	ObDereferenceObject( Process );
+#else
+	if ( !kaspersky::is_klhk_loaded() )
+		return;
+
+	if ( !kaspersky::unhook_shadow_ssdt_routine( SYSCALL_NTUSERBUILDWNDLIST, oNtUserBuildHwndList ) )
+		DBGPRINT( "Failed to unhook NtUserBuildHwndList" );
+
+	if ( !kaspersky::unhook_shadow_ssdt_routine( SYSCALL_NTUSERWNDFROMPOINT, oNtUserWindowFromPoint ) )
+		DBGPRINT( "Failed to unhook NtUserWindowFromPoint" );
+
+	if ( !kaspersky::unhook_shadow_ssdt_routine( SYSCALL_NTUSERFINDWNDEX, oNtUserFindWindowEx ) )
+		DBGPRINT( "Failed to unhook NtUserFindWindowEx" );
+
+	if ( !kaspersky::unhook_shadow_ssdt_routine( SYSCALL_NTGETFOREGROUNDWND, oNtUserGetForegroundWindow ) )
+		DBGPRINT( "Failed to unhook NtUserGetForegroundWindow" );
+
+	if ( !kaspersky::unhook_shadow_ssdt_routine( SYSCALL_NTUSERQUERYWND, oNtUserQueryWindow ) )
+		DBGPRINT( "Failed to unhook NtUserQueryWindow" );
+#endif
 }

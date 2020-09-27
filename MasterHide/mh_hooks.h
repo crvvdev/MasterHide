@@ -22,152 +22,19 @@ static auto SYSCALL_NTFREEVIRTUALMEM = 0x001b;
 static auto SYSCALL_NTDEVICEIOCTRLFILE = 0x0004;
 static auto SYSCALL_NTLOADDRIVER = 0x0004;
 
-inline bool IsProtectedProcess( HANDLE PID )
+namespace masterhide
 {
-	UNICODE_STRING wsProcName{ };
-	if ( !Tools::GetProcessName( PID, &wsProcName ) )
-		return false;
-
-	bool bResult = false;
-	if ( wsProcName.Buffer )
+	namespace tools
 	{
-		for ( int i = 0; i < ARRAYSIZE( wsProtectedProcesses ); ++i )
-		{
-			if ( wcsstr( wsProcName.Buffer, wsProtectedProcesses[ i ] ) )
-			{
-				bResult = true;
-				break;
-			}
-		}
-		FreeUnicodeString( &wsProcName );
+		extern bool IsProtectedProcess( HANDLE PID );
+		extern bool IsProtectedProcess( PWCH Buffer );
+		extern bool IsProtectedProcessEx( PEPROCESS Process );
+		extern bool IsMonitoredProcess( HANDLE PID );
+		extern bool IsMonitoredProcessEx( PEPROCESS Process );
+		extern bool IsBlacklistedProcess( HANDLE PID );
+		extern bool IsBlacklistedProcessEx( PEPROCESS Process );
 	}
-	return bResult;
-}
-
-inline bool IsProtectedProcess( PWCH Buffer )
-{
-	if ( !Buffer )
-		return false;
-
-	for ( int i = 0; i < ARRAYSIZE( wsProtectedProcesses ); ++i )
-	{
-		if ( wcsstr( Buffer, wsProtectedProcesses[ i ] ) )
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-inline bool IsProtectedProcessEx( PEPROCESS Process )
-{
-	UNICODE_STRING wsProcName{ };
-	if ( !Tools::GetProcessNameByPEPROCESS( Process, &wsProcName ) )
-		return false;
-
-	bool bResult = false;
-	if ( wsProcName.Buffer )
-	{
-		for ( int i = 0; i < ARRAYSIZE( wsProtectedProcesses ); ++i )
-		{
-			if ( wcsstr( wsProcName.Buffer, wsProtectedProcesses[ i ] ) )
-			{
-				bResult = true;
-				break;
-			}
-		}
-		FreeUnicodeString( &wsProcName );
-	}
-	return bResult;
-}
-
-inline bool IsMonitoredProcess( HANDLE PID )
-{
-	UNICODE_STRING wsProcName{ };
-	if ( !Tools::GetProcessName( PID, &wsProcName ) )
-		return false;
-
-	bool bResult = false;
-	if ( wsProcName.Buffer )
-	{
-		for ( int i = 0; i < ARRAYSIZE( wsMonitoredProcesses ); ++i )
-		{
-			if ( wcsstr( wsProcName.Buffer, wsMonitoredProcesses[ i ] ) )
-			{
-				bResult = true;
-				break;
-			}
-		}
-		FreeUnicodeString( &wsProcName );
-	}
-	return bResult;
-}
-
-inline bool IsMonitoredProcessEx( PEPROCESS Process )
-{
-	UNICODE_STRING wsProcName{ };
-	if ( !Tools::GetProcessNameByPEPROCESS( Process, &wsProcName ) )
-		return false;
-
-	bool bResult = false;
-	if ( wsProcName.Buffer )
-	{
-		for ( int i = 0; i < ARRAYSIZE( wsMonitoredProcesses ); ++i )
-		{
-			if ( wcsstr( wsProcName.Buffer, wsMonitoredProcesses[ i ] ) )
-			{
-				bResult = true;
-				break;
-			}
-		}
-		FreeUnicodeString( &wsProcName );
-	}
-	return bResult;
-}
-
-inline bool IsBlacklistedProcess( HANDLE PID )
-{
-	UNICODE_STRING wsProcName{ };
-	if ( !Tools::GetProcessName( PID, &wsProcName ) )
-		return false;
-
-	bool bResult = false;
-	if ( wsProcName.Buffer )
-	{
-		for ( int i = 0; i < ARRAYSIZE( wsBlacklistedProcessess ); ++i )
-		{
-			if ( wcsstr( wsProcName.Buffer, wsBlacklistedProcessess[ i ] ) )
-			{
-				bResult = true;
-				break;
-			}
-		}
-		FreeUnicodeString( &wsProcName );
-	}
-	return bResult;
-}
-
-inline bool IsBlacklistedProcessEx( PEPROCESS Process )
-{
-	UNICODE_STRING wsProcName{ };
-	if ( !Tools::GetProcessNameByPEPROCESS( Process, &wsProcName ) )
-		return false;
-
-	bool bResult = false;
-	if ( wsProcName.Buffer )
-	{
-		for ( int i = 0; i < ARRAYSIZE( wsBlacklistedProcessess ); ++i )
-		{
-			if ( wcsstr( wsProcName.Buffer, wsBlacklistedProcessess[ i ] ) )
-			{
-				bResult = true;
-				break;
-			}
-		}
-		FreeUnicodeString( &wsProcName );
-	}
-	return bResult;
-}
+};
 
 //
 // ntoskrnl.exe hooks
@@ -234,8 +101,3 @@ using NtUserGetForegroundWindow_ = HWND( NTAPI* )( VOID );
 extern NtUserGetForegroundWindow_ oNtUserGetForegroundWindow;
 
 HWND NTAPI hkNtUserGetForegroundWindow( VOID );
-
-using NtGdiBitBlt_ = BOOL( NTAPI* )( HDC hdcDst, INT x, INT y, INT cx, INT cy, HDC hdcSrc, INT xSrc, INT ySrc, DWORD rop4, DWORD crBackColor, FLONG fl );
-extern NtGdiBitBlt_ oNtGdiBitBlt;
-
-BOOL NTAPI hkNtGdiBitBlt( HDC hdcDst, INT x, INT y, INT cx, INT cy, HDC hdcSrc, INT xSrc, INT ySrc, DWORD rop4, DWORD crBackColor, FLONG fl );

@@ -1,4 +1,10 @@
 ﻿#pragma once
 
-extern void InitializeShadowSSDT();
-extern void DestroyShadowSSDT();
+namespace masterhide
+{
+	namespace sssdt
+	{
+		extern void Init();
+		extern void Destroy();
+	}
+};

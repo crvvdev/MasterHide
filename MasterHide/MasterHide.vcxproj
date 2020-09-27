@@ -98,6 +98,7 @@
     <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\kernel_modules.hpp" />
     <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\pe.hpp" />
     <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\utils.hpp" />
+    <ClInclude Include="globals.hpp" />
     <ClInclude Include="mh_hooks.h" />
     <ClInclude Include="shadow_ssdt.h" />
     <ClInclude Include="ssdt.h" />
