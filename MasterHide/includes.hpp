@@ -10,23 +10,29 @@
 #include <ntimage.h>
 #include <scsi.h>
 #include <intrin.h>
-#include <windef.h>
 #include <ntstrsafe.h>
 
-#define TAG					'gtHM'
-#define DBGPRINT( x, ... )	DbgPrintEx( NULL, NULL, "[ MasterHide ] " x, __VA_ARGS__ );
+#define TAG '00hm'
+
+#ifndef DBGPRINT
+#if _DEBUG
+#define DBGPRINT(x, ...) DbgPrintEx(NULL, NULL, "[ MasterHide ] " x "\n", __VA_ARGS__);
+#else
+#define DBGPRINT(...)
+#endif
+#endif
 
 //
 // Uncomment that to use ordinary SSDT/SSSDT hooking
 //
 #define USE_KASPERSKY
 
-#include "winnt.h"
+#include "winnt.hpp"
 #include "globals.hpp"
-#include "tools.h"
+#include "misc.hpp"
 #include "kaspersky.hpp"
-#include "ssdt.h"
-#include "shadow_ssdt.h"
-#include "mh_hooks.h"
+#include "ssdt.hpp"
+#include "shadow_ssdt.hpp"
+#include "hooks.hpp"
 
 using namespace masterhide;

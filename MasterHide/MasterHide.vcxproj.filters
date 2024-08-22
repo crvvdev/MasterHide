@@ -22,10 +22,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
+    <ClCompile Include="drivermain.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="tools.cpp">
+    <ClCompile Include="misc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="shadow_ssdt.cpp">
@@ -49,24 +49,27 @@
     <ClCompile Include="..\KasperskyHook\KasperskyHookDrv\utils.cpp">
       <Filter>Header Files\Kaspersky</Filter>
     </ClCompile>
-    <ClCompile Include="mh_hooks.cpp">
+    <ClCompile Include="hooks.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\KasperskyHook\KasperskyHookDrv\driver.cpp">
+      <Filter>Header Files\Kaspersky</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="winnt.h">
+    <ClInclude Include="winnt.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="stdafx.h">
+    <ClInclude Include="includes.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="tools.h">
+    <ClInclude Include="misc.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="shadow_ssdt.h">
+    <ClInclude Include="shadow_ssdt.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ssdt.h">
+    <ClInclude Include="ssdt.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\kernel_modules.hpp">
@@ -78,11 +81,17 @@
     <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\utils.hpp">
       <Filter>Header Files\Kaspersky</Filter>
     </ClInclude>
-    <ClInclude Include="mh_hooks.h">
+    <ClInclude Include="hooks.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="globals.hpp">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\hooks.hpp">
+      <Filter>Header Files\Kaspersky</Filter>
+    </ClInclude>
+    <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\kaspersky.hpp">
+      <Filter>Header Files\Kaspersky</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
