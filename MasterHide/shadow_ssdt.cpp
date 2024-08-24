@@ -1,7 +1,6 @@
 ﻿#include "includes.hpp"
 
 PSYSTEM_SERVICE_TABLE g_KeServiceDescriptorTableShadow = NULL;
-HANDLE hCsrssPID = HANDLE(-1);
 
 ULONGLONG GetKeServiceDescriptorTableShadow64()
 {
@@ -48,7 +47,6 @@ bool HookSSSDT(PUCHAR pCode, ULONG ulCodeSize, PVOID pNewFunction, PVOID *pOldFu
 
     ULONGLONG W32pServiceTable = 0, qwTemp = 0;
     LONG dwTemp = 0;
-    KIRQL irql;
 
     //
     // Log the Syscall number that we're hooking
@@ -66,7 +64,7 @@ bool HookSSSDT(PUCHAR pCode, ULONG ulCodeSize, PVOID pNewFunction, PVOID *pOldFu
     //
     // Find a suitable code cave inside the module .text section that we can use to trampoline to our hook
     //
-    auto pCodeCave = utils::FindCodeCave(pCode, ulCodeSize, sizeof(jmp_trampoline));
+    auto pCodeCave = tools::FindCodeCave(pCode, ulCodeSize, sizeof(jmp_trampoline));
     if (!pCodeCave)
     {
         DBGPRINT("[ HookSSSDT ] Failed to find a suitable code cave.\n");
@@ -99,7 +97,7 @@ bool HookSSSDT(PUCHAR pCode, ULONG ulCodeSize, PVOID pNewFunction, PVOID *pOldFu
     //
     // Modify SSSDT table
     //
-    irql = utils::WPOFF();
+    // irql = utils::WPOFF();
 
     RtlCopyMemory(Mapping, jmp_trampoline, sizeof(jmp_trampoline));
 
@@ -110,7 +108,7 @@ bool HookSSSDT(PUCHAR pCode, ULONG ulCodeSize, PVOID pNewFunction, PVOID *pOldFu
 
     *(PLONG)qwTemp = dwTemp;
 
-    utils::WPON(irql);
+    // utils::WPON(irql);
 
     //
     // Restore protection
@@ -129,9 +127,8 @@ bool UnhookSSSDT(PVOID pFunction, ULONG SyscallNum)
 
     ULONGLONG W32pServiceTable = 0, qwTemp = 0;
     LONG dwTemp = 0;
-    KIRQL irql;
 
-    irql = utils::WPOFF();
+    // irql = utils::WPOFF();
 
     W32pServiceTable = (ULONGLONG)(g_KeServiceDescriptorTableShadow->ServiceTableBase);
     qwTemp = W32pServiceTable + 4 * (SyscallNum - 0x1000);
@@ -140,93 +137,12 @@ bool UnhookSSSDT(PVOID pFunction, ULONG SyscallNum)
 
     *(PLONG)qwTemp = dwTemp;
 
-    utils::WPON(irql);
+    // utils::WPON(irql);
 
     return true;
 }
 
-PSYSTEM_HANDLE_INFORMATION_EX GetSystemHandleInformation()
-{
-    PSYSTEM_HANDLE_INFORMATION_EX pSHInfo = NULL;
-    NTSTATUS Status = STATUS_NO_MEMORY;
-    ULONG SMInfoLen = 0x1000;
-
-    do
-    {
-        pSHInfo = (PSYSTEM_HANDLE_INFORMATION_EX)ExAllocatePoolWithTag(PagedPool, SMInfoLen, TAG);
-        if (!pSHInfo)
-            break;
-
-        Status = ZwQuerySystemInformation(SystemHandleInformation, pSHInfo, SMInfoLen, &SMInfoLen);
-        if (!NT_SUCCESS(Status))
-        {
-            ExFreePoolWithTag(pSHInfo, TAG);
-            pSHInfo = NULL;
-        }
-    } while (Status == STATUS_INFO_LENGTH_MISMATCH);
-
-    return pSHInfo;
-}
-
-HANDLE GetCsrssPid()
-{
-    HANDLE CsrId = (HANDLE)0;
-    PSYSTEM_HANDLE_INFORMATION_EX pHandles = GetSystemHandleInformation();
-    if (pHandles)
-    {
-        unsigned i;
-        for (i = 0; i < pHandles->NumberOfHandles && !CsrId; i++)
-        {
-            OBJECT_ATTRIBUTES obj;
-            CLIENT_ID cid;
-            HANDLE Process, hObject;
-            InitializeObjectAttributes(&obj, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
-            cid.UniqueProcess = (HANDLE)pHandles->Information[i].ProcessId;
-            cid.UniqueThread = 0;
-
-            auto res = ZwOpenProcess(&Process, PROCESS_DUP_HANDLE, &obj, &cid);
-            if (NT_SUCCESS(res))
-            {
-                res = ZwDuplicateObject(Process, (PHANDLE)(pHandles->Information[i].Handle), NtCurrentProcess(),
-                                        &hObject, 0, FALSE, DUPLICATE_SAME_ACCESS);
-                if (NT_SUCCESS(res))
-                {
-                    UCHAR Buff[0x200];
-                    POBJECT_NAME_INFORMATION ObjName = (POBJECT_NAME_INFORMATION)&Buff;
-
-                    res = ZwQueryObject(hObject, ObjectTypeInformation, ObjName, sizeof(Buff), NULL);
-                    if (NT_SUCCESS(res))
-                    {
-                        if (ObjName->Name.Buffer && (!wcsncmp(L"Port", ObjName->Name.Buffer, 4) ||
-                                                     !wcsncmp(L"ALPC Port", ObjName->Name.Buffer, 9)))
-                        {
-                            res = ZwQueryObject(hObject, (OBJECT_INFORMATION_CLASS)1, ObjName, sizeof(Buff), NULL);
-                            if (NT_SUCCESS(res))
-                            {
-                                if (ObjName->Name.Buffer && !wcsncmp(L"\\Windows\\ApiPort", ObjName->Name.Buffer, 20))
-                                    CsrId = (HANDLE)pHandles->Information[i].ProcessId;
-                            }
-                        }
-                    }
-                    else
-                        DBGPRINT("[ GetCsr ] ZwQueryObject failed 0x%X\n", res);
-
-                    ZwClose(hObject);
-                }
-                else if (res != STATUS_NOT_SUPPORTED)
-                    DBGPRINT("[ GetCsr ] ZwDuplicateObject failed 0x%X\n", res);
-
-                ZwClose(Process);
-            }
-            else
-                DBGPRINT("[ GetCsr ] NtOpenProcess failed 0x%X\n", res);
-        }
-        ExFreePoolWithTag(pHandles, TAG);
-    }
-    return CsrId;
-}
-
-void sssdt::Init()
+bool sssdt::Init()
 {
 #ifndef USE_KASPERSKY
     g_KeServiceDescriptorTableShadow =
@@ -318,47 +234,27 @@ void sssdt::Init()
     KeUnstackDetachProcess(&apc);
     ObDereferenceObject(Process);
 #else
-
-    if (kaspersky::hook_shadow_ssdt_routine(SYSCALL_NTUSERQUERYWND, hkNtUserQueryWindow,
-                                            reinterpret_cast<PVOID *>(&oNtUserQueryWindow)))
-    {
-        DBGPRINT("NtUserQueryWindow ( 0x%X ) hooked successfully!\n", SYSCALL_NTUSERQUERYWND);
+#define KASPERSKY_HOOK_ROUTINE(name)                                                                                   \
+    if (!kaspersky::hook_shadow_ssdt_routine(syscalls::GetSyscallIndexByName(#name) + 0x1000, hooks::hk##name,         \
+                                             reinterpret_cast<PVOID *>(&hooks::o##name)))                              \
+    {                                                                                                                  \
+        DBGPRINT("Failed to hook " #name);                                                                             \
+        return false;                                                                                                  \
+    }                                                                                                                  \
+    else                                                                                                               \
+    {                                                                                                                  \
+        DBGPRINT(#name " hooked successfully!");                                                                       \
     }
-    else
-        DBGPRINT("Failed to hook NtUserQueryWindow!\n");
 
-    if (kaspersky::hook_shadow_ssdt_routine(SYSCALL_NTUSERFINDWNDEX, hkNtUserFindWindowEx,
-                                            reinterpret_cast<PVOID *>(&oNtUserFindWindowEx)))
-    {
-        DBGPRINT("NtUserFindWindowEx ( 0x%X ) hooked successfully!\n", SYSCALL_NTUSERFINDWNDEX);
-    }
-    else
-        DBGPRINT("Failed to hook NtUserFindWindowEx!\n");
+    KASPERSKY_HOOK_ROUTINE(NtUserQueryWindow);
+    KASPERSKY_HOOK_ROUTINE(NtUserFindWindowEx);
+    KASPERSKY_HOOK_ROUTINE(NtUserWindowFromPoint);
+    KASPERSKY_HOOK_ROUTINE(NtUserBuildHwndList);
+    KASPERSKY_HOOK_ROUTINE(NtUserGetForegroundWindow);
 
-    if (kaspersky::hook_shadow_ssdt_routine(SYSCALL_NTUSERWNDFROMPOINT, hkNtUserWindowFromPoint,
-                                            reinterpret_cast<PVOID *>(&oNtUserWindowFromPoint)))
-    {
-        DBGPRINT("NtUserWindowFromPoint ( 0x%X ) hooked successfully!\n", SYSCALL_NTUSERWNDFROMPOINT);
-    }
-    else
-        DBGPRINT("Failed to hook NtUserWindowFromPoint!\n");
-
-    if (kaspersky::hook_shadow_ssdt_routine(SYSCALL_NTUSERBUILDWNDLIST, hkNtUserBuildHwndList,
-                                            reinterpret_cast<PVOID *>(&oNtUserBuildHwndList)))
-    {
-        DBGPRINT("NtUserBuildHwndList ( 0x%X ) hooked successfully!\n", SYSCALL_NTUSERBUILDWNDLIST);
-    }
-    else
-        DBGPRINT("Failed to hook NtUserBuildHwndList!\n");
-
-    if (kaspersky::hook_shadow_ssdt_routine(SYSCALL_NTGETFOREGROUNDWND, hkNtUserGetForegroundWindow,
-                                            reinterpret_cast<PVOID *>(&oNtUserGetForegroundWindow)))
-    {
-        DBGPRINT("NtUserGetForegroundWindow ( 0x%X ) hooked successfully!\n", SYSCALL_NTGETFOREGROUNDWND);
-    }
-    else
-        DBGPRINT("Failed to hook NtUserGetForegroundWindow!\n");
+#undef KASPERSKY_HOOK_ROUTINE
 #endif
+    return true;
 }
 
 void sssdt::Destroy()
@@ -399,19 +295,20 @@ void sssdt::Destroy()
     if (!kaspersky::is_klhk_loaded())
         return;
 
-    if (!kaspersky::unhook_shadow_ssdt_routine(SYSCALL_NTUSERBUILDWNDLIST, oNtUserBuildHwndList))
-        DBGPRINT("Failed to unhook NtUserBuildHwndList");
+#define KASPERSKY_UNHOOK_ROUTINE(name)                                                                                 \
+    if (!kaspersky::unhook_shadow_ssdt_routine(syscalls::GetSyscallIndexByName(#name) + 0x1000, hooks::o##name))       \
+    {                                                                                                                  \
+        DBGPRINT("Failed to unhook " #name);                                                                           \
+    }                                                                                                                  \
+    else                                                                                                               \
+    {                                                                                                                  \
+        DBGPRINT(#name " unhooked successfully!");                                                                     \
+    }
 
-    if (!kaspersky::unhook_shadow_ssdt_routine(SYSCALL_NTUSERWNDFROMPOINT, oNtUserWindowFromPoint))
-        DBGPRINT("Failed to unhook NtUserWindowFromPoint");
-
-    if (!kaspersky::unhook_shadow_ssdt_routine(SYSCALL_NTUSERFINDWNDEX, oNtUserFindWindowEx))
-        DBGPRINT("Failed to unhook NtUserFindWindowEx");
-
-    if (!kaspersky::unhook_shadow_ssdt_routine(SYSCALL_NTGETFOREGROUNDWND, oNtUserGetForegroundWindow))
-        DBGPRINT("Failed to unhook NtUserGetForegroundWindow");
-
-    if (!kaspersky::unhook_shadow_ssdt_routine(SYSCALL_NTUSERQUERYWND, oNtUserQueryWindow))
-        DBGPRINT("Failed to unhook NtUserQueryWindow");
+    KASPERSKY_UNHOOK_ROUTINE(NtUserQueryWindow);
+    KASPERSKY_UNHOOK_ROUTINE(NtUserFindWindowEx);
+    KASPERSKY_UNHOOK_ROUTINE(NtUserWindowFromPoint);
+    KASPERSKY_UNHOOK_ROUTINE(NtUserBuildHwndList);
+    KASPERSKY_UNHOOK_ROUTINE(NtUserGetForegroundWindow);
 #endif
 }

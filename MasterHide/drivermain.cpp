@@ -1,118 +1,104 @@
 #include "includes.hpp"
 
-void OnDriverUnload(PDRIVER_OBJECT pDriverObject)
+void DriverUnload(PDRIVER_OBJECT pDriverObject)
 {
     UNREFERENCED_PARAMETER(pDriverObject);
 
+    DBGPRINT("Unload called\n");
+
     ssdt::Destroy();
     sssdt::Destroy();
+    syscalls::Destroy();
 
-    //
-    // Delay the execution for a second to make sure no thread is executing the hooked function
-    //
-    LARGE_INTEGER LargeInteger{};
-    LargeInteger.QuadPart = -11000000;
+    DBGPRINT("Waiting for hooks to complete!");
 
-    KeDelayExecutionThread(KernelMode, FALSE, &LargeInteger);
-    tools::UnloadImages();
+    hooks::WaitForHooksCompletion();
 
-    DBGPRINT("Driver unload routine triggered!\n");
+    DBGPRINT("MasterHide unloaded!");
 }
 
 extern "C" NTSTATUS NTAPI DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING pRegistryPath)
 {
     UNREFERENCED_PARAMETER(pRegistryPath);
 
-    if (!pDriverObject)
-    {
-        DBGPRINT("Err: No driver object!\n");
-        return STATUS_FAILED_DRIVER_ENTRY;
-    }
+    NTSTATUS status = STATUS_SUCCESS;
+
+    DBGPRINT("MasterHide is loading!");
 
     RTL_OSVERSIONINFOW os{};
     os.dwOSVersionInfoSize = sizeof(os);
 
-    if (!NT_SUCCESS(RtlGetVersion(&os)))
+    status = RtlGetVersion(&os);
+    if (!NT_SUCCESS(status))
     {
-        DBGPRINT("Err: RtlGetVersion failed!\n");
+        DBGPRINT("Err: RtlGetVersion returned 0x%08X", status);
         return STATUS_FAILED_DRIVER_ENTRY;
     }
 
-    pDriverObject->DriverUnload = &OnDriverUnload;
-    DBGPRINT("Driver loaded!\n");
+    const ULONG majorVersion = os.dwMajorVersion;
+    const ULONG minorVersion = os.dwMinorVersion;
 
-    //
-    // If the OS is either Windows 10, 8/8.1 those are the only supported OS
-    //
-    bool bIsWin7 = (os.dwMajorVersion == 6 && os.dwMinorVersion == 1);
-
-    if (os.dwMajorVersion == 10 || (bIsWin7 || (os.dwMajorVersion == 6 && os.dwMinorVersion == 2) ||
-                                    (os.dwMajorVersion == 6 && os.dwMinorVersion == 3)))
+    if (!((majorVersion == 10 && minorVersion == 1) || // Windows 11
+          (majorVersion == 10 && minorVersion == 0) || // Windows 10
+          (majorVersion == 6 && minorVersion == 3) ||  // Windows 8.1
+          (majorVersion == 6 && minorVersion == 2) ||  // Windows 8
+          (majorVersion == 6 && minorVersion == 1)))   // Windows 7
     {
-        // This special API only works in Win8+ and it basically allows you to set no executable flag in NonPagedPools
-        ExInitializeDriverRuntime(DrvRtPoolNxOptIn);
-
-        //
-        // Sycalls numbers are OS based, since user32.dll doesnt export them in early Windows versions ( Win7 for
-        // example ) we hardcode them and extract them on newer systems that export it ( Win8+ for example in win32u.dll
-        // )
-        //
-        if (!bIsWin7)
-        {
-            SYSCALL_NTUSERQUERYWND = tools::GetWin32Syscall("NtUserQueryWindow");
-            SYSCALL_NTUSERFINDWNDEX = tools::GetWin32Syscall("NtUserFindWindowEx");
-            SYSCALL_NTUSERWNDFROMPOINT = tools::GetWin32Syscall("NtUserWindowFromPoint");
-            SYSCALL_NTUSERBUILDWNDLIST = tools::GetWin32Syscall("NtUserBuildHwndList");
-            SYSCALL_NTGETFOREGROUNDWND = tools::GetWin32Syscall("NtUserGetForegroundWindow");
-
-            SYSCALL_NTOPENPROCESS = tools::GetNtSyscall("NtOpenProcess");
-            SYSCALL_NTDEVICEIOCTRLFILE = tools::GetNtSyscall("NtDeviceIoControlFile");
-            SYSCALL_NTQUERYSYSINFO = tools::GetNtSyscall("NtQuerySystemInformation");
-            SYSCALL_NTALLOCVIRTUALMEM = tools::GetNtSyscall("NtAllocateVirtualMemory");
-            SYSCALL_NTFREEVIRTUALMEM = tools::GetNtSyscall("NtFreeVirtualMemory");
-            SYSCALL_NTWRITEVIRTUALMEM = tools::GetNtSyscall("NtWriteVirtualMemory");
-            SYSCALL_NTLOADDRIVER = tools::GetNtSyscall("NtLoadDriver");
-        }
-
-#ifndef USE_KASPERSKY
-        //
-        // (S)SSDT Hooks are only Win7 compatible ( hardcoded )
-        //
-        DBGPRINT("Not using Kaspersky to hook, Shadow SSDT is unstable!\n");
-#else
-        DBGPRINT("Using Kaspersky!\n");
-
-        if (!kaspersky::is_klhk_loaded())
-        {
-            tools::UnloadImages();
-            DBGPRINT("Kaspersky not loaded!\n");
-            return STATUS_UNSUCCESSFUL;
-        }
-
-        if (!kaspersky::initialize())
-        {
-            tools::UnloadImages();
-            DBGPRINT("Kaspersky init failed!\n");
-            return STATUS_UNSUCCESSFUL;
-        }
-
-        DBGPRINT("Using Kaspersky hypervisor!\n");
-
-        if (!kaspersky::hvm_init())
-        {
-            tools::UnloadImages();
-            DBGPRINT("Hypervisor not loaded!\n");
-            return STATUS_UNSUCCESSFUL;
-        }
-
-        DBGPRINT("Hypervisor loaded!\n");
-#endif
-        ssdt::Init();
-        sssdt::Init();
+        DBGPRINT("Err: Unsupported Windows version. Major = %d Minor = %d", majorVersion, minorVersion);
+        return STATUS_FAILED_DRIVER_ENTRY;
     }
-    else
-        // No support for other OS
-        return STATUS_NOT_SUPPORTED;
+
+    DBGPRINT("Windows Major = %d Minor = %d Build = %d", majorVersion, minorVersion, os.dwBuildNumber);
+
+#ifdef USE_KASPERSKY
+    DBGPRINT("Using kaspersky hook.");
+
+    if (!::utils::init())
+    {
+        DBGPRINT("Err: utils not initialized!");
+        return STATUS_FAILED_DRIVER_ENTRY;
+    }
+
+    if (!kaspersky::is_klhk_loaded() || !kaspersky::initialize())
+    {
+        DBGPRINT("Err: Failed to setup kaspersky!");
+        return STATUS_FAILED_DRIVER_ENTRY;
+    }
+
+    status = kaspersky::hvm_init();
+    if (!NT_SUCCESS(status))
+    {
+        DBGPRINT("Err: hvm_init returned 0x%08X", status);
+        return STATUS_FAILED_DRIVER_ENTRY;
+    }
+
+    DBGPRINT("Kaspersky hypervisor loaded!");
+#else
+    DBGPRINT("MasterHide is using odinary SSDT hooks, which means: It only can be used on PatchGuard disabled "
+             "environment, such as kernel debugger attached or manually patching the kernel! The system WILL crash if "
+             "PatchGuard is enabled.\n");
+#endif
+
+    pDriverObject->DriverUnload = &DriverUnload;
+
+    // attach to win32k process first please.
+
+    PEPROCESS winlogon = tools::GetProcessByName(L"winlogon.exe");
+    if (!winlogon)
+    {
+        DBGPRINT("Err: winlogon.exe process not found!");
+        return STATUS_FAILED_DRIVER_ENTRY;
+    }
+
+    KeAttachProcess(winlogon);
+
+    syscalls::Init();
+    ssdt::Init();
+    sssdt::Init();
+
+    KeDetachProcess();
+
+    DBGPRINT("MasterHide loaded!");
 
     return STATUS_SUCCESS;
 }

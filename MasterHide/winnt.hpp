@@ -383,6 +383,41 @@ typedef struct _SYSTEM_CODEINTEGRITY_INFORMATION
     ULONG CodeIntegrityOptions;
 } SYSTEM_CODEINTEGRITY_INFORMATION, *PSYSTEM_CODEINTEGRITY_INFORMATION;
 
+typedef struct _KLDR_DATA_TABLE_ENTRY
+{
+    LIST_ENTRY InLoadOrderLinks;
+    PVOID ExceptionTable;
+    ULONG ExceptionTableSize;
+    PVOID GpValue;
+    struct NON_PAGED_DEBUG_INFO *NonPagedDebugInfo;
+    PVOID DllBase;
+    PVOID EntryPoint;
+    ULONG SizeOfImage;
+    UNICODE_STRING FullDllName;
+    UNICODE_STRING BaseDllName;
+    ULONG Flags;
+    USHORT LoadCount;
+    union {
+        USHORT SignatureLevel : 4;
+        USHORT SignatureType : 3;
+        USHORT Frozen : 2;
+        USHORT HotPatch : 1;
+        USHORT Unused : 6;
+        USHORT EntireField;
+    } u1;
+    PVOID SectionPointer;
+    ULONG CheckSum;
+    ULONG CoverageSectionSize;
+    PVOID CoverageSection;
+    PVOID LoadedImports;
+    union {
+        PVOID Spare;
+        struct _KLDR_DATA_TABLE_ENTRY *NtDataTableEntry; // win11
+    };
+    ULONG SizeOfImageNotRounded;
+    ULONG TimeDateStamp;
+} KLDR_DATA_TABLE_ENTRY, *PKLDR_DATA_TABLE_ENTRY;
+
 #pragma warning(pop)
 
 //
@@ -1019,6 +1054,11 @@ typedef struct _IDENTIFY_DEVICE_DATA
 
 EXTERN_C_START
 
+#if (NTDDI_VERSION >= NTDDI_WIN10)
+extern PLIST_ENTRY PsLoadedModuleList;
+extern PERESOURCE PsLoadedModuleResource;
+#endif
+
 NTSYSAPI POBJECT_TYPE *IoDriverObjectType;
 
 NTSYSAPI BOOLEAN NTAPI PsIsProtectedProcess(_In_ PEPROCESS Process);
@@ -1044,5 +1084,11 @@ NTSYSAPI NTSTATUS NTAPI ZwQueryInformationProcess(_In_ HANDLE ProcessHandle,
                                                   _In_ PROCESSINFOCLASS ProcessInformationClass,
                                                   _Out_ PVOID ProcessInformation, _In_ ULONG ProcessInformationLength,
                                                   _Out_opt_ PULONG ReturnLength);
+
+NTSYSAPI
+PIMAGE_NT_HEADERS
+NTAPI
+RtlImageNtHeader(
+    IN PVOID ModuleAddress);
 
 EXTERN_C_END

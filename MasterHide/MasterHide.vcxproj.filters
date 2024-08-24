@@ -17,7 +17,7 @@
       <UniqueIdentifier>{8E41214B-6785-4CFE-B992-037D68949A14}</UniqueIdentifier>
       <Extensions>inf;inv;inx;mof;mc;</Extensions>
     </Filter>
-    <Filter Include="Header Files\Kaspersky">
+    <Filter Include="Header Files\KasperskyHook">
       <UniqueIdentifier>{6c5d2264-5690-4b45-b290-99996ca571c5}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -35,25 +35,25 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\KasperskyHook\KasperskyHookDrv\hooks.cpp">
-      <Filter>Header Files\Kaspersky</Filter>
+      <Filter>Header Files\KasperskyHook</Filter>
     </ClCompile>
     <ClCompile Include="..\KasperskyHook\KasperskyHookDrv\kaspersky.cpp">
-      <Filter>Header Files\Kaspersky</Filter>
+      <Filter>Header Files\KasperskyHook</Filter>
     </ClCompile>
     <ClCompile Include="..\KasperskyHook\KasperskyHookDrv\kernel_modules.cpp">
-      <Filter>Header Files\Kaspersky</Filter>
+      <Filter>Header Files\KasperskyHook</Filter>
     </ClCompile>
     <ClCompile Include="..\KasperskyHook\KasperskyHookDrv\pe.cpp">
-      <Filter>Header Files\Kaspersky</Filter>
+      <Filter>Header Files\KasperskyHook</Filter>
     </ClCompile>
     <ClCompile Include="..\KasperskyHook\KasperskyHookDrv\utils.cpp">
-      <Filter>Header Files\Kaspersky</Filter>
+      <Filter>Header Files\KasperskyHook</Filter>
     </ClCompile>
     <ClCompile Include="hooks.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\KasperskyHook\KasperskyHookDrv\driver.cpp">
-      <Filter>Header Files\Kaspersky</Filter>
+      <Filter>Header Files\KasperskyHook</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -73,13 +73,13 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\kernel_modules.hpp">
-      <Filter>Header Files\Kaspersky</Filter>
+      <Filter>Header Files\KasperskyHook</Filter>
     </ClInclude>
     <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\pe.hpp">
-      <Filter>Header Files\Kaspersky</Filter>
+      <Filter>Header Files\KasperskyHook</Filter>
     </ClInclude>
     <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\utils.hpp">
-      <Filter>Header Files\Kaspersky</Filter>
+      <Filter>Header Files\KasperskyHook</Filter>
     </ClInclude>
     <ClInclude Include="hooks.hpp">
       <Filter>Header Files</Filter>
@@ -88,10 +88,13 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\hooks.hpp">
-      <Filter>Header Files\Kaspersky</Filter>
+      <Filter>Header Files\KasperskyHook</Filter>
     </ClInclude>
     <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\kaspersky.hpp">
-      <Filter>Header Files\Kaspersky</Filter>
+      <Filter>Header Files\KasperskyHook</Filter>
+    </ClInclude>
+    <ClInclude Include="fnv1a.hpp">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

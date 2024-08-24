@@ -7,7 +7,7 @@ namespace masterhide
 {
 namespace ssdt
 {
-extern void Init();
+extern bool Init();
 extern void Destroy();
 } // namespace ssdt
 }; // namespace masterhide

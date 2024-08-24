@@ -19,7 +19,7 @@
     <Platform Condition="'$(Platform)' == ''">Win32</Platform>
     <RootNamespace>MasterHide</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
-    <ProjectName>masterhide</ProjectName>
+    <ProjectName>MasterHide</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -29,6 +29,7 @@
     <DriverType>WDM</DriverType>
     <TargetVersion>Windows10</TargetVersion>
     <DriverTargetPlatform>Universal</DriverTargetPlatform>
+    <Driver_SpectreMitigation>Spectre</Driver_SpectreMitigation>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <TargetVersion>Windows7</TargetVersion>
@@ -38,6 +39,7 @@
     <DriverType>WDM</DriverType>
     <DriverTargetPlatform>Desktop</DriverTargetPlatform>
     <_NT_TARGET_VERSION>0x0601</_NT_TARGET_VERSION>
+    <Driver_SpectreMitigation>Spectre</Driver_SpectreMitigation>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -50,10 +52,16 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <EnableInf2cat>false</EnableInf2cat>
+    <IncludePath>$(VC_IncludePath);$(KM_IncludePath);$(KIT_SHARED_IncludePath)</IncludePath>
+    <ExternalIncludePath>$(ExternalIncludePath)</ExternalIncludePath>
+    <OutDir>..\bin\$(Configuration)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <EnableInf2cat>false</EnableInf2cat>
+    <IncludePath>$(VC_IncludePath);$(KM_IncludePath);$(KIT_SHARED_IncludePath)</IncludePath>
+    <ExternalIncludePath>$(ExternalIncludePath)</ExternalIncludePath>
+    <OutDir>..\bin\$(Configuration)\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Link>
@@ -61,8 +69,10 @@
     </Link>
     <ClCompile>
       <AdditionalIncludeDirectories>..\KasperskyHook\KasperskyHookDrv;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_NO_CRT_STDIO_INLINE;__STDC_WANT_SECURE_LIB__=0;SCOPE_GUARD_NO_THROW_ACTION;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <ControlFlowGuard>false</ControlFlowGuard>
     </ClCompile>
     <Inf>
       <SpecifyArchitecture>false</SpecifyArchitecture>
@@ -81,6 +91,9 @@
     <ClCompile>
       <AdditionalIncludeDirectories>..\KasperskyHook\KasperskyHookDrv;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <PreprocessorDefinitions>_NO_CRT_STDIO_INLINE;__STDC_WANT_SECURE_LIB__=0;SCOPE_GUARD_NO_THROW_ACTION;_WIN64;_AMD64_;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ControlFlowGuard>false</ControlFlowGuard>
     </ClCompile>
     <Inf>
       <SpecifyArchitecture>false</SpecifyArchitecture>
@@ -117,6 +130,7 @@
     <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\kernel_modules.hpp" />
     <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\pe.hpp" />
     <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\utils.hpp" />
+    <ClInclude Include="fnv1a.hpp" />
     <ClInclude Include="globals.hpp" />
     <ClInclude Include="hooks.hpp" />
     <ClInclude Include="shadow_ssdt.hpp" />
