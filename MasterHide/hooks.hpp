@@ -51,21 +51,50 @@ inline decltype(&hkNtDeviceIoControlFile) oNtDeviceIoControlFile = nullptr;
 NTSTATUS NTAPI hkNtLoadDriver(PUNICODE_STRING DriverServiceName);
 inline decltype(&hkNtLoadDriver) oNtLoadDriver = nullptr;
 
+NTSTATUS NTAPI hkNtSetInformationThread(HANDLE ThreadHandle, THREADINFOCLASS ThreadInformationClass,
+                                        PVOID ThreadInformation, ULONG ThreadInformationLength);
+inline decltype(&hkNtSetInformationThread) oNtSetInformationThread = nullptr;
+
+NTSTATUS NTAPI hkNtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS ProcessInformationClass,
+                                           PVOID ProcessInformation, ULONG ProcessInformationLength,
+                                           PULONG ReturnLength);
+inline decltype(&hkNtQueryInformationProcess) oNtQueryInformationProcess = nullptr;
+
+NTSTATUS NTAPI hkNtSetInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS ProcessInformationClass,
+                                         PVOID ProcessInformation, ULONG ProcessInformationLength);
+inline decltype(&hkNtSetInformationProcess) oNtSetInformationProcess = nullptr;
+
+NTSTATUS NTAPI hkNtQueryObject(HANDLE Handle, OBJECT_INFORMATION_CLASS ObjectInformationClass, PVOID ObjectInformation,
+                               ULONG ObjectInformationLength, PULONG ReturnLength);
+inline decltype(&hkNtQueryObject) oNtQueryObject = nullptr;
+
+NTSTATUS NTAPI hkNtGetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext);
+inline decltype(&hkNtGetContextThread) oNtGetContextThread = nullptr;
+
+NTSTATUS NTAPI hkNtSetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext);
+inline decltype(&hkNtSetContextThread) oNtSetContextThread = nullptr;
+
 //
 // Shadow SSDT hooks
 //
+inline HWND(NTAPI *NtUserGetThreadState)(ThreadStateRoutines Routine) = nullptr;
+
 HWND hkNtUserWindowFromPoint(LONG x, LONG y);
 inline decltype(&hkNtUserWindowFromPoint) oNtUserWindowFromPoint = nullptr;
 
-HANDLE hkNtUserQueryWindow(HWND WindowHandle, HANDLE TypeInformation);
+HANDLE hkNtUserQueryWindow(HWND WindowHandle, WINDOWINFOCLASS WindowInfo);
 inline decltype(&hkNtUserQueryWindow) oNtUserQueryWindow = nullptr;
 
 HWND NTAPI hkNtUserFindWindowEx(HWND hWndParent, HWND hWndChildAfter, PUNICODE_STRING lpszClass,
                                 PUNICODE_STRING lpszWindow, DWORD dwType);
 inline decltype(&hkNtUserFindWindowEx) oNtUserFindWindowEx = nullptr;
 
-NTSTATUS NTAPI hkNtUserBuildHwndList(HDESK hdesk, HWND hwndNext, ULONG fEnumChildren, DWORD idThread, UINT cHwndMax,
-                                     HWND *phwndFirst, ULONG *pcHwndNeeded);
+NTSTATUS NTAPI hkNtUserBuildHwndList_Win7(HDESK hdesk, HWND hwndNext, ULONG fEnumChildren, DWORD idThread,
+                                          UINT cHwndMax, HWND *phwndFirst, ULONG *pcHwndNeeded);
+inline decltype(&hkNtUserBuildHwndList_Win7) oNtUserBuildHwndList_Win7 = nullptr;
+
+NTSTATUS NTAPI hkNtUserBuildHwndList(HDESK hDesktop, HWND hwndParent, BOOLEAN bChildren, BOOLEAN bUnknownFlag,
+                                     ULONG dwThreadId, ULONG lParam, HWND *pWnd, PULONG pBufSize);
 inline decltype(&hkNtUserBuildHwndList) oNtUserBuildHwndList = nullptr;
 
 HWND NTAPI hkNtUserGetForegroundWindow(VOID);

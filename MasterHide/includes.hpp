@@ -12,12 +12,16 @@
 #include <mountmgr.h>
 #include <mountdev.h>
 #include <ntddndis.h>
-#include <ntimage.h>
 #include <scsi.h>
 #include <intrin.h>
 #include <ntstrsafe.h>
 
 #include "thirdparty/scope_guard/include/scope_guard.hpp"
+#include <phnt.h>
+//#include <ntfill.h>
+#include <ntpebteb.h>
+#include <ntldr.h>
+//#include <kphapi.h>
 
 #ifndef DBGPRINT
 #if _DEBUG
@@ -27,17 +31,15 @@
 #endif
 #endif
 
-//
-// Uncomment that to use ordinary SSDT/SSSDT hooking
-//
-#define USE_KASPERSKY
-
-#include "winnt.hpp"
+#include "ntfill.hpp"
 #include "fnv1a.hpp"
-#include "globals.hpp"
+#include "wpp_trace.hpp"
 #include "misc.hpp"
 #include "utils.hpp"
+#include "process.hpp"
+#ifdef USE_KASPERSKY
 #include "kaspersky.hpp"
+#endif
 #include "ssdt.hpp"
 #include "shadow_ssdt.hpp"
 #include "hooks.hpp"

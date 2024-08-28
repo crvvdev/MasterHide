@@ -246,11 +246,22 @@ bool sssdt::Init()
         DBGPRINT(#name " hooked successfully!");                                                                       \
     }
 
+    hooks::NtUserGetThreadState = reinterpret_cast<decltype(hooks::NtUserGetThreadState)>(
+        kaspersky::get_shadow_ssdt_routine(syscalls::GetSyscallIndexByName("NtUserGetThreadState") + 0x1000));
+
+    if (!hooks::NtUserGetThreadState)
+    {
+        DBGPRINT("NtUserGetThreadState not found!");
+        return false;
+    }
+
     KASPERSKY_HOOK_ROUTINE(NtUserQueryWindow);
     KASPERSKY_HOOK_ROUTINE(NtUserFindWindowEx);
     KASPERSKY_HOOK_ROUTINE(NtUserWindowFromPoint);
     KASPERSKY_HOOK_ROUTINE(NtUserBuildHwndList);
     KASPERSKY_HOOK_ROUTINE(NtUserGetForegroundWindow);
+
+    // NtUserGetThreadState
 
 #undef KASPERSKY_HOOK_ROUTINE
 #endif

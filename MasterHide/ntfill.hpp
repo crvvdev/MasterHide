@@ -3,46 +3,46 @@
 #pragma warning(push)
 #pragma warning(disable : 4201)
 
-typedef struct _SYSTEM_HANDLE
-{
-    ULONG ProcessId;
-    UCHAR ObjectTypeNumber;
-    UCHAR Flags;
-    USHORT Handle;
-    PVOID Object;
-    ACCESS_MASK GrantedAccess;
-} SYSTEM_HANDLE, *PSYSTEM_HANDLE;
+#define PROCESS_DEBUG_INHERIT 0x00000001    // default for a non-debugged process
+#define PROCESS_NO_DEBUG_INHERIT 0x00000002 // default for a debugged process
 
-typedef struct _SYSTEM_HANDLE_INFORMATION_EX
+typedef enum _WINDOWINFOCLASS
 {
-    ULONG NumberOfHandles;
-    _SYSTEM_HANDLE Information[1];
-} _SYSTEM_HANDLE_INFORMATION_EX, *PSYSTEM_HANDLE_INFORMATION_EX;
+    WindowProcess,
+    WindowThread,
+    WindowActiveWindow,
+    WindowFocusWindow,
+    WindowIsHung,
+    WindowClientBase,
+    WindowIsForegroundThread,
+#ifdef FE_IME
+    WindowDefaultImeWindow,
+    WindowDefaultInputContext,
+#endif
+} WINDOWINFOCLASS;
 
-typedef struct _SYSTEM_HANDLE_INFORMATION
+enum ThreadStateRoutines
 {
-    ULONG NumberOfHandles;
-    _SYSTEM_HANDLE Information[1];
-} SYSTEM_HANDLE_INFORMATION, *PSYSTEM_HANDLE_INFORMATION;
-
-typedef struct _SYSTEM_MODULE
-{
-    PVOID Reserved[2];
-    PVOID Base;
-    ULONG Size;
-    ULONG Flags;
-    USHORT Index;
-    USHORT Unknown;
-    USHORT LoadCount;
-    USHORT ModuleNameOffset;
-    CHAR ImageName[256];
-} SYSTEM_MODULE, *PSYSTEM_MODULE;
-
-typedef struct _SYSTEM_MODULE_INFORMATION
-{
-    ULONG ModulesCount;
-    SYSTEM_MODULE Modules[1];
-} SYSTEM_MODULE_INFORMATION, *PSYSTEM_MODULE_INFORMATION;
+    THREADSTATE_FOCUSWINDOW = 0,
+    THREADSTATE_ACTIVEWINDOW,
+    THREADSTATE_CAPTUREWINDOW,
+    THREADSTATE_DEFAULTIMEWINDOW,
+    THREADSTATE_DEFAULTINPUTCONTEXT,
+    THREADSTATE_GETINPUTSTATE,
+    THREADSTATE_GETCURSOR,
+    THREADSTATE_CHANGEBITS,
+    THREADSTATE_UPTIMELASTREAD,
+    THREADSTATE_GETMESSAGEEXTRAINFO,
+    THREADSTATE_INSENDMESSAGE,
+    THREADSTATE_GETMESSAGETIME,
+    THREADSTATE_FOREGROUNDTHREAD,
+    THREADSTATE_IMECOMPATFLAGS,
+    THREADSTATE_OLDKEYBOARDLAYOUT,
+    THREADSTATE_ISWINLOGON,
+    THREADSTATE_UNKNOWN_0x10,
+    THREADSTATE_CHECKCONIME,
+    THREADSTATE_GETTHREADINFO,
+};
 
 typedef struct _SYSTEM_SERVICE_TABLE
 {
@@ -52,240 +52,7 @@ typedef struct _SYSTEM_SERVICE_TABLE
     PVOID ParamTableBase;
 } SYSTEM_SERVICE_TABLE, *PSYSTEM_SERVICE_TABLE;
 
-typedef enum _SYSTEM_INFORMATION_CLASS
-{
-    SystemBasicInformation,                // q: SYSTEM_BASIC_INFORMATION
-    SystemProcessorInformation,            // q: SYSTEM_PROCESSOR_INFORMATION
-    SystemPerformanceInformation,          // q: SYSTEM_PERFORMANCE_INFORMATION
-    SystemTimeOfDayInformation,            // q: SYSTEM_TIMEOFDAY_INFORMATION
-    SystemPathInformation,                 // not implemented
-    SystemProcessInformation,              // q: SYSTEM_PROCESS_INFORMATION
-    SystemCallCountInformation,            // q: SYSTEM_CALL_COUNT_INFORMATION
-    SystemDeviceInformation,               // q: SYSTEM_DEVICE_INFORMATION
-    SystemProcessorPerformanceInformation, // q: SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION
-    SystemFlagsInformation,                // q: SYSTEM_FLAGS_INFORMATION
-    SystemCallTimeInformation,             // not implemented // SYSTEM_CALL_TIME_INFORMATION // 10
-    SystemModuleInformation,               // q: RTL_PROCESS_MODULES
-    SystemLocksInformation,                // q: RTL_PROCESS_LOCKS
-    SystemStackTraceInformation,           // q: RTL_PROCESS_BACKTRACES
-    SystemPagedPoolInformation,            // not implemented
-    SystemNonPagedPoolInformation,         // not implemented
-    SystemHandleInformation,               // q: SYSTEM_HANDLE_INFORMATION
-    SystemObjectInformation,               // q: SYSTEM_OBJECTTYPE_INFORMATION mixed with SYSTEM_OBJECT_INFORMATION
-    SystemPageFileInformation,             // q: SYSTEM_PAGEFILE_INFORMATION
-    SystemVdmInstemulInformation,          // q
-    SystemVdmBopInformation,               // not implemented // 20
-    SystemFileCacheInformation,     // q: SYSTEM_FILECACHE_INFORMATION; s (requires SeIncreaseQuotaPrivilege) (info for
-                                    // WorkingSetTypeSystemCache)
-    SystemPoolTagInformation,       // q: SYSTEM_POOLTAG_INFORMATION
-    SystemInterruptInformation,     // q: SYSTEM_INTERRUPT_INFORMATION
-    SystemDpcBehaviorInformation,   // q: SYSTEM_DPC_BEHAVIOR_INFORMATION; s: SYSTEM_DPC_BEHAVIOR_INFORMATION (requires
-                                    // SeLoadDriverPrivilege)
-    SystemFullMemoryInformation,    // not implemented
-    SystemLoadGdiDriverInformation, // s (kernel-mode only)
-    SystemUnloadGdiDriverInformation,  // s (kernel-mode only)
-    SystemTimeAdjustmentInformation,   // q: SYSTEM_QUERY_TIME_ADJUST_INFORMATION; s: SYSTEM_SET_TIME_ADJUST_INFORMATION
-                                       // (requires SeSystemtimePrivilege)
-    SystemSummaryMemoryInformation,    // not implemented
-    SystemMirrorMemoryInformation,     // s (requires license value "Kernel-MemoryMirroringSupported") (requires
-                                       // SeShutdownPrivilege) // 30
-    SystemPerformanceTraceInformation, // q; s: (type depends on EVENT_TRACE_INFORMATION_CLASS)
-    SystemObsolete0,                   // not implemented
-    SystemExceptionInformation,        // q: SYSTEM_EXCEPTION_INFORMATION
-    SystemCrashDumpStateInformation,   // s (requires SeDebugPrivilege)
-    SystemKernelDebuggerInformation,   // q: SYSTEM_KERNEL_DEBUGGER_INFORMATION
-    SystemContextSwitchInformation,    // q: SYSTEM_CONTEXT_SWITCH_INFORMATION
-    SystemRegistryQuotaInformation,    // q: SYSTEM_REGISTRY_QUOTA_INFORMATION; s (requires SeIncreaseQuotaPrivilege)
-    SystemExtendServiceTableInformation,   // s (requires SeLoadDriverPrivilege) // loads win32k only
-    SystemPrioritySeperation,              // s (requires SeTcbPrivilege)
-    SystemVerifierAddDriverInformation,    // s (requires SeDebugPrivilege) // 40
-    SystemVerifierRemoveDriverInformation, // s (requires SeDebugPrivilege)
-    SystemProcessorIdleInformation,        // q: SYSTEM_PROCESSOR_IDLE_INFORMATION
-    SystemLegacyDriverInformation,         // q: SYSTEM_LEGACY_DRIVER_INFORMATION
-    SystemCurrentTimeZoneInformation,      // q; s: RTL_TIME_ZONE_INFORMATION
-    SystemLookasideInformation,            // q: SYSTEM_LOOKASIDE_INFORMATION
-    SystemTimeSlipNotification,            // s (requires SeSystemtimePrivilege)
-    SystemSessionCreate,                   // not implemented
-    SystemSessionDetach,                   // not implemented
-    SystemSessionInformation,              // not implemented (SYSTEM_SESSION_INFORMATION)
-    SystemRangeStartInformation,           // q: SYSTEM_RANGE_START_INFORMATION // 50
-    SystemVerifierInformation,             // q: SYSTEM_VERIFIER_INFORMATION; s (requires SeDebugPrivilege)
-    SystemVerifierThunkExtend,             // s (kernel-mode only)
-    SystemSessionProcessInformation,       // q: SYSTEM_SESSION_PROCESS_INFORMATION
-    SystemLoadGdiDriverInSystemSpace,      // s (kernel-mode only) (same as SystemLoadGdiDriverInformation)
-    SystemNumaProcessorMap,                // q
-    SystemPrefetcherInformation,           // q: PREFETCHER_INFORMATION; s: PREFETCHER_INFORMATION //
-                                           // PfSnQueryPrefetcherInformation
-    SystemExtendedProcessInformation,      // q: SYSTEM_PROCESS_INFORMATION
-    SystemRecommendedSharedDataAlignment,  // q
-    SystemComPlusPackage,                  // q; s
-    SystemNumaAvailableMemory,             // 60
-    SystemProcessorPowerInformation,       // q: SYSTEM_PROCESSOR_POWER_INFORMATION
-    SystemEmulationBasicInformation,       // q
-    SystemEmulationProcessorInformation,
-    SystemExtendedHandleInformation,               // q: SYSTEM_HANDLE_INFORMATION_EX
-    SystemLostDelayedWriteInformation,             // q: ULONG
-    SystemBigPoolInformation,                      // q: SYSTEM_BIGPOOL_INFORMATION
-    SystemSessionPoolTagInformation,               // q: SYSTEM_SESSION_POOLTAG_INFORMATION
-    SystemSessionMappedViewInformation,            // q: SYSTEM_SESSION_MAPPED_VIEW_INFORMATION
-    SystemHotpatchInformation,                     // q; s: SYSTEM_HOTPATCH_CODE_INFORMATION
-    SystemObjectSecurityMode,                      // q: ULONG // 70
-    SystemWatchdogTimerHandler,                    // s (kernel-mode only)
-    SystemWatchdogTimerInformation,                // q (kernel-mode only); s (kernel-mode only)
-    SystemLogicalProcessorInformation,             // q: SYSTEM_LOGICAL_PROCESSOR_INFORMATION
-    SystemWow64SharedInformationObsolete,          // not implemented
-    SystemRegisterFirmwareTableInformationHandler, // s (kernel-mode only)
-    SystemFirmwareTableInformation,                // SYSTEM_FIRMWARE_TABLE_INFORMATION
-    SystemModuleInformationEx,                     // q: RTL_PROCESS_MODULE_INFORMATION_EX
-    SystemVerifierTriageInformation,               // not implemented
-    SystemSuperfetchInformation,                   // q; s: SUPERFETCH_INFORMATION // PfQuerySuperfetchInformation
-    SystemMemoryListInformation,  // q: SYSTEM_MEMORY_LIST_INFORMATION; s: SYSTEM_MEMORY_LIST_COMMAND (requires
-                                  // SeProfileSingleProcessPrivilege) // 80
-    SystemFileCacheInformationEx, // q: SYSTEM_FILECACHE_INFORMATION; s (requires SeIncreaseQuotaPrivilege) (same as
-                                  // SystemFileCacheInformation)
-    SystemThreadPriorityClientIdInformation,    // s: SYSTEM_THREAD_CID_PRIORITY_INFORMATION (requires
-                                                // SeIncreaseBasePriorityPrivilege)
-    SystemProcessorIdleCycleTimeInformation,    // q: SYSTEM_PROCESSOR_IDLE_CYCLE_TIME_INFORMATION[]
-    SystemVerifierCancellationInformation,      // not implemented //
-                                                // name:wow64:whNT32QuerySystemVerifierCancellationInformation
-    SystemProcessorPowerInformationEx,          // not implemented
-    SystemRefTraceInformation,                  // q; s: SYSTEM_REF_TRACE_INFORMATION // ObQueryRefTraceInformation
-    SystemSpecialPoolInformation,               // q; s (requires SeDebugPrivilege) // MmSpecialPoolTag, then
-                                                // MmSpecialPoolCatchOverruns != 0
-    SystemProcessIdInformation,                 // q: SYSTEM_PROCESS_ID_INFORMATION
-    SystemErrorPortInformation,                 // s (requires SeTcbPrivilege)
-    SystemBootEnvironmentInformation,           // q: SYSTEM_BOOT_ENVIRONMENT_INFORMATION // 90
-    SystemHypervisorInformation,                // q; s (kernel-mode only)
-    SystemVerifierInformationEx,                // q; s: SYSTEM_VERIFIER_INFORMATION_EX
-    SystemTimeZoneInformation,                  // s (requires SeTimeZonePrivilege)
-    SystemImageFileExecutionOptionsInformation, // s: SYSTEM_IMAGE_FILE_EXECUTION_OPTIONS_INFORMATION (requires
-                                                // SeTcbPrivilege)
-    SystemCoverageInformation,        // q; s // name:wow64:whNT32QuerySystemCoverageInformation; ExpCovQueryInformation
-    SystemPrefetchPatchInformation,   // not implemented
-    SystemVerifierFaultsInformation,  // s (requires SeDebugPrivilege)
-    SystemSystemPartitionInformation, // q: SYSTEM_SYSTEM_PARTITION_INFORMATION
-    SystemSystemDiskInformation,      // q: SYSTEM_SYSTEM_DISK_INFORMATION
-    SystemProcessorPerformanceDistribution,    // q: SYSTEM_PROCESSOR_PERFORMANCE_DISTRIBUTION // 100
-    SystemNumaProximityNodeInformation,        // q
-    SystemDynamicTimeZoneInformation,          // q; s (requires SeTimeZonePrivilege)
-    SystemCodeIntegrityInformation,            // q: SYSTEM_CODEINTEGRITY_INFORMATION // SeCodeIntegrityQueryInformation
-    SystemProcessorMicrocodeUpdateInformation, // s
-    SystemProcessorBrandString,      // q // HaliQuerySystemInformation -> HalpGetProcessorBrandString, info class 23
-    SystemVirtualAddressInformation, // q: SYSTEM_VA_LIST_INFORMATION[]; s: SYSTEM_VA_LIST_INFORMATION[] (requires
-                                     // SeIncreaseQuotaPrivilege) // MmQuerySystemVaInformation
-    SystemLogicalProcessorAndGroupInformation, // q: SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX // since WIN7 //
-                                               // KeQueryLogicalProcessorRelationship
-    SystemProcessorCycleTimeInformation,       // q: SYSTEM_PROCESSOR_CYCLE_TIME_INFORMATION[]
-    SystemStoreInformation,                    // q; s // SmQueryStoreInformation
-    SystemRegistryAppendString,                // s: SYSTEM_REGISTRY_APPEND_STRING_PARAMETERS // 110
-    SystemAitSamplingValue,                    // s: ULONG (requires SeProfileSingleProcessPrivilege)
-    SystemVhdBootInformation,                  // q: SYSTEM_VHD_BOOT_INFORMATION
-    SystemCpuQuotaInformation,                 // q; s // PsQueryCpuQuotaInformation
-    SystemNativeBasicInformation,              // not implemented
-    SystemSpare1,                              // not implemented
-    SystemLowPriorityIoInformation,            // q: SYSTEM_LOW_PRIORITY_IO_INFORMATION
-    SystemTpmBootEntropyInformation,           // q: TPM_BOOT_ENTROPY_NT_RESULT // ExQueryTpmBootEntropyInformation
-    SystemVerifierCountersInformation,         // q: SYSTEM_VERIFIER_COUNTERS_INFORMATION
-    SystemPagedPoolInformationEx,  // q: SYSTEM_FILECACHE_INFORMATION; s (requires SeIncreaseQuotaPrivilege) (info for
-                                   // WorkingSetTypePagedPool)
-    SystemSystemPtesInformationEx, // q: SYSTEM_FILECACHE_INFORMATION; s (requires SeIncreaseQuotaPrivilege) (info for
-                                   // WorkingSetTypeSystemPtes) // 120
-    SystemNodeDistanceInformation, // q
-    SystemAcpiAuditInformation,    // q: SYSTEM_ACPI_AUDIT_INFORMATION // HaliQuerySystemInformation ->
-                                   // HalpAuditQueryResults, info class 26
-    SystemBasicPerformanceInformation,        // q: SYSTEM_BASIC_PERFORMANCE_INFORMATION //
-                                              // name:wow64:whNtQuerySystemInformation_SystemBasicPerformanceInformation
-    SystemQueryPerformanceCounterInformation, // q: SYSTEM_QUERY_PERFORMANCE_COUNTER_INFORMATION // since WIN7 SP1
-    SystemSessionBigPoolInformation,          // q: SYSTEM_SESSION_POOLTAG_INFORMATION // since WIN8
-    SystemBootGraphicsInformation,            // q; s: SYSTEM_BOOT_GRAPHICS_INFORMATION (kernel-mode only)
-    SystemScrubPhysicalMemoryInformation,     // q; s: MEMORY_SCRUB_INFORMATION
-    SystemBadPageInformation,
-    SystemProcessorProfileControlArea,      // q; s: SYSTEM_PROCESSOR_PROFILE_CONTROL_AREA
-    SystemCombinePhysicalMemoryInformation, // s: MEMORY_COMBINE_INFORMATION, MEMORY_COMBINE_INFORMATION_EX,
-                                            // MEMORY_COMBINE_INFORMATION_EX2 // 130
-    SystemEntropyInterruptTimingCallback,
-    SystemConsoleInformation,        // q: SYSTEM_CONSOLE_INFORMATION
-    SystemPlatformBinaryInformation, // q: SYSTEM_PLATFORM_BINARY_INFORMATION
-    SystemThrottleNotificationInformation,
-    SystemHypervisorProcessorCountInformation, // q: SYSTEM_HYPERVISOR_PROCESSOR_COUNT_INFORMATION
-    SystemDeviceDataInformation,               // q: SYSTEM_DEVICE_DATA_INFORMATION
-    SystemDeviceDataEnumerationInformation,
-    SystemMemoryTopologyInformation,         // q: SYSTEM_MEMORY_TOPOLOGY_INFORMATION
-    SystemMemoryChannelInformation,          // q: SYSTEM_MEMORY_CHANNEL_INFORMATION
-    SystemBootLogoInformation,               // q: SYSTEM_BOOT_LOGO_INFORMATION // 140
-    SystemProcessorPerformanceInformationEx, // q: SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION_EX // since WINBLUE
-    SystemSpare0,
-    SystemSecureBootPolicyInformation, // q: SYSTEM_SECUREBOOT_POLICY_INFORMATION
-    SystemPageFileInformationEx,       // q: SYSTEM_PAGEFILE_INFORMATION_EX
-    SystemSecureBootInformation,       // q: SYSTEM_SECUREBOOT_INFORMATION
-    SystemEntropyInterruptTimingRawInformation,
-    SystemPortableWorkspaceEfiLauncherInformation, // q: SYSTEM_PORTABLE_WORKSPACE_EFI_LAUNCHER_INFORMATION
-    SystemFullProcessInformation, // q: SYSTEM_PROCESS_INFORMATION with SYSTEM_PROCESS_INFORMATION_EXTENSION (requires
-                                  // admin)
-    SystemKernelDebuggerInformationEx, // q: SYSTEM_KERNEL_DEBUGGER_INFORMATION_EX
-    SystemBootMetadataInformation,     // 150
-    SystemSoftRebootInformation,
-    SystemElamCertificateInformation, // s: SYSTEM_ELAM_CERTIFICATE_INFORMATION
-    SystemOfflineDumpConfigInformation,
-    SystemProcessorFeaturesInformation, // q: SYSTEM_PROCESSOR_FEATURES_INFORMATION
-    SystemRegistryReconciliationInformation,
-    SystemEdidInformation,
-    SystemManufacturingInformation,          // q: SYSTEM_MANUFACTURING_INFORMATION // since THRESHOLD
-    SystemEnergyEstimationConfigInformation, // q: SYSTEM_ENERGY_ESTIMATION_CONFIG_INFORMATION
-    SystemHypervisorDetailInformation,       // q: SYSTEM_HYPERVISOR_DETAIL_INFORMATION
-    SystemProcessorCycleStatsInformation,    // q: SYSTEM_PROCESSOR_CYCLE_STATS_INFORMATION // 160
-    SystemVmGenerationCountInformation,
-    SystemTrustedPlatformModuleInformation, // q: SYSTEM_TPM_INFORMATION
-    SystemKernelDebuggerFlags,
-    SystemCodeIntegrityPolicyInformation, // q: SYSTEM_CODEINTEGRITYPOLICY_INFORMATION
-    SystemIsolatedUserModeInformation,    // q: SYSTEM_ISOLATED_USER_MODE_INFORMATION
-    SystemHardwareSecurityTestInterfaceResultsInformation,
-    SystemSingleModuleInformation, // q: SYSTEM_SINGLE_MODULE_INFORMATION
-    SystemAllowedCpuSetsInformation,
-    SystemVsmProtectionInformation, // q: SYSTEM_VSM_PROTECTION_INFORMATION (previously SystemDmaProtectionInformation)
-    SystemInterruptCpuSetsInformation,     // q: SYSTEM_INTERRUPT_CPU_SET_INFORMATION // 170
-    SystemSecureBootPolicyFullInformation, // q: SYSTEM_SECUREBOOT_POLICY_FULL_INFORMATION
-    SystemCodeIntegrityPolicyFullInformation,
-    SystemAffinitizedInterruptProcessorInformation,
-    SystemRootSiloInformation,  // q: SYSTEM_ROOT_SILO_INFORMATION
-    SystemCpuSetInformation,    // q: SYSTEM_CPU_SET_INFORMATION // since THRESHOLD2
-    SystemCpuSetTagInformation, // q: SYSTEM_CPU_SET_TAG_INFORMATION
-    SystemWin32WerStartCallout,
-    SystemSecureKernelProfileInformation,           // q: SYSTEM_SECURE_KERNEL_HYPERGUARD_PROFILE_INFORMATION
-    SystemCodeIntegrityPlatformManifestInformation, // q: SYSTEM_SECUREBOOT_PLATFORM_MANIFEST_INFORMATION // since
-                                                    // REDSTONE
-    SystemInterruptSteeringInformation,             // 180
-    SystemSupportedProcessorArchitectures,
-    SystemMemoryUsageInformation,              // q: SYSTEM_MEMORY_USAGE_INFORMATION
-    SystemCodeIntegrityCertificateInformation, // q: SYSTEM_CODEINTEGRITY_CERTIFICATE_INFORMATION
-    SystemPhysicalMemoryInformation,           // q: SYSTEM_PHYSICAL_MEMORY_INFORMATION // since REDSTONE2
-    SystemControlFlowTransition,
-    SystemKernelDebuggingAllowed,
-    SystemActivityModerationExeState,     // SYSTEM_ACTIVITY_MODERATION_EXE_STATE
-    SystemActivityModerationUserSettings, // SYSTEM_ACTIVITY_MODERATION_USER_SETTINGS
-    SystemCodeIntegrityPoliciesFullInformation,
-    SystemCodeIntegrityUnlockInformation, // SYSTEM_CODEINTEGRITY_UNLOCK_INFORMATION // 190
-    SystemIntegrityQuotaInformation,
-    SystemFlushInformation,             // q: SYSTEM_FLUSH_INFORMATION
-    SystemProcessorIdleMaskInformation, // since REDSTONE3
-    SystemSecureDumpEncryptionInformation,
-    SystemWriteConstraintInformation,      // SYSTEM_WRITE_CONSTRAINT_INFORMATION
-    SystemKernelVaShadowInformation,       // SYSTEM_KERNEL_VA_SHADOW_INFORMATION
-    SystemHypervisorSharedPageInformation, // SYSTEM_HYPERVISOR_SHARED_PAGE_INFORMATION // since REDSTONE4
-    SystemFirmwareBootPerformanceInformation,
-    SystemCodeIntegrityVerificationInformation, // SYSTEM_CODEINTEGRITYVERIFICATION_INFORMATION
-    SystemFirmwarePartitionInformation,         // 200
-    SystemSpeculationControlInformation,     // SYSTEM_SPECULATION_CONTROL_INFORMATION // (CVE-2017-5715) REDSTONE3 and
-                                             // above.
-    SystemDmaGuardPolicyInformation,         // SYSTEM_DMA_GUARD_POLICY_INFORMATION
-    SystemEnclaveLaunchControlInformation,   // SYSTEM_ENCLAVE_LAUNCH_CONTROL_INFORMATION
-    SystemWorkloadAllowedCpuSetsInformation, // SYSTEM_WORKLOAD_ALLOWED_CPU_SET_INFORMATION // since REDSTONE5
-    SystemCodeIntegrityUnlockModeInformation,
-    SystemLeapSecondInformation, // SYSTEM_LEAP_SECOND_INFORMATION
-    SystemFlags2Information,
-    MaxSystemInfoClass
-} SYSTEM_INFORMATION_CLASS;
-
+#if 0
 typedef struct _LDR_DATA_TABLE_ENTRY
 {
     LIST_ENTRY InLoadOrderLinks;
@@ -318,70 +85,20 @@ typedef struct _LDR_DATA_TABLE_ENTRY
     LIST_ENTRY StaticLinks;
 } LDR_DATA_TABLE_ENTRY, *PLDR_DATA_TABLE_ENTRY;
 
-typedef struct _SYSTEM_PROCESS_INFO
+typedef enum _KTHREAD_STATE
 {
-    ULONG NextEntryOffset;
-    ULONG NumberOfThreads;
-    LARGE_INTEGER Reserved[3];
-    LARGE_INTEGER CreateTime;
-    LARGE_INTEGER UserTime;
-    LARGE_INTEGER KernelTime;
-    UNICODE_STRING ImageName;
-    ULONG BasePriority;
-    HANDLE ProcessId;
-    HANDLE InheritedFromProcessId;
-} SYSTEM_PROCESS_INFO, *PSYSTEM_PROCESS_INFO;
-
-typedef struct _RTL_PROCESS_MODULE_INFORMATION
-{
-    HANDLE Section;
-    PVOID MappedBase;
-    PVOID ImageBase;
-    ULONG ImageSize;
-    ULONG Flags;
-    USHORT LoadOrderIndex;
-    USHORT InitOrderIndex;
-    USHORT LoadCount;
-    USHORT OffsetToFileName;
-    UCHAR FullPathName[256];
-} RTL_PROCESS_MODULE_INFORMATION, *PRTL_PROCESS_MODULE_INFORMATION;
-
-typedef struct _RTL_PROCESS_MODULES
-{
-    ULONG NumberOfModules;
-    RTL_PROCESS_MODULE_INFORMATION Modules[1];
-} RTL_PROCESS_MODULES, *PRTL_PROCESS_MODULES;
-
-// private
-typedef struct _RTL_PROCESS_MODULE_INFORMATION_EX
-{
-    USHORT NextOffset;
-    RTL_PROCESS_MODULE_INFORMATION BaseInfo;
-    ULONG ImageChecksum;
-    ULONG TimeDateStamp;
-    PVOID DefaultBase;
-} RTL_PROCESS_MODULE_INFORMATION_EX, *PRTL_PROCESS_MODULE_INFORMATION_EX;
-
-#define CODEINTEGRITY_OPTION_ENABLED 0x01
-#define CODEINTEGRITY_OPTION_TESTSIGN 0x02
-#define CODEINTEGRITY_OPTION_UMCI_ENABLED 0x04
-#define CODEINTEGRITY_OPTION_UMCI_AUDITMODE_ENABLED 0x08
-#define CODEINTEGRITY_OPTION_UMCI_EXCLUSIONPATHS_ENABLED 0x10
-#define CODEINTEGRITY_OPTION_TEST_BUILD 0x20
-#define CODEINTEGRITY_OPTION_PREPRODUCTION_BUILD 0x40
-#define CODEINTEGRITY_OPTION_DEBUGMODE_ENABLED 0x80
-#define CODEINTEGRITY_OPTION_FLIGHT_BUILD 0x100
-#define CODEINTEGRITY_OPTION_FLIGHTING_ENABLED 0x200
-#define CODEINTEGRITY_OPTION_HVCI_KMCI_ENABLED 0x400
-#define CODEINTEGRITY_OPTION_HVCI_KMCI_AUDITMODE_ENABLED 0x800
-#define CODEINTEGRITY_OPTION_HVCI_KMCI_STRICTMODE_ENABLED 0x1000
-#define CODEINTEGRITY_OPTION_HVCI_IUM_ENABLED 0x2000
-
-typedef struct _SYSTEM_CODEINTEGRITY_INFORMATION
-{
-    ULONG Length;
-    ULONG CodeIntegrityOptions;
-} SYSTEM_CODEINTEGRITY_INFORMATION, *PSYSTEM_CODEINTEGRITY_INFORMATION;
+    Initialized,
+    Ready,
+    Running,
+    Standby,
+    Terminated,
+    Waiting,
+    Transition,
+    DeferredReady,
+    GateWaitObsolete,
+    WaitingForProcessInSwap,
+    MaximumThreadState
+} KTHREAD_STATE, *PKTHREAD_STATE;
 
 typedef struct _KLDR_DATA_TABLE_ENTRY
 {
@@ -417,12 +134,10 @@ typedef struct _KLDR_DATA_TABLE_ENTRY
     ULONG SizeOfImageNotRounded;
     ULONG TimeDateStamp;
 } KLDR_DATA_TABLE_ENTRY, *PKLDR_DATA_TABLE_ENTRY;
+#endif
 
 #pragma warning(pop)
 
-//
-// IDE command definitions
-//
 #define IDE_COMMAND_NOP 0x00
 #define IDE_COMMAND_DATA_SET_MANAGEMENT 0x06
 #define IDE_COMMAND_ATAPI_RESET 0x08
@@ -488,9 +203,6 @@ typedef struct _KLDR_DATA_TABLE_ENTRY
 #define IDE_COMMAND_SECURITY_DISABLE_PASSWORD 0xF6
 #define IDE_COMMAND_NOT_VALID 0xFF
 
-//
-// IDE status definitions
-//
 #define IDE_STATUS_ERROR 0x01
 #define IDE_STATUS_INDEX 0x02
 #define IDE_STATUS_CORRECTED_ERROR 0x04
@@ -538,7 +250,6 @@ typedef struct _IDSECTOR
 #pragma pack(push, id_device_data, 1)
 typedef struct _IDENTIFY_DEVICE_DATA
 {
-
     struct
     {
         USHORT Reserved1 : 1;
@@ -1052,14 +763,311 @@ typedef struct _IDENTIFY_DEVICE_DATA
 } IDENTIFY_DEVICE_DATA, *PIDENTIFY_DEVICE_DATA;
 #pragma pack(pop, id_device_data)
 
-EXTERN_C_START
+typedef struct _IMAGE_DOS_HEADER
+{                      // DOS .EXE header
+    USHORT e_magic;    // Magic number
+    USHORT e_cblp;     // Bytes on last page of file
+    USHORT e_cp;       // Pages in file
+    USHORT e_crlc;     // Relocations
+    USHORT e_cparhdr;  // Size of header in paragraphs
+    USHORT e_minalloc; // Minimum extra paragraphs needed
+    USHORT e_maxalloc; // Maximum extra paragraphs needed
+    USHORT e_ss;       // Initial (relative) SS value
+    USHORT e_sp;       // Initial SP value
+    USHORT e_csum;     // Checksum
+    USHORT e_ip;       // Initial IP value
+    USHORT e_cs;       // Initial (relative) CS value
+    USHORT e_lfarlc;   // File address of relocation table
+    USHORT e_ovno;     // Overlay number
+    USHORT e_res[4];   // Reserved words
+    USHORT e_oemid;    // OEM identifier (for e_oeminfo)
+    USHORT e_oeminfo;  // OEM information; e_oemid specific
+    USHORT e_res2[10]; // Reserved words
+    LONG e_lfanew;     // File address of new exe header
+} IMAGE_DOS_HEADER, *PIMAGE_DOS_HEADER;
 
-#if (NTDDI_VERSION >= NTDDI_WIN10)
-extern PLIST_ENTRY PsLoadedModuleList;
-extern PERESOURCE PsLoadedModuleResource;
+typedef struct _IMAGE_FILE_HEADER
+{
+    USHORT Machine;
+    USHORT NumberOfSections;
+    ULONG TimeDateStamp;
+    ULONG PointerToSymbolTable;
+    ULONG NumberOfSymbols;
+    USHORT SizeOfOptionalHeader;
+    USHORT Characteristics;
+} IMAGE_FILE_HEADER, *PIMAGE_FILE_HEADER;
+
+#define IMAGE_SIZEOF_FILE_HEADER 20
+
+#define IMAGE_FILE_RELOCS_STRIPPED 0x0001         // Relocation info stripped from file.
+#define IMAGE_FILE_EXECUTABLE_IMAGE 0x0002        // File is executable  (i.e. no unresolved external references).
+#define IMAGE_FILE_LINE_NUMS_STRIPPED 0x0004      // Line nunbers stripped from file.
+#define IMAGE_FILE_LOCAL_SYMS_STRIPPED 0x0008     // Local symbols stripped from file.
+#define IMAGE_FILE_AGGRESIVE_WS_TRIM 0x0010       // Aggressively trim working set
+#define IMAGE_FILE_LARGE_ADDRESS_AWARE 0x0020     // App can handle >2gb addresses
+#define IMAGE_FILE_BYTES_REVERSED_LO 0x0080       // Bytes of machine word are reversed.
+#define IMAGE_FILE_32BIT_MACHINE 0x0100           // 32 bit word machine.
+#define IMAGE_FILE_DEBUG_STRIPPED 0x0200          // Debugging info stripped from file in .DBG file
+#define IMAGE_FILE_REMOVABLE_RUN_FROM_SWAP 0x0400 // If Image is on removable media, copy and run from the swap file.
+#define IMAGE_FILE_NET_RUN_FROM_SWAP 0x0800       // If Image is on Net, copy and run from the swap file.
+#define IMAGE_FILE_SYSTEM 0x1000                  // System File.
+#define IMAGE_FILE_DLL 0x2000                     // File is a DLL.
+#define IMAGE_FILE_UP_SYSTEM_ONLY 0x4000          // File should only be run on a UP machine
+#define IMAGE_FILE_BYTES_REVERSED_HI 0x8000       // Bytes of machine word are reversed.
+
+#define IMAGE_FILE_MACHINE_UNKNOWN 0
+#define IMAGE_FILE_MACHINE_TARGET_HOST                                                                                 \
+    0x0001                               // Useful for indicating we want to interact with the host and not a WoW guest.
+#define IMAGE_FILE_MACHINE_I386 0x014c   // Intel 386.
+#define IMAGE_FILE_MACHINE_R3000 0x0162  // MIPS little-endian, 0x160 big-endian
+#define IMAGE_FILE_MACHINE_R4000 0x0166  // MIPS little-endian
+#define IMAGE_FILE_MACHINE_R10000 0x0168 // MIPS little-endian
+#define IMAGE_FILE_MACHINE_WCEMIPSV2 0x0169 // MIPS little-endian WCE v2
+#define IMAGE_FILE_MACHINE_ALPHA 0x0184     // Alpha_AXP
+#define IMAGE_FILE_MACHINE_SH3 0x01a2       // SH3 little-endian
+#define IMAGE_FILE_MACHINE_SH3DSP 0x01a3
+#define IMAGE_FILE_MACHINE_SH3E 0x01a4  // SH3E little-endian
+#define IMAGE_FILE_MACHINE_SH4 0x01a6   // SH4 little-endian
+#define IMAGE_FILE_MACHINE_SH5 0x01a8   // SH5
+#define IMAGE_FILE_MACHINE_ARM 0x01c0   // ARM Little-Endian
+#define IMAGE_FILE_MACHINE_THUMB 0x01c2 // ARM Thumb/Thumb-2 Little-Endian
+#define IMAGE_FILE_MACHINE_ARMNT 0x01c4 // ARM Thumb-2 Little-Endian
+#define IMAGE_FILE_MACHINE_AM33 0x01d3
+#define IMAGE_FILE_MACHINE_POWERPC 0x01F0 // IBM PowerPC Little-Endian
+#define IMAGE_FILE_MACHINE_POWERPCFP 0x01f1
+#define IMAGE_FILE_MACHINE_IA64 0x0200      // Intel 64
+#define IMAGE_FILE_MACHINE_MIPS16 0x0266    // MIPS
+#define IMAGE_FILE_MACHINE_ALPHA64 0x0284   // ALPHA64
+#define IMAGE_FILE_MACHINE_MIPSFPU 0x0366   // MIPS
+#define IMAGE_FILE_MACHINE_MIPSFPU16 0x0466 // MIPS
+#define IMAGE_FILE_MACHINE_AXP64 IMAGE_FILE_MACHINE_ALPHA64
+#define IMAGE_FILE_MACHINE_TRICORE 0x0520 // Infineon
+#define IMAGE_FILE_MACHINE_CEF 0x0CEF
+#define IMAGE_FILE_MACHINE_EBC 0x0EBC   // EFI Byte Code
+#define IMAGE_FILE_MACHINE_AMD64 0x8664 // AMD64 (K8)
+#define IMAGE_FILE_MACHINE_M32R 0x9041  // M32R little-endian
+#define IMAGE_FILE_MACHINE_ARM64 0xAA64 // ARM64 Little-Endian
+#define IMAGE_FILE_MACHINE_CEE 0xC0EE
+
+#define IMAGE_FILE_MACHINE_CHPE_X86 0x3A64
+#define IMAGE_FILE_MACHINE_ARM64EC 0xA641
+#define IMAGE_FILE_MACHINE_ARM64X 0xA64E
+
+typedef struct _IMAGE_DATA_DIRECTORY
+{
+    ULONG VirtualAddress;
+    ULONG Size;
+} IMAGE_DATA_DIRECTORY, *PIMAGE_DATA_DIRECTORY;
+
+#define IMAGE_NUMBEROF_DIRECTORY_ENTRIES 16
+
+typedef struct _IMAGE_OPTIONAL_HEADER
+{
+    //
+    // Standard fields.
+    //
+
+    USHORT Magic;
+    UCHAR MajorLinkerVersion;
+    UCHAR MinorLinkerVersion;
+    ULONG SizeOfCode;
+    ULONG SizeOfInitializedData;
+    ULONG SizeOfUninitializedData;
+    ULONG AddressOfEntryPoint;
+    ULONG BaseOfCode;
+    ULONG BaseOfData;
+
+    //
+    // NT additional fields.
+    //
+
+    ULONG ImageBase;
+    ULONG SectionAlignment;
+    ULONG FileAlignment;
+    USHORT MajorOperatingSystemVersion;
+    USHORT MinorOperatingSystemVersion;
+    USHORT MajorImageVersion;
+    USHORT MinorImageVersion;
+    USHORT MajorSubsystemVersion;
+    USHORT MinorSubsystemVersion;
+    ULONG Win32VersionValue;
+    ULONG SizeOfImage;
+    ULONG SizeOfHeaders;
+    ULONG CheckSum;
+    USHORT Subsystem;
+    USHORT DllCharacteristics;
+    ULONG SizeOfStackReserve;
+    ULONG SizeOfStackCommit;
+    ULONG SizeOfHeapReserve;
+    ULONG SizeOfHeapCommit;
+    ULONG LoaderFlags;
+    ULONG NumberOfRvaAndSizes;
+    IMAGE_DATA_DIRECTORY DataDirectory[IMAGE_NUMBEROF_DIRECTORY_ENTRIES];
+} IMAGE_OPTIONAL_HEADER32, *PIMAGE_OPTIONAL_HEADER32;
+
+typedef struct _IMAGE_OPTIONAL_HEADER64
+{
+    USHORT Magic;
+    UCHAR MajorLinkerVersion;
+    UCHAR MinorLinkerVersion;
+    ULONG SizeOfCode;
+    ULONG SizeOfInitializedData;
+    ULONG SizeOfUninitializedData;
+    ULONG AddressOfEntryPoint;
+    ULONG BaseOfCode;
+    ULONGLONG ImageBase;
+    ULONG SectionAlignment;
+    ULONG FileAlignment;
+    USHORT MajorOperatingSystemVersion;
+    USHORT MinorOperatingSystemVersion;
+    USHORT MajorImageVersion;
+    USHORT MinorImageVersion;
+    USHORT MajorSubsystemVersion;
+    USHORT MinorSubsystemVersion;
+    ULONG Win32VersionValue;
+    ULONG SizeOfImage;
+    ULONG SizeOfHeaders;
+    ULONG CheckSum;
+    USHORT Subsystem;
+    USHORT DllCharacteristics;
+    ULONGLONG SizeOfStackReserve;
+    ULONGLONG SizeOfStackCommit;
+    ULONGLONG SizeOfHeapReserve;
+    ULONGLONG SizeOfHeapCommit;
+    ULONG LoaderFlags;
+    ULONG NumberOfRvaAndSizes;
+    IMAGE_DATA_DIRECTORY DataDirectory[IMAGE_NUMBEROF_DIRECTORY_ENTRIES];
+} IMAGE_OPTIONAL_HEADER64, *PIMAGE_OPTIONAL_HEADER64;
+
+#define IMAGE_NT_OPTIONAL_HDR32_MAGIC 0x10b
+#define IMAGE_NT_OPTIONAL_HDR64_MAGIC 0x20b
+#define IMAGE_ROM_OPTIONAL_HDR_MAGIC 0x107
+
+#ifdef _WIN64
+typedef IMAGE_OPTIONAL_HEADER64 IMAGE_OPTIONAL_HEADER;
+typedef PIMAGE_OPTIONAL_HEADER64 PIMAGE_OPTIONAL_HEADER;
+#define IMAGE_NT_OPTIONAL_HDR_MAGIC IMAGE_NT_OPTIONAL_HDR64_MAGIC
+#else
+typedef IMAGE_OPTIONAL_HEADER32 IMAGE_OPTIONAL_HEADER;
+typedef PIMAGE_OPTIONAL_HEADER32 PIMAGE_OPTIONAL_HEADER;
+#define IMAGE_NT_OPTIONAL_HDR_MAGIC IMAGE_NT_OPTIONAL_HDR32_MAGIC
 #endif
 
-NTSYSAPI POBJECT_TYPE *IoDriverObjectType;
+typedef struct _IMAGE_NT_HEADERS64
+{
+    ULONG Signature;
+    IMAGE_FILE_HEADER FileHeader;
+    IMAGE_OPTIONAL_HEADER64 OptionalHeader;
+} IMAGE_NT_HEADERS64, *PIMAGE_NT_HEADERS64;
+
+typedef struct _IMAGE_NT_HEADERS
+{
+    ULONG Signature;
+    IMAGE_FILE_HEADER FileHeader;
+    IMAGE_OPTIONAL_HEADER32 OptionalHeader;
+} IMAGE_NT_HEADERS32, *PIMAGE_NT_HEADERS32;
+
+#ifdef _WIN64
+typedef IMAGE_NT_HEADERS64 IMAGE_NT_HEADERS;
+typedef PIMAGE_NT_HEADERS64 PIMAGE_NT_HEADERS;
+#else
+typedef IMAGE_NT_HEADERS32 IMAGE_NT_HEADERS;
+typedef PIMAGE_NT_HEADERS32 PIMAGE_NT_HEADERS;
+#endif
+
+// IMAGE_FIRST_SECTION doesn't need 32/64 versions since the file header is the same either way.
+
+#define IMAGE_FIRST_SECTION(ntheader)                                                                                  \
+    ((PIMAGE_SECTION_HEADER)((ULONG_PTR)(ntheader) + FIELD_OFFSET(IMAGE_NT_HEADERS, OptionalHeader) +                  \
+                             ((ntheader))->FileHeader.SizeOfOptionalHeader))
+
+// Subsystem Values
+
+#define IMAGE_SUBSYSTEM_UNKNOWN 0     // Unknown subsystem.
+#define IMAGE_SUBSYSTEM_NATIVE 1      // Image doesn't require a subsystem.
+#define IMAGE_SUBSYSTEM_WINDOWS_GUI 2 // Image runs in the Windows GUI subsystem.
+#define IMAGE_SUBSYSTEM_WINDOWS_CUI 3 // Image runs in the Windows character subsystem.
+// end_winnt
+// reserved                                  4   // Old Windows CE subsystem.
+// begin_winnt
+#define IMAGE_SUBSYSTEM_OS2_CUI 5                  // image runs in the OS/2 character subsystem.
+#define IMAGE_SUBSYSTEM_POSIX_CUI 7                // image runs in the Posix character subsystem.
+#define IMAGE_SUBSYSTEM_NATIVE_WINDOWS 8           // image is a native Win9x driver.
+#define IMAGE_SUBSYSTEM_WINDOWS_CE_GUI 9           // Image runs in the Windows CE subsystem.
+#define IMAGE_SUBSYSTEM_EFI_APPLICATION 10         //
+#define IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER 11 //
+#define IMAGE_SUBSYSTEM_EFI_RUNTIME_DRIVER 12      //
+#define IMAGE_SUBSYSTEM_EFI_ROM 13
+#define IMAGE_SUBSYSTEM_XBOX 14
+#define IMAGE_SUBSYSTEM_WINDOWS_BOOT_APPLICATION 16
+#define IMAGE_SUBSYSTEM_XBOX_CODE_CATALOG 17
+
+// DllCharacteristics Entries
+
+//      IMAGE_LIBRARY_PROCESS_INIT            0x0001     // Reserved.
+//      IMAGE_LIBRARY_PROCESS_TERM            0x0002     // Reserved.
+//      IMAGE_LIBRARY_THREAD_INIT             0x0004     // Reserved.
+//      IMAGE_LIBRARY_THREAD_TERM             0x0008     // Reserved.
+#define IMAGE_DLLCHARACTERISTICS_HIGH_ENTROPY_VA 0x0020 // Image can handle a high entropy 64-bit virtual address space.
+#define IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE 0x0040    // DLL can move.
+#define IMAGE_DLLCHARACTERISTICS_FORCE_INTEGRITY 0x0080 // Code Integrity Image
+#define IMAGE_DLLCHARACTERISTICS_NX_COMPAT 0x0100       // Image is NX compatible
+#define IMAGE_DLLCHARACTERISTICS_NO_ISOLATION 0x0200    // Image understands isolation and doesn't want it
+#define IMAGE_DLLCHARACTERISTICS_NO_SEH 0x0400       // Image does not use SEH.  No SE handler may reside in this image
+#define IMAGE_DLLCHARACTERISTICS_NO_BIND 0x0800      // Do not bind this image.
+#define IMAGE_DLLCHARACTERISTICS_APPCONTAINER 0x1000 // Image should execute in an AppContainer
+#define IMAGE_DLLCHARACTERISTICS_WDM_DRIVER 0x2000   // Driver uses WDM model
+#define IMAGE_DLLCHARACTERISTICS_GUARD_CF 0x4000     // Image supports Control Flow Guard.
+#define IMAGE_DLLCHARACTERISTICS_TERMINAL_SERVER_AWARE 0x8000
+
+// Note: The Borland linker sets IMAGE_LIBRARY_xxx flags in DllCharacteristics
+
+// LoaderFlags Values
+
+#define IMAGE_LOADER_FLAGS_COMPLUS 0x00000001       // COM+ image
+#define IMAGE_LOADER_FLAGS_SYSTEM_GLOBAL 0x01000000 // Global subsections apply across TS sessions.
+
+// Directory Entries
+
+#define IMAGE_DIRECTORY_ENTRY_EXPORT 0    // Export Directory
+#define IMAGE_DIRECTORY_ENTRY_IMPORT 1    // Import Directory
+#define IMAGE_DIRECTORY_ENTRY_RESOURCE 2  // Resource Directory
+#define IMAGE_DIRECTORY_ENTRY_EXCEPTION 3 // Exception Directory
+#define IMAGE_DIRECTORY_ENTRY_SECURITY 4  // Security Directory
+#define IMAGE_DIRECTORY_ENTRY_BASERELOC 5 // Base Relocation Table
+#define IMAGE_DIRECTORY_ENTRY_DEBUG 6     // Debug Directory
+//      IMAGE_DIRECTORY_ENTRY_COPYRIGHT       7   // (X86 usage)
+#define IMAGE_DIRECTORY_ENTRY_ARCHITECTURE 7    // Architecture Specific Data
+#define IMAGE_DIRECTORY_ENTRY_GLOBALPTR 8       // RVA of GP
+#define IMAGE_DIRECTORY_ENTRY_TLS 9             // TLS Directory
+#define IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG 10    // Load Configuration Directory
+#define IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT 11   // Bound Import Directory in headers
+#define IMAGE_DIRECTORY_ENTRY_IAT 12            // Import Address Table
+#define IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT 13   // Delay Load Import Descriptors
+#define IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR 14 // COM Runtime descriptor
+
+#define IMAGE_SIZEOF_SHORT_NAME 8
+
+typedef struct _IMAGE_SECTION_HEADER
+{
+    UCHAR Name[IMAGE_SIZEOF_SHORT_NAME];
+    union {
+        ULONG PhysicalAddress;
+        ULONG VirtualSize;
+    } Misc;
+    ULONG VirtualAddress;
+    ULONG SizeOfRawData;
+    ULONG PointerToRawData;
+    ULONG PointerToRelocations;
+    ULONG PointerToLinenumbers;
+    USHORT NumberOfRelocations;
+    USHORT NumberOfLinenumbers;
+    ULONG Characteristics;
+} IMAGE_SECTION_HEADER, *PIMAGE_SECTION_HEADER;
+
+#define IMAGE_SIZEOF_SECTION_HEADER 40
+
+EXTERN_C_START
 
 NTSYSAPI BOOLEAN NTAPI PsIsProtectedProcess(_In_ PEPROCESS Process);
 
@@ -1088,7 +1096,6 @@ NTSYSAPI NTSTATUS NTAPI ZwQueryInformationProcess(_In_ HANDLE ProcessHandle,
 NTSYSAPI
 PIMAGE_NT_HEADERS
 NTAPI
-RtlImageNtHeader(
-    IN PVOID ModuleAddress);
+RtlImageNtHeader(IN PVOID ModuleAddress);
 
 EXTERN_C_END

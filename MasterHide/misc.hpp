@@ -8,14 +8,43 @@ static constexpr ULONG TAG_DEFAULT = '00hm';
 static constexpr ULONG TAG_HASH_TABLE = '10hm';
 } // namespace tags
 
+namespace mutex
+{
+class EResource
+{
+  public:
+    EResource() = default;
+    ~EResource() = default;
+
+    NTSTATUS Initialize() noexcept;
+    NTSTATUS Destroy() noexcept;
+
+    BOOLEAN LockExclusive() noexcept;
+    BOOLEAN LockShared() noexcept;
+    void Unlock() noexcept;
+
+    __forceinline ERESOURCE &Get() noexcept
+    {
+        return this->_eresource;
+    }
+
+  private:
+    bool _initialized = false;
+    ERESOURCE _eresource{};
+};
+} // namespace mutex
+
 namespace syscalls
 {
 /// <summary>
-/// This function is resposible for initialize and fill the syscall dynamic hash table.
+/// Initialize and fill the syscall dynamic hash table.
 /// </summary>
-/// <returns>NTSTATUS value</returns>
+/// <returns>true on success otherwise false</returns>
 bool Init();
 
+/// <summary>
+/// Release the syscall dynamic hash table if initialized.
+/// </summary>
 void Destroy();
 
 /// <summary>
@@ -28,8 +57,26 @@ USHORT GetSyscallIndexByName(_In_ LPCSTR serviceName);
 
 namespace tools
 {
-const PUCHAR FindCodeCave(PUCHAR Code, ULONG ulCodeSize, size_t CaveLength);
+/// <summary>
+/// Try to find code cave in specified memory area.
+/// </summary>
+/// <param name="startAddress">Start address to search</param>
+/// <param name="searchSize">Total number of bytes to search</param>
+/// <param name="sizeNeeded">Total number of bytes needed</param>
+/// <returns>Memory address to be used, otherwise nullptr</returns>
+const UCHAR *FindCodeCave(const UCHAR *startAddress, ULONG searchSize, ULONG sizeNeeded);
 
+HANDLE GetProcessIdFromProcessHandle(_In_ HANDLE processHandle);
+HANDLE GetProcessIdFromThreadHandle(_In_ HANDLE threadHandle);
+bool HasDebugPrivilege();
+
+/// <summary>
+/// Obtains full file name for PEPROCESS, on success the processImageName has to be free'd using RtlFreeUnicodeString
+/// when not used anymore.
+/// </summary>
+/// <param name="process">Process to obtain file name</param>
+/// <param name="processImageName">Full file name in NT format</param>
+/// <returns>true on success, otherwise false</returns>
 _Success_(return != false) bool GetProcessFileName(_In_ PEPROCESS process, _Out_ PUNICODE_STRING processImageName);
 
 bool GetProcessFileName(_In_ HANDLE processId, _Out_ PUNICODE_STRING processImageName);
@@ -77,7 +124,6 @@ template <typename T = void *> inline T AllocatePoolZero(POOL_TYPE poolType, SIZ
 }
 
 NTSTATUS MapFileInSystemSpace(_In_ PUNICODE_STRING FileName, _Out_ PVOID *MappedBase, _Out_opt_ SIZE_T *MappedSize);
-extern bool DumpMZ(PUCHAR pImageBase);
-extern void UnloadImages();
+bool DumpPE(PUCHAR moduleBase, PUNICODE_STRING saveFileName);
 } // namespace tools
 } // namespace masterhide

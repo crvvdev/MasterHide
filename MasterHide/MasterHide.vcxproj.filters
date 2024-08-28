@@ -57,7 +57,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="winnt.hpp">
+    <ClInclude Include="ntfill.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="includes.hpp">
@@ -84,9 +84,6 @@
     <ClInclude Include="hooks.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="globals.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\hooks.hpp">
       <Filter>Header Files\KasperskyHook</Filter>
     </ClInclude>
@@ -94,6 +91,12 @@
       <Filter>Header Files\KasperskyHook</Filter>
     </ClInclude>
     <ClInclude Include="fnv1a.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="process.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="wpp_trace.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

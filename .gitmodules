@@ -1,3 +1,6 @@
 [submodule "KasperskyHook"]
 	path = KasperskyHook
 	url = https://github.com/iPower/KasperskyHook/
+[submodule "MasterHide/thirdparty/phnt"]
+	path = MasterHide/thirdparty/phnt
+	url = https://github.com/winsiderss/phnt.git

@@ -68,11 +68,15 @@
       <AdditionalDependencies>$(DDK_LIB_PATH)\BufferOverflowK.lib;$(DDK_LIB_PATH)ntoskrnl.lib;$(DDK_LIB_PATH)hal.lib;$(DDK_LIB_PATH)wmilib.lib</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>..\KasperskyHook\KasperskyHookDrv;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_NO_CRT_STDIO_INLINE;__STDC_WANT_SECURE_LIB__=0;SCOPE_GUARD_NO_THROW_ACTION;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <AdditionalIncludeDirectories>$(VC_IncludePath);$(KM_IncludePath);$(KIT_SHARED_IncludePath);$(ProjectDir)thirdparty\phnt;$(SolutionDir)KasperskyHook\KasperskyHookDrv;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>PHNT_VERSION=PHNT_WIN11;PHNT_MODE=PHNT_KERNEL;TMH_FILE=%(FileName)%(Extension).tmh;_NO_CRT_STDIO_INLINE;__STDC_WANT_SECURE_LIB__=0;SCOPE_GUARD_NO_THROW_ACTION;USE_KASPERSKY;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <DisableSpecificWarnings>4996;4201;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <ControlFlowGuard>false</ControlFlowGuard>
+      <WppEnabled>true</WppEnabled>
+      <WppTraceFunction>WppTracePrint(LEVEL,EVENT,MSG,...)</WppTraceFunction>
+      <WppFileExtensions>.c.cpp.h.hpp</WppFileExtensions>
+      <WppPreserveExtensions>.c.cpp.h.hpp</WppPreserveExtensions>
     </ClCompile>
     <Inf>
       <SpecifyArchitecture>false</SpecifyArchitecture>
@@ -89,11 +93,15 @@
       <AdditionalDependencies>$(DDK_LIB_PATH)\BufferOverflowK.lib;$(DDK_LIB_PATH)ntoskrnl.lib;$(DDK_LIB_PATH)hal.lib;$(DDK_LIB_PATH)wmilib.lib</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>..\KasperskyHook\KasperskyHookDrv;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <AdditionalIncludeDirectories>$(VC_IncludePath);$(KM_IncludePath);$(KIT_SHARED_IncludePath);$(ProjectDir)thirdparty\phnt;$(SolutionDir)KasperskyHook\KasperskyHookDrv;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4996;4201;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <PreprocessorDefinitions>_NO_CRT_STDIO_INLINE;__STDC_WANT_SECURE_LIB__=0;SCOPE_GUARD_NO_THROW_ACTION;_WIN64;_AMD64_;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>PHNT_VERSION=PHNT_WIN11;PHNT_MODE=PHNT_KERNEL;TMH_FILE=%(FileName)%(Extension).tmh;_NO_CRT_STDIO_INLINE;__STDC_WANT_SECURE_LIB__=0;SCOPE_GUARD_NO_THROW_ACTION;USE_KASPERSKY;_WIN64;_AMD64_;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ControlFlowGuard>false</ControlFlowGuard>
+      <WppEnabled>true</WppEnabled>
+      <WppTraceFunction>WppTracePrint(LEVEL,EVENT,MSG,...)</WppTraceFunction>
+      <WppFileExtensions>.c.cpp.h.hpp</WppFileExtensions>
+      <WppPreserveExtensions>.c.cpp.h.hpp</WppPreserveExtensions>
     </ClCompile>
     <Inf>
       <SpecifyArchitecture>false</SpecifyArchitecture>
@@ -131,13 +139,14 @@
     <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\pe.hpp" />
     <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\utils.hpp" />
     <ClInclude Include="fnv1a.hpp" />
-    <ClInclude Include="globals.hpp" />
     <ClInclude Include="hooks.hpp" />
+    <ClInclude Include="process.hpp" />
     <ClInclude Include="shadow_ssdt.hpp" />
     <ClInclude Include="ssdt.hpp" />
     <ClInclude Include="includes.hpp" />
     <ClInclude Include="misc.hpp" />
-    <ClInclude Include="winnt.hpp" />
+    <ClInclude Include="ntfill.hpp" />
+    <ClInclude Include="wpp_trace.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

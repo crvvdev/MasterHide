@@ -81,8 +81,6 @@ extern "C" NTSTATUS NTAPI DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STR
 
     pDriverObject->DriverUnload = &DriverUnload;
 
-    // attach to win32k process first please.
-
     PEPROCESS winlogon = tools::GetProcessByName(L"winlogon.exe");
     if (!winlogon)
     {
@@ -90,6 +88,7 @@ extern "C" NTSTATUS NTAPI DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STR
         return STATUS_FAILED_DRIVER_ENTRY;
     }
 
+    // attach to win32k process first please.
     KeAttachProcess(winlogon);
 
     syscalls::Init();
@@ -97,6 +96,7 @@ extern "C" NTSTATUS NTAPI DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STR
     sssdt::Init();
 
     KeDetachProcess();
+    ObDereferenceObject(winlogon);
 
     DBGPRINT("MasterHide loaded!");
 

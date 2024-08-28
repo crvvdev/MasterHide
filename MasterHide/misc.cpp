@@ -138,13 +138,26 @@ bool Init()
 
     RtlInitHashTableContext(&g_hashTableContext);
 
-    g_initialized = true;
-
     UNICODE_STRING ntdll = RTL_CONSTANT_STRING(L"\\SystemRoot\\System32\\ntdll.dll");
     UNICODE_STRING win32u = RTL_CONSTANT_STRING(L"\\SystemRoot\\System32\\win32u.dll");
 
-    FillSyscallTable(&ntdll);
-    FillSyscallTable(&win32u);
+    NTSTATUS status = FillSyscallTable(&ntdll);
+    if (!NT_SUCCESS(status))
+    {
+        ExFreePool(g_hashTable);
+        DBGPRINT("Err: Failed to fill NT service table!");
+        return false;
+    }
+
+    status = FillSyscallTable(&win32u);
+    if (!NT_SUCCESS(status))
+    {
+        ExFreePool(g_hashTable);
+        DBGPRINT("Err: Failed to fill Win32K service table!");
+        return false;
+    }
+
+    g_initialized = true;
 
     return true;
 }
@@ -223,6 +236,63 @@ USHORT GetSyscallIndexByName(_In_ LPCSTR serviceName)
 
 namespace tools
 {
+HANDLE GetProcessIdFromProcessHandle(_In_ HANDLE processHandle)
+{
+    PAGED_CODE();
+    NT_ASSERT(processHandle);
+
+    if (processHandle == ZwCurrentProcess())
+    {
+        return PsGetCurrentProcessId();
+    }
+
+    HANDLE processId = 0;
+    PEPROCESS process = nullptr;
+
+    const NTSTATUS status = ObReferenceObjectByHandle(processHandle, 0, *PsProcessType, KernelMode,
+                                                      reinterpret_cast<PVOID *>(&process), nullptr);
+    if (NT_SUCCESS(status))
+    {
+        processId = PsGetProcessId(process);
+        ObDereferenceObject(process);
+    }
+    return processId;
+}
+
+HANDLE GetProcessIdFromThreadHandle(_In_ HANDLE threadHandle)
+{
+    PAGED_CODE();
+    NT_ASSERT(threadHandle);
+
+    if (threadHandle == ZwCurrentThread())
+    {
+        return PsGetCurrentProcessId();
+    }
+
+    HANDLE processId = 0;
+    PETHREAD thread = nullptr;
+
+    const NTSTATUS status = ObReferenceObjectByHandle(threadHandle, 0, *PsThreadType, KernelMode,
+                                                      reinterpret_cast<PVOID *>(&thread), nullptr);
+    if (NT_SUCCESS(status))
+    {
+        processId = PsGetProcessId(PsGetThreadProcess(thread));
+        ObDereferenceObject(thread);
+    }
+    return processId;
+}
+
+bool HasDebugPrivilege()
+{
+    LUID PrivilageValue;
+    PrivilageValue.LowPart = SE_DEBUG_PRIVILEGE;
+    if (SeSinglePrivilegeCheck(PrivilageValue, UserMode) == FALSE)
+    {
+        return false;
+    }
+    return true;
+}
+
 bool GetProcessFileName(_In_ PEPROCESS process, _Out_ PUNICODE_STRING processImageName)
 {
     NT_ASSERT(processImageName);
@@ -348,92 +418,145 @@ PEPROCESS GetProcessByName(_In_ LPCWSTR processName)
     return nullptr;
 }
 
-bool DumpMZ(PUCHAR pImageBase)
+bool DumpPE(PUCHAR moduleBase, PUNICODE_STRING saveFileName)
 {
+    PAGED_CODE();
+    NT_ASSERT(moduleBase);
+    NT_ASSERT(saveFileName);
+
     __try
     {
-        if (!pImageBase)
-        {
-            DBGPRINT("[ DumpMZ ] Invalid image base!\n");
-            return false;
-        }
-
-        ProbeForRead(pImageBase, sizeof(pImageBase), __alignof(pImageBase));
-
-        PIMAGE_DOS_HEADER dos = PIMAGE_DOS_HEADER(pImageBase);
+        PIMAGE_DOS_HEADER dos = PIMAGE_DOS_HEADER(moduleBase);
         if (dos->e_magic != IMAGE_DOS_SIGNATURE)
         {
-            DBGPRINT("[ DumpMZ ] Invalid DOS signature!\n");
+            DBGPRINT("Err: Invalid DOS signature!");
             return false;
         }
 
-        PIMAGE_NT_HEADERS32 nt32 = PIMAGE_NT_HEADERS32(pImageBase + dos->e_lfanew);
-        if (nt32->Signature != IMAGE_NT_SIGNATURE)
+        PIMAGE_NT_HEADERS64 nth64 = PIMAGE_NT_HEADERS64(moduleBase + dos->e_lfanew);
+        if (nth64->Signature != IMAGE_NT_SIGNATURE)
         {
-            DBGPRINT("[ DumpMZ ] Invalid NT signature!\n");
+            DBGPRINT("Err: Invalid NT signature!");
             return false;
         }
 
-        ULONG uImageSize = NULL;
+        PIMAGE_NT_HEADERS32 nth32 = nullptr;
+        ULONG imageSize = 0;
 
-        if (nt32->FileHeader.Machine == IMAGE_FILE_MACHINE_I386)
+        if (nth64->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
         {
-            uImageSize = nt32->OptionalHeader.SizeOfImage;
+            nth32 = PIMAGE_NT_HEADERS32(nth64);
+            imageSize = nth32->OptionalHeader.SizeOfImage;
+        }
+        else if (nth64->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
+        {
+            imageSize = nth64->OptionalHeader.SizeOfImage;
         }
         else
         {
-            PIMAGE_NT_HEADERS64 nt64 = PIMAGE_NT_HEADERS64(pImageBase + dos->e_lfanew);
-            uImageSize = nt64->OptionalHeader.SizeOfImage;
-        }
-
-        if (KeGetCurrentIrql() != PASSIVE_LEVEL)
-        {
-            DBGPRINT("[ DumpMZ ] Curerent IRQL too high for IO operations!\n");
+            DBGPRINT("Unsupported module architecture!");
             return false;
         }
 
-        DBGPRINT("[ DumpMZ ] ImageBase: 0x%p\n", pImageBase);
-        DBGPRINT("[ DumpMZ ] ImageSize: 0x%X\n", uImageSize);
+        auto imageBuffer = tools::AllocatePoolZero<PUCHAR>(NonPagedPool, imageSize, tags::TAG_DEFAULT);
+        if (!imageBuffer)
+        {
+            DBGPRINT("Failed to allocate %d bytes to dump module!", imageSize);
+            return false;
+        }
 
-        wchar_t wsFilePath[MAX_PATH]{};
-        RtlStringCbPrintfW(wsFilePath, sizeof(wsFilePath), L"\\SystemRoot\\Dumped_%p.dll", pImageBase);
+        SCOPE_EXIT
+        {
+            ExFreePool(imageBuffer);
+        };
 
-        DBGPRINT("[ DumpMZ ] Save Location: %ws\n", wsFilePath);
+        PIMAGE_SECTION_HEADER section = nullptr;
 
-        UNICODE_STRING wsFinalPath{};
-        RtlInitUnicodeString(&wsFinalPath, wsFilePath);
+        //
+        // Write headers
+        //
+        if (nth32)
+        {
+            RtlCopyMemory(imageBuffer, moduleBase, nth32->OptionalHeader.SizeOfHeaders);
+        }
+        else
+        {
+            RtlCopyMemory(imageBuffer, moduleBase, nth64->OptionalHeader.SizeOfHeaders);
+        }
+
+        //
+        // Fix sections
+        //
+        if (nth32)
+        {
+            ULONG i = 0;
+
+            for (section = IMAGE_FIRST_SECTION(nth32); i < nth32->FileHeader.NumberOfSections; ++i, ++section)
+            {
+                RtlCopyMemory(imageBuffer + section->PointerToRawData, moduleBase + section->VirtualAddress,
+                              section->SizeOfRawData);
+            }
+        }
+        else
+        {
+            ULONG i = 0;
+
+            for (section = IMAGE_FIRST_SECTION(nth64); i < nth64->FileHeader.NumberOfSections; ++i, ++section)
+            {
+                RtlCopyMemory(imageBuffer + section->PointerToRawData, moduleBase + section->VirtualAddress,
+                              section->SizeOfRawData);
+            }
+        }
+
+        /* wchar_t wsFilePath[MAX_PATH]{};
+         RtlStringCbPrintfW(wsFilePath, sizeof(wsFilePath), L"\\SystemRoot\\Dumped_%p.dll", pImageBase);
+
+         DBGPRINT("[ DumpMZ ] Save Location: %ws\n", wsFilePath);
+
+         UNICODE_STRING wsFinalPath{};
+         RtlInitUnicodeString(&wsFinalPath, wsFilePath);*/
 
         OBJECT_ATTRIBUTES oa{};
-        InitializeObjectAttributes(&oa, &wsFinalPath, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, NULL, NULL);
+        InitializeObjectAttributes(&oa, saveFileName, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, nullptr, nullptr);
 
-        IO_STATUS_BLOCK io{};
-        HANDLE hFile{};
+        IO_STATUS_BLOCK iosb{};
 
-        auto res = ZwCreateFile(&hFile, GENERIC_WRITE, &oa, &io, NULL, FILE_ATTRIBUTE_NORMAL, 0, FILE_OVERWRITE_IF,
-                                FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0);
+        HANDLE fileHandle{};
 
-        if (!NT_SUCCESS(res))
+        //
+        // Write fixed PE file to disk
+        //
+        NTSTATUS status = ZwCreateFile(&fileHandle, FILE_ALL_ACCESS, &oa, &iosb, nullptr, FILE_ATTRIBUTE_NORMAL,
+                                       FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_OVERWRITE_IF,
+                                       FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT, nullptr, 0);
+        if (!NT_SUCCESS(status))
         {
-            DBGPRINT("[ DumpMZ ] ZwCreateFile failed 0x%X\n", res);
+            DBGPRINT("Err: ZwCreateFile returned 0x%08X", status);
             return false;
         }
 
-        res = ZwWriteFile(hFile, NULL, NULL, NULL, &io, pImageBase, uImageSize, NULL, NULL);
-        if (!NT_SUCCESS(res))
+        SCOPE_EXIT
         {
-            ZwClose(hFile);
-            DBGPRINT("[ DumpMZ ] ZwWriteFile failed 0x%X\n", res);
+            ZwClose(fileHandle);
+        };
+
+        RtlZeroMemory(&iosb, sizeof(IO_STATUS_BLOCK));
+        status = ZwWriteFile(fileHandle, nullptr, nullptr, nullptr, &iosb, imageBuffer, imageSize, nullptr, nullptr);
+        if (!NT_SUCCESS(status))
+        {
+            DBGPRINT("Err: ZwWriteFile returned 0x%08X", status);
             return false;
         }
 
-        DBGPRINT("[ DumpMZ ] Dump success!\n");
-        ZwClose(hFile);
-        return false;
+        DBGPRINT("Module at 0x%p successfully dumped to %wZ", moduleBase, saveFileName);
     }
     __except (EXCEPTION_EXECUTE_HANDLER)
     {
+        DBGPRINT("Err: DumpPE exception 0x%08X", GetExceptionCode());
         return false;
     }
+
+    return true;
 }
 
 PVOID GetKernelBase()
@@ -463,10 +586,10 @@ bool GetModuleInformation(_In_ const char *moduleName, _Out_ PVOID *moduleBase, 
     }
 
     // Just in case the info size increases in between calls.
-    returnedBytes *= (1 << 8);
+    returnedBytes += (1 << 13);
 
     auto systemInfoBuffer =
-        tools::AllocatePoolZero<PSYSTEM_MODULE_INFORMATION>(PagedPool, returnedBytes, tags::TAG_DEFAULT);
+        tools::AllocatePoolZero<PRTL_PROCESS_MODULES>(NonPagedPool, returnedBytes, tags::TAG_DEFAULT);
     if (!systemInfoBuffer)
     {
         DBGPRINT("Err: Failed to allocate memory for ZwQuerySystemInformation\n");
@@ -485,17 +608,17 @@ bool GetModuleInformation(_In_ const char *moduleName, _Out_ PVOID *moduleBase, 
         return false;
     }
 
-    for (unsigned i = 0; i < systemInfoBuffer->ModulesCount; ++i)
+    for (ULONG i = 0; i < systemInfoBuffer->NumberOfModules; ++i)
     {
-        const SYSTEM_MODULE *systemModule = &systemInfoBuffer->Modules[i];
+        const RTL_PROCESS_MODULE_INFORMATION *systemModule = &systemInfoBuffer->Modules[i];
 
-        if (!strcmp(systemModule->ImageName + systemModule->ModuleNameOffset, moduleName))
+        if (!strcmp((PCHAR)systemModule->FullPathName + systemModule->OffsetToFileName, moduleName))
         {
-            *moduleBase = systemModule->Base;
+            *moduleBase = systemModule->ImageBase;
 
             if (moduleSize)
             {
-                *moduleSize = systemModule->Size;
+                *moduleSize = systemModule->ImageSize;
             }
 
             return true;
@@ -578,22 +701,20 @@ NTSTATUS MapFileInSystemSpace(_In_ PUNICODE_STRING FileName, _Out_ PVOID *Mapped
     return STATUS_SUCCESS;
 }
 
-const PUCHAR FindCodeCave(PUCHAR Code, ULONG ulCodeSize, size_t CaveLength)
+const UCHAR *FindCodeCave(const UCHAR *startAddress, ULONG searchSize, ULONG sizeNeeded)
 {
-    for (unsigned i = 0, j = 0; i < ulCodeSize; i++)
+    for (ULONG i = 0, j = 0; i < searchSize; i++)
     {
-        if (Code[i] == 0x90 || Code[i] == 0xCC)
+        if (startAddress[i] == 0x90 || startAddress[i] == 0xCC)
         {
-            j++;
+            if (++j == sizeNeeded)
+            {
+                return startAddress + i - sizeNeeded + 1;
+            }
         }
         else
         {
             j = 0;
-        }
-
-        if (j == CaveLength)
-        {
-            return PUCHAR((ULONG_PTR)Code + i - CaveLength + 1);
         }
     }
     return nullptr;
