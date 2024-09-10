@@ -1,26 +1,61 @@
 #pragma once
 
+#ifdef USE_KASPERSKY
+#include "kaspersky.hpp"
+#endif
+
 namespace masterhide
 {
-namespace process
-{
-bool IsProtectedProcess(_In_ HANDLE processId);
-bool IsProtectedProcess(_In_ LPCWSTR processName);
-bool IsProtectedProcess(_In_ PEPROCESS process);
-bool IsMonitoredProcess(_In_ HANDLE processId);
-bool IsMonitoredProcess(_In_ PEPROCESS process);
-bool IsBlacklistedProcess(_In_ HANDLE processId);
-bool IsBlacklistedProcess(_In_ PEPROCESS process);
-} // namespace process
-
 namespace hooks
 {
-inline ERESOURCE g_resource{};
-
-void WaitForHooksCompletion();
-
+// Struct
 //
-// SSDT Hooks
+typedef struct _HOOK_ENTRY
+{
+    USHORT SyscallNum;
+    PVOID Original;
+    PVOID Current;
+    bool Shadow;
+    LIST_ENTRY ListEntry;
+
+} HOOK_ENTRY, *PHOOK_ENTRY;
+
+// Globals
+//
+inline LIST_ENTRY g_hooksListHead{};
+inline KMUTEX g_ntCloseMutex{};
+inline volatile LONG g_refCount = 0;
+inline bool g_initialized = false;
+
+using ENUM_HOOKS_CALLBACK = bool (*)(_In_ PHOOK_ENTRY);
+
+template <typename Callback = ENUM_HOOKS_CALLBACK> bool EnumHooks(_In_ Callback &&callback)
+{
+    NT_ASSERT(g_initialized);
+
+    if (IsListEmpty(&g_hooksListHead))
+    {
+        // No entries in list.
+        return false;
+    }
+
+    for (PLIST_ENTRY listEntry = g_hooksListHead.Flink; listEntry != &g_hooksListHead; listEntry = listEntry->Flink)
+    {
+        PHOOK_ENTRY hookEntry = CONTAINING_RECORD(listEntry, HOOK_ENTRY, ListEntry);
+        if (callback(hookEntry))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Functions
+//
+NTSTATUS Initialize();
+void Deinitialize();
+
+// SSDT hooks
 //
 NTSTATUS NTAPI hkNtQuerySystemInformation(SYSTEM_INFORMATION_CLASS SystemInformationClass, PVOID Buffer, ULONG Length,
                                           PULONG ReturnLength);
@@ -64,6 +99,10 @@ NTSTATUS NTAPI hkNtSetInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS 
                                          PVOID ProcessInformation, ULONG ProcessInformationLength);
 inline decltype(&hkNtSetInformationProcess) oNtSetInformationProcess = nullptr;
 
+NTSTATUS NTAPI hkNtQueryInformationThread(HANDLE ThreadHandle, THREADINFOCLASS ThreadInformationClass,
+                                          PVOID ThreadInformation, ULONG ThreadInformationLength, PULONG ReturnLength);
+inline decltype(&hkNtQueryInformationThread) oNtQueryInformationThread = nullptr;
+
 NTSTATUS NTAPI hkNtQueryObject(HANDLE Handle, OBJECT_INFORMATION_CLASS ObjectInformationClass, PVOID ObjectInformation,
                                ULONG ObjectInformationLength, PULONG ReturnLength);
 inline decltype(&hkNtQueryObject) oNtQueryObject = nullptr;
@@ -74,7 +113,19 @@ inline decltype(&hkNtGetContextThread) oNtGetContextThread = nullptr;
 NTSTATUS NTAPI hkNtSetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext);
 inline decltype(&hkNtSetContextThread) oNtSetContextThread = nullptr;
 
-//
+NTSTATUS NTAPI hkNtContinue(PCONTEXT Context, ULONG64 TestAlert);
+inline decltype(&hkNtContinue) oNtContinue = nullptr;
+
+NTSTATUS NTAPI hkNtYieldExecution();
+inline decltype(&hkNtYieldExecution) oNtYieldExecution = nullptr;
+
+NTSTATUS NTAPI hkNtClose(HANDLE Handle);
+inline decltype(&hkNtClose) oNtClose = nullptr;
+
+NTSTATUS NTAPI hkNtSystemDebugControl(SYSDBG_COMMAND Command, PVOID InputBuffer, ULONG InputBufferLength,
+                                      PVOID OutputBuffer, ULONG OutputBufferLength, PULONG ReturnLength);
+inline decltype(&hkNtSystemDebugControl) oNtSystemDebugControl = nullptr;
+
 // Shadow SSDT hooks
 //
 inline HWND(NTAPI *NtUserGetThreadState)(ThreadStateRoutines Routine) = nullptr;

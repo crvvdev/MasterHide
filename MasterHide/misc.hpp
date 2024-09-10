@@ -5,55 +5,63 @@ namespace masterhide
 namespace tags
 {
 static constexpr ULONG TAG_DEFAULT = '00hm';
-static constexpr ULONG TAG_HASH_TABLE = '10hm';
+static constexpr ULONG TAG_STRING = '10hm';
+static constexpr ULONG TAG_HASH_TABLE = '20hm';
+static constexpr ULONG TAG_PROCESS_ENTRY = '30hm';
+static constexpr ULONG TAG_PROCESS_RULE_ENTRY = '40hm';
+static constexpr ULONG TAG_THREAD_ENTRY = '50hm';
+static constexpr ULONG TAG_IMAGE_PATH_ENTRY = '60hm';
+static constexpr ULONG TAG_HOOK = '70hm';
 } // namespace tags
 
 namespace mutex
 {
+/// <summary>
+/// Helper class for executive resouces (ERESOUCE)
+/// </summary>
 class EResource
 {
   public:
     EResource() = default;
     ~EResource() = default;
 
-    NTSTATUS Initialize() noexcept;
-    NTSTATUS Destroy() noexcept;
+    NTSTATUS Initialize();
+    NTSTATUS Deinitialize();
 
-    BOOLEAN LockExclusive() noexcept;
-    BOOLEAN LockShared() noexcept;
-    void Unlock() noexcept;
+    /// <summary>
+    /// Obtains exclusive lock
+    /// </summary>
+    /// <param name="wait">Thread shoud block until lock is acquired or not</param>
+    /// <returns>TRUE on success, otherwise FALSE</returns>
+    BOOLEAN LockExclusive(_In_ BOOLEAN wait = TRUE);
 
-    __forceinline ERESOURCE &Get() noexcept
+    /// <summary>
+    /// Obtains shared lock
+    /// </summary>
+    /// <param name="wait">Thread shoud block until lock is acquired or not</param>
+    /// <returns>TRUE on success, otherwise FALSE</returns>
+    BOOLEAN LockShared(_In_ BOOLEAN wait = TRUE);
+
+    /// <summary>
+    /// Unlock executive resource
+    /// </summary>
+    void Unlock();
+
+    /// <summary>
+    /// Get pointer to ERESOURCE
+    /// </summary>
+    /// <returns></returns>
+    __forceinline ERESOURCE &Get()
     {
-        return this->_eresource;
+        return _eresource;
     }
 
   private:
     bool _initialized = false;
+    LONG _refCount = 0;
     ERESOURCE _eresource{};
 };
 } // namespace mutex
-
-namespace syscalls
-{
-/// <summary>
-/// Initialize and fill the syscall dynamic hash table.
-/// </summary>
-/// <returns>true on success otherwise false</returns>
-bool Init();
-
-/// <summary>
-/// Release the syscall dynamic hash table if initialized.
-/// </summary>
-void Destroy();
-
-/// <summary>
-/// This function returns a syscall index by service name.
-/// </summary>
-/// <param name="serviceName">Service name to extract syscall index from.</param>
-/// <returns></returns>
-USHORT GetSyscallIndexByName(_In_ LPCSTR serviceName);
-} // namespace syscalls
 
 namespace tools
 {
@@ -64,7 +72,7 @@ namespace tools
 /// <param name="searchSize">Total number of bytes to search</param>
 /// <param name="sizeNeeded">Total number of bytes needed</param>
 /// <returns>Memory address to be used, otherwise nullptr</returns>
-const UCHAR *FindCodeCave(const UCHAR *startAddress, ULONG searchSize, ULONG sizeNeeded);
+UCHAR *FindCodeCave(UCHAR *const startAddress, ULONG searchSize, ULONG sizeNeeded);
 
 HANDLE GetProcessIdFromProcessHandle(_In_ HANDLE processHandle);
 HANDLE GetProcessIdFromThreadHandle(_In_ HANDLE threadHandle);
@@ -125,5 +133,14 @@ template <typename T = void *> inline T AllocatePoolZero(POOL_TYPE poolType, SIZ
 
 NTSTATUS MapFileInSystemSpace(_In_ PUNICODE_STRING FileName, _Out_ PVOID *MappedBase, _Out_opt_ SIZE_T *MappedSize);
 bool DumpPE(PUCHAR moduleBase, PUNICODE_STRING saveFileName);
+ULONG64 GetPteAddress(ULONG64 Address);
+
+_IRQL_requires_max_(PASSIVE_LEVEL)
+    _When_(NT_SUCCESS(return), _Outptr_result_buffer_(return) _At_(*systemInfo, __drv_allocatesMem(Mem))) NTSTATUS
+    QuerySystemInformation(
+        _In_ SYSTEM_INFORMATION_CLASS systemInfoClass,
+        _Outptr_result_maybenull_ _At_(*systemInfo, _Pre_maybenull_ _Post_notnull_ _Post_writable_byte_size_(return))
+            PVOID *systemInfo);
+
 } // namespace tools
 } // namespace masterhide

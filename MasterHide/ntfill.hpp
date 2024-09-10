@@ -1,10 +1,75 @@
 #pragma once
 
+#define WINDOWS_7 7600
+#define WINDOWS_7_SP1 7601
+#define WINDOWS_8 9200
+#define WINDOWS_8_1 9600
+#define WINDOWS_10_VERSION_THRESHOLD1 10240
+#define WINDOWS_10_VERSION_THRESHOLD2 10586
+#define WINDOWS_10_VERSION_REDSTONE1 14393
+#define WINDOWS_10_VERSION_REDSTONE2 15063
+#define WINDOWS_10_VERSION_REDSTONE3 16299
+#define WINDOWS_10_VERSION_REDSTONE4 17134
+#define WINDOWS_10_VERSION_REDSTONE5 17763
+#define WINDOWS_10_VERSION_19H1 18362
+#define WINDOWS_10_VERSION_19H2 18363
+#define WINDOWS_10_VERSION_20H1 19041
+#define WINDOWS_10_VERSION_20H2 19042
+#define WINDOWS_10_VERSION_21H1 19043
+#define WINDOWS_10_VERSION_21H2 19044
+#define WINDOWS_10_VERSION_22H2 19045
+#define WINDOWS_11 22000
+
 #pragma warning(push)
 #pragma warning(disable : 4201)
 
 #define PROCESS_DEBUG_INHERIT 0x00000001    // default for a non-debugged process
 #define PROCESS_NO_DEBUG_INHERIT 0x00000002 // default for a debugged process
+
+#define HEAP_SKIP_VALIDATION_CHECKS 0x10000000
+#define HEAP_VALIDATE_PARAMETERS_ENABLED 0x40000000
+
+FORCEINLINE
+SSIZE_T InterlockedIncrementSSizeT(_Inout_ _Interlocked_operand_ volatile SSIZE_T *Target)
+{
+    return (SSIZE_T)InterlockedIncrementSizeT((SIZE_T *)Target);
+}
+
+FORCEINLINE
+SSIZE_T InterlockedDecrementSSizeT(_Inout_ _Interlocked_operand_ volatile SSIZE_T *Target)
+{
+    return (SSIZE_T)InterlockedDecrementSizeT((SIZE_T *)Target);
+}
+
+FORCEINLINE
+SIZE_T InterlockedCompareExchangeSizeT(_Inout_ _Interlocked_operand_ volatile SIZE_T *Target, _In_ SIZE_T Value,
+                                       _In_ SIZE_T Expected)
+{
+    return (SIZE_T)InterlockedCompareExchangePointer((PVOID *)Target, (PVOID)Value, (PVOID)Expected);
+}
+
+FORCEINLINE
+SIZE_T InterlockedExchangeIfGreaterSizeT(_Inout_ _Interlocked_operand_ volatile SIZE_T *Target, _In_ SIZE_T Value)
+{
+    SIZE_T expected;
+
+    for (;;)
+    {
+        expected = ReadSizeTAcquire(Target);
+
+        if (Value <= expected)
+        {
+            break;
+        }
+
+        if (InterlockedCompareExchangeSizeT(Target, Value, expected) == expected)
+        {
+            break;
+        }
+    }
+
+    return expected;
+}
 
 typedef enum _WINDOWINFOCLASS
 {
@@ -44,6 +109,12 @@ enum ThreadStateRoutines
     THREADSTATE_GETTHREADINFO,
 };
 
+typedef enum _SYSDBG_COMMAND
+{
+    SysDbgGetTriageDump = 29,
+    SysDbgGetLiveKernelDump = 37 // Windows 8.1+
+} SYSDBG_COMMAND, *PSYSDBG_COMMAND;
+
 typedef struct _SYSTEM_SERVICE_TABLE
 {
     PVOID ServiceTableBase;
@@ -52,53 +123,77 @@ typedef struct _SYSTEM_SERVICE_TABLE
     PVOID ParamTableBase;
 } SYSTEM_SERVICE_TABLE, *PSYSTEM_SERVICE_TABLE;
 
-#if 0
-typedef struct _LDR_DATA_TABLE_ENTRY
+typedef struct _OBJECT_ALL_INFORMATION
 {
-    LIST_ENTRY InLoadOrderLinks;
-    LIST_ENTRY InMemoryOrderLinks;
-    LIST_ENTRY InInitializationOrderLinks;
-    PVOID DllBase;
-    PVOID EntryPoint;
-    ULONG SizeOfImage;
-    UNICODE_STRING FullDllName;
-    UNICODE_STRING BaseDllName;
-    ULONG Flags;
-    USHORT LoadCount;
-    USHORT TlsIndex;
-    union {
-        LIST_ENTRY HashLinks;
-        struct
-        {
-            PVOID SectionPointer;
-            ULONG CheckSum;
-        };
-    };
-    union {
-        ULONG TimeDateStamp;
-        PVOID LoadedImports;
-    };
-    struct _ACTIVATION_CONTEXT *EntryPointActivationContext;
-    PVOID PatchInformation;
-    LIST_ENTRY ForwarderLinks;
-    LIST_ENTRY ServiceTagLinks;
-    LIST_ENTRY StaticLinks;
-} LDR_DATA_TABLE_ENTRY, *PLDR_DATA_TABLE_ENTRY;
+    ULONG NumberOfObjectsTypes;
+    OBJECT_TYPE_INFORMATION ObjectInformation[1];
+} OBJECT_ALL_INFORMATION, *POBJECT_ALL_INFORMATION;
 
-typedef enum _KTHREAD_STATE
+typedef union _WOW64_APC_CONTEXT {
+    struct
+    {
+        ULONG Apc32BitContext;
+        ULONG Apc32BitRoutine;
+    };
+
+    PVOID Apc64BitContext;
+
+} WOW64_APC_CONTEXT, *PWOW64_APC_CONTEXT;
+
+#define WOW64_SIZE_OF_80387_REGISTERS 80
+#define WOW64_MAXIMUM_SUPPORTED_EXTENSION 512
+
+typedef struct _WOW64_FLOATING_SAVE_AREA
 {
-    Initialized,
-    Ready,
-    Running,
-    Standby,
-    Terminated,
-    Waiting,
-    Transition,
-    DeferredReady,
-    GateWaitObsolete,
-    WaitingForProcessInSwap,
-    MaximumThreadState
-} KTHREAD_STATE, *PKTHREAD_STATE;
+    ULONG ControlWord;
+    ULONG StatusWord;
+    ULONG TagWord;
+    ULONG ErrorOffset;
+    ULONG ErrorSelector;
+    ULONG DataOffset;
+    ULONG DataSelector;
+    UCHAR RegisterArea[WOW64_SIZE_OF_80387_REGISTERS];
+    ULONG Cr0NpxState;
+} WOW64_FLOATING_SAVE_AREA;
+
+#pragma pack(push, 4)
+
+typedef struct _WOW64_CONTEXT
+{
+    ULONG ContextFlags;
+
+    ULONG Dr0;
+    ULONG Dr1;
+    ULONG Dr2;
+    ULONG Dr3;
+    ULONG Dr6;
+    ULONG Dr7;
+
+    WOW64_FLOATING_SAVE_AREA FloatSave;
+
+    ULONG SegGs;
+    ULONG SegFs;
+    ULONG SegEs;
+    ULONG SegDs;
+
+    ULONG Edi;
+    ULONG Esi;
+    ULONG Ebx;
+    ULONG Edx;
+    ULONG Ecx;
+    ULONG Eax;
+
+    ULONG Ebp;
+    ULONG Eip;
+    ULONG SegCs;
+    ULONG EFlags;
+    ULONG Esp;
+    ULONG SegSs;
+
+    UCHAR ExtendedRegisters[WOW64_MAXIMUM_SUPPORTED_EXTENSION];
+} WOW64_CONTEXT, *PWOW64_CONTEXT;
+
+#pragma pack(pop)
 
 typedef struct _KLDR_DATA_TABLE_ENTRY
 {
@@ -134,7 +229,146 @@ typedef struct _KLDR_DATA_TABLE_ENTRY
     ULONG SizeOfImageNotRounded;
     ULONG TimeDateStamp;
 } KLDR_DATA_TABLE_ENTRY, *PKLDR_DATA_TABLE_ENTRY;
-#endif
+
+typedef struct _OBJECT_HANDLE_ATTRIBUTE_INFORMATION
+{
+    BOOLEAN Inherit;
+    BOOLEAN ProtectFromClose;
+} OBJECT_HANDLE_ATTRIBUTE_INFORMATION, *POBJECT_HANDLE_ATTRIBUTE_INFORMATION;
+
+typedef struct _PEB32
+{
+    UCHAR InheritedAddressSpace;    // 0x0
+    UCHAR ReadImageFileExecOptions; // 0x1
+    UCHAR BeingDebugged;            // 0x2
+    union {
+        UCHAR BitField; // 0x3
+        struct
+        {
+            UCHAR ImageUsesLargePages : 1;          // 0x3
+            UCHAR IsProtectedProcess : 1;           // 0x3
+            UCHAR IsImageDynamicallyRelocated : 1;  // 0x3
+            UCHAR SkipPatchingUser32Forwarders : 1; // 0x3
+            UCHAR IsPackagedProcess : 1;            // 0x3
+            UCHAR IsAppContainer : 1;               // 0x3
+            UCHAR IsProtectedProcessLight : 1;      // 0x3
+            UCHAR IsLongPathAwareProcess : 1;       // 0x3
+        };
+    };
+    ULONG Mutant;            // 0x4
+    ULONG ImageBaseAddress;  // 0x8
+    ULONG Ldr;               // 0xc
+    ULONG ProcessParameters; // 0x10
+    ULONG SubSystemData;     // 0x14
+    ULONG ProcessHeap;       // 0x18
+    ULONG FastPebLock;       // 0x1c
+    ULONG AtlThunkSListPtr;  // 0x20
+    ULONG IFEOKey;           // 0x24
+    union {
+        ULONG CrossProcessFlags; // 0x28
+        struct
+        {
+            ULONG ProcessInJob : 1;               // 0x28
+            ULONG ProcessInitializing : 1;        // 0x28
+            ULONG ProcessUsingVEH : 1;            // 0x28
+            ULONG ProcessUsingVCH : 1;            // 0x28
+            ULONG ProcessUsingFTH : 1;            // 0x28
+            ULONG ProcessPreviouslyThrottled : 1; // 0x28
+            ULONG ProcessCurrentlyThrottled : 1;  // 0x28
+            ULONG ProcessImagesHotPatched : 1;    // 0x28
+            ULONG ReservedBits0 : 24;             // 0x28
+        };
+    };
+    union {
+        ULONG KernelCallbackTable; // 0x2c
+        ULONG UserSharedInfoPtr;   // 0x2c
+    };
+    ULONG SystemReserved;                     // 0x30
+    ULONG AtlThunkSListPtr32;                 // 0x34
+    ULONG ApiSetMap;                          // 0x38
+    ULONG TlsExpansionCounter;                // 0x3c
+    ULONG TlsBitmap;                          // 0x40
+    ULONG TlsBitmapBits[2];                   // 0x44
+    ULONG ReadOnlySharedMemoryBase;           // 0x4c
+    ULONG SharedData;                         // 0x50
+    ULONG ReadOnlyStaticServerData;           // 0x54
+    ULONG AnsiCodePageData;                   // 0x58
+    ULONG OemCodePageData;                    // 0x5c
+    ULONG UnicodeCaseTableData;               // 0x60
+    ULONG NumberOfProcessors;                 // 0x64
+    ULONG NtGlobalFlag;                       // 0x68
+    LARGE_INTEGER CriticalSectionTimeout;     // 0x70
+    ULONG HeapSegmentReserve;                 // 0x78
+    ULONG HeapSegmentCommit;                  // 0x7c
+    ULONG HeapDeCommitTotalFreeThreshold;     // 0x80
+    ULONG HeapDeCommitFreeBlockThreshold;     // 0x84
+    ULONG NumberOfHeaps;                      // 0x88
+    ULONG MaximumNumberOfHeaps;               // 0x8c
+    ULONG ProcessHeaps;                       // 0x90
+    ULONG GdiSharedHandleTable;               // 0x94
+    ULONG ProcessStarterHelper;               // 0x98
+    ULONG GdiDCAttributeList;                 // 0x9c
+    ULONG LoaderLock;                         // 0xa0
+    ULONG OSMajorVersion;                     // 0xa4
+    ULONG OSMinorVersion;                     // 0xa8
+    USHORT OSBuildNumber;                     // 0xac
+    USHORT OSCSDVersion;                      // 0xae
+    ULONG OSPlatformId;                       // 0xb0
+    ULONG ImageSubsystem;                     // 0xb4
+    ULONG ImageSubsystemMajorVersion;         // 0xb8
+    ULONG ImageSubsystemMinorVersion;         // 0xbc
+    ULONG ActiveProcessAffinityMask;          // 0xc0
+    ULONG GdiHandleBuffer[34];                // 0xc4
+    ULONG PostProcessInitRoutine;             // 0x14c
+    ULONG TlsExpansionBitmap;                 // 0x150
+    ULONG TlsExpansionBitmapBits[32];         // 0x154
+    ULONG SessionId;                          // 0x1d4
+    ULARGE_INTEGER AppCompatFlags;            // 0x1d8
+    ULARGE_INTEGER AppCompatFlagsUser;        // 0x1e0
+    ULONG pShimData;                          // 0x1e8
+    ULONG AppCompatInfo;                      // 0x1ec
+    STRING32 CSDVersion;                      // 0x1f0
+    ULONG ActivationContextData;              // 0x1f8
+    ULONG ProcessAssemblyStorageMap;          // 0x1fc
+    ULONG SystemDefaultActivationContextData; // 0x200
+    ULONG SystemAssemblyStorageMap;           // 0x204
+    ULONG MinimumStackCommit;                 // 0x208
+    ULONG SparePointers[4];                   // 0x20c
+    ULONG SpareUlongs[5];                     // 0x21c
+    ULONG WerRegistrationData;                // 0x230
+    ULONG WerShipAssertPtr;                   // 0x234
+    ULONG pUnused;                            // 0x238
+    ULONG pImageHeaderHash;                   // 0x23c
+    union {
+        ULONG TracingFlags; // 0x240
+        struct
+        {
+            ULONG HeapTracingEnabled : 1;      // 0x240
+            ULONG CritSecTracingEnabled : 1;   // 0x240
+            ULONG LibLoaderTracingEnabled : 1; // 0x240
+            ULONG SpareTracingBits : 29;       // 0x240
+        };
+    };
+    ULONGLONG CsrServerReadOnlySharedMemoryBase;  // 0x248
+    ULONG TppWorkerpListLock;                     // 0x250
+    LIST_ENTRY32 TppWorkerpList;                  // 0x254
+    ULONG WaitOnAddressHashTable[128];            // 0x25c
+    ULONG TelemetryCoverageHeader;                // 0x45c
+    ULONG CloudFileFlags;                         // 0x460
+    ULONG CloudFileDiagFlags;                     // 0x464
+    CHAR PlaceholderCompatibilityMode;            // 0x468
+    CHAR PlaceholderCompatibilityModeReserved[7]; // 0x469
+    ULONG LeapSecondData;                         // 0x470
+    union {
+        ULONG LeapSecondFlags; // 0x474
+        struct
+        {
+            ULONG SixtySecondEnabled : 1; // 0x474
+            ULONG Reserved : 31;          // 0x474
+        };
+    };
+    ULONG NtGlobalFlag2; // 0x478
+} PEB32, *PPEB32;
 
 #pragma warning(pop)
 
@@ -247,7 +481,7 @@ typedef struct _IDSECTOR
     UCHAR bReserved[128];
 } IDSECTOR, *PIDSECTOR;
 
-#pragma pack(push, id_device_data, 1)
+#pragma pack(push, 1)
 typedef struct _IDENTIFY_DEVICE_DATA
 {
     struct
@@ -761,7 +995,266 @@ typedef struct _IDENTIFY_DEVICE_DATA
     USHORT CheckSum : 8;
 
 } IDENTIFY_DEVICE_DATA, *PIDENTIFY_DEVICE_DATA;
-#pragma pack(pop, id_device_data)
+#pragma pack(pop)
+
+typedef struct _HEAP_UNPACKED_ENTRY
+{
+    VOID *PreviousBlockPrivateData; // 0x0
+    union {
+        struct
+        {
+            USHORT Size;         // 0x8
+            UCHAR Flags;         // 0xa
+            UCHAR SmallTagIndex; // 0xb
+        } set1;
+        struct
+        {
+            ULONG SubSegmentCode; // 0x8
+            USHORT PreviousSize;  // 0xc
+            union {
+                UCHAR SegmentOffset; // 0xe
+                UCHAR LFHFlags;      // 0xe
+            };
+            UCHAR UnusedBytes; // 0xf
+        } set2;
+        ULONGLONG CompactHeader; // 0x8
+    };
+} HEAP_UNPACKED_ENTRY, *PHEAP_UNPACKED_ENTRY;
+
+typedef struct _HEAP_EXTENDED_ENTRY
+{
+    VOID *Reserved; // 0x0
+    union {
+        struct
+        {
+            USHORT FunctionIndex; // 0x8
+            USHORT ContextValue;  // 0xa
+        };
+        ULONG InterceptorValue; // 0x8
+    };
+    USHORT UnusedBytesLength;     // 0xc
+    UCHAR EntryOffset;            // 0xe
+    UCHAR ExtendedBlockSignature; // 0xf
+} HEAP_EXTENDED_ENTRY, *PHEAP_EXTENDED_ENTRY;
+
+typedef struct _HEAP_ENTRY
+{
+    union {
+        HEAP_UNPACKED_ENTRY UnpackedEntry; // 0x0
+        struct
+        {
+            VOID *PreviousBlockPrivateData; // 0x0
+            union {
+                struct
+                {
+                    USHORT Size;         // 0x8
+                    UCHAR Flags;         // 0xa
+                    UCHAR SmallTagIndex; // 0xb
+                };
+                struct
+                {
+                    ULONG SubSegmentCode; // 0x8
+                    USHORT PreviousSize;  // 0xc
+                    union {
+                        UCHAR SegmentOffset; // 0xe
+                        UCHAR LFHFlags;      // 0xe
+                    };
+                    UCHAR UnusedBytes; // 0xf
+                };
+                ULONGLONG CompactHeader; // 0x8
+            };
+        };
+        HEAP_EXTENDED_ENTRY ExtendedEntry; // 0x0
+        struct
+        {
+            VOID *Reserved; // 0x0
+            union {
+                struct
+                {
+                    USHORT FunctionIndex; // 0x8
+                    USHORT ContextValue;  // 0xa
+                };
+                ULONG InterceptorValue; // 0x8
+            };
+            USHORT UnusedBytesLength;     // 0xc
+            UCHAR EntryOffset;            // 0xe
+            UCHAR ExtendedBlockSignature; // 0xf
+        };
+        struct
+        {
+            VOID *ReservedForAlignment; // 0x0
+            union {
+                struct
+                {
+                    ULONG Code1; // 0x8
+                    union {
+                        struct
+                        {
+                            USHORT Code2; // 0xc
+                            UCHAR Code3;  // 0xe
+                            UCHAR Code4;  // 0xf
+                        };
+                        ULONG Code234; // 0xc
+                    };
+                };
+                ULONGLONG AgregateCode; // 0x8
+            };
+        };
+    };
+} HEAP_ENTRY, *PHEAP_ENTRY;
+
+typedef struct _HEAP_SEGMENT
+{
+    HEAP_ENTRY Entry;                      // 0x0
+    ULONG SegmentSignature;                // 0x10
+    ULONG SegmentFlags;                    // 0x14
+    LIST_ENTRY SegmentListEntry;           // 0x18
+    VOID *Heap;                            // 0x28
+    VOID *BaseAddress;                     // 0x30
+    ULONG NumberOfPages;                   // 0x38
+    HEAP_ENTRY *FirstEntry;                // 0x40
+    HEAP_ENTRY *LastValidEntry;            // 0x48
+    ULONG NumberOfUnCommittedPages;        // 0x50
+    ULONG NumberOfUnCommittedRanges;       // 0x54
+    USHORT SegmentAllocatorBackTraceIndex; // 0x58
+    USHORT Reserved;                       // 0x5a
+    LIST_ENTRY UCRSegmentList;             // 0x60
+} HEAP_SEGMENT, *PHEAP_SEGMENT;
+
+typedef struct _HEAP_TAG_ENTRY
+{
+    ULONG Allocs;                 // 0x0
+    ULONG Frees;                  // 0x4
+    ULONGLONG Size;               // 0x8
+    USHORT TagIndex;              // 0x10
+    USHORT CreatorBackTraceIndex; // 0x12
+    WCHAR TagName[24];            // 0x14
+} HEAP_TAG_ENTRY, *PHEAP_TAG_ENTRY;
+
+typedef struct _HEAP_PSEUDO_TAG_ENTRY
+{
+    ULONG Allocs;   // 0x0
+    ULONG Frees;    // 0x4
+    ULONGLONG Size; // 0x8
+} HEAP_PSEUDO_TAG_ENTRY, *PHEAP_PSEUDO_TAG_ENTRY;
+
+// typedef struct _HEAP_LOCK
+//{
+//     union
+//     {
+//         RTL_CRITICAL_SECTION CriticalSection;                       //0x0
+//         ERESOURCE Resource;                                         //0x0
+//     } Lock;                                                                 //0x0
+// }HEAP_LOCK, * PHEAP_LOCK;
+
+// typedef struct _RTL_HEAP_MEMORY_LIMIT_DATA
+//{
+//     ULONGLONG CommitLimitBytes;                                             //0x0
+//     ULONGLONG CommitLimitFailureCode;                                       //0x8
+//     ULONGLONG MaxAllocationSizeBytes;                                       //0x10
+//     ULONGLONG AllocationLimitFailureCode;                                   //0x18
+// }RTL_HEAP_MEMORY_LIMIT_DATA, * PRTL_HEAP_MEMORY_LIMIT_DATA;
+
+typedef struct _HEAP_COUNTERS
+{
+    ULONGLONG TotalMemoryReserved;      // 0x0
+    ULONGLONG TotalMemoryCommitted;     // 0x8
+    ULONGLONG TotalMemoryLargeUCR;      // 0x10
+    ULONGLONG TotalSizeInVirtualBlocks; // 0x18
+    ULONG TotalSegments;                // 0x20
+    ULONG TotalUCRs;                    // 0x24
+    ULONG CommittOps;                   // 0x28
+    ULONG DeCommitOps;                  // 0x2c
+    ULONG LockAcquires;                 // 0x30
+    ULONG LockCollisions;               // 0x34
+    ULONG CommitRate;                   // 0x38
+    ULONG DecommittRate;                // 0x3c
+    ULONG CommitFailures;               // 0x40
+    ULONG InBlockCommitFailures;        // 0x44
+    ULONG PollIntervalCounter;          // 0x48
+    ULONG DecommitsSinceLastCheck;      // 0x4c
+    ULONG HeapPollInterval;             // 0x50
+    ULONG AllocAndFreeOps;              // 0x54
+    ULONG AllocationIndicesActive;      // 0x58
+    ULONG InBlockDeccommits;            // 0x5c
+    ULONGLONG InBlockDeccomitSize;      // 0x60
+    ULONGLONG HighWatermarkSize;        // 0x68
+    ULONGLONG LastPolledSize;           // 0x70
+} HEAP_COUNTERS, *PHEAP_COUNTERS;
+
+typedef struct _HEAP_TUNING_PARAMETERS
+{
+    ULONG CommittThresholdShift;      // 0x0
+    ULONGLONG MaxPreCommittThreshold; // 0x8
+} HEAP_TUNING_PARAMETERS, *PHEAP_TUNING_PARAMETERS;
+
+typedef struct _HEAP
+{
+    union {
+        HEAP_SEGMENT Segment; // 0x0
+        struct
+        {
+            HEAP_ENTRY Entry;                      // 0x0
+            ULONG SegmentSignature;                // 0x10 //0x8
+            ULONG SegmentFlags;                    // 0x14 //0xC
+            LIST_ENTRY SegmentListEntry;           // 0x18  //0x10
+            VOID *Heap;                            // 0x28  //0x18
+            VOID *BaseAddress;                     // 0x30  //0x1c
+            ULONG NumberOfPages;                   // 0x38  //0x20
+            HEAP_ENTRY *FirstEntry;                // 0x40  //0x24
+            HEAP_ENTRY *LastValidEntry;            // 0x48  //0x28
+            ULONG NumberOfUnCommittedPages;        // 0x50  //0x2c
+            ULONG NumberOfUnCommittedRanges;       // 0x54
+            USHORT SegmentAllocatorBackTraceIndex; // 0x58
+            USHORT Reserved;                       // 0x5a
+            LIST_ENTRY UCRSegmentList;             // 0x60
+        };
+    };
+    ULONG Flags;                                                     // 0x70
+    ULONG ForceFlags;                                                // 0x74
+    ULONG CompatibilityFlags;                                        // 0x78
+    ULONG EncodeFlagMask;                                            // 0x7c
+    HEAP_ENTRY Encoding;                                             // 0x80
+    ULONG Interceptor;                                               // 0x90
+    ULONG VirtualMemoryThreshold;                                    // 0x94
+    ULONG Signature;                                                 // 0x98
+    ULONGLONG SegmentReserve;                                        // 0xa0
+    ULONGLONG SegmentCommit;                                         // 0xa8
+    ULONGLONG DeCommitFreeBlockThreshold;                            // 0xb0
+    ULONGLONG DeCommitTotalFreeThreshold;                            // 0xb8
+    ULONGLONG TotalFreeSize;                                         // 0xc0
+    ULONGLONG MaximumAllocationSize;                                 // 0xc8
+    USHORT ProcessHeapsListIndex;                                    // 0xd0
+    USHORT HeaderValidateLength;                                     // 0xd2
+    VOID *HeaderValidateCopy;                                        // 0xd8
+    USHORT NextAvailableTagIndex;                                    // 0xe0
+    USHORT MaximumTagIndex;                                          // 0xe2
+    PHEAP_TAG_ENTRY TagEntries;                                      // 0xe8
+    LIST_ENTRY UCRList;                                              // 0xf0
+    ULONGLONG AlignRound;                                            // 0x100
+    ULONGLONG AlignMask;                                             // 0x108
+    LIST_ENTRY VirtualAllocdBlocks;                                  // 0x110
+    LIST_ENTRY SegmentList;                                          // 0x120
+    USHORT AllocatorBackTraceIndex;                                  // 0x130
+    ULONG NonDedicatedListLength;                                    // 0x134
+    VOID *BlocksIndex;                                               // 0x138
+    VOID *UCRIndex;                                                  // 0x140
+    PHEAP_PSEUDO_TAG_ENTRY PseudoTagEntries;                         // 0x148
+    LIST_ENTRY FreeLists;                                            // 0x150
+    PVOID LockVariable;                                              // 0x160
+    LONG (*CommitRoutine)(VOID *arg1, VOID **arg2, ULONGLONG *arg3); // 0x168
+    RTL_RUN_ONCE StackTraceInitVar;                                  // 0x170
+    VOID *CommitLimitData;                                           // 0x178
+    VOID *FrontEndHeap;                                              // 0x198
+    USHORT FrontHeapLockCount;                                       // 0x1a0
+    UCHAR FrontEndHeapType;                                          // 0x1a2
+    UCHAR RequestedFrontEndHeapType;                                 // 0x1a3
+    WCHAR *FrontEndHeapUsageData;                                    // 0x1a8
+    USHORT FrontEndHeapMaximumIndex;                                 // 0x1b0
+    volatile UCHAR FrontEndHeapStatusBitmap[129];                    // 0x1b2
+    HEAP_COUNTERS Counters;                                          // 0x238
+    HEAP_TUNING_PARAMETERS TuningParameters;                         // 0x2b0
+} HEAP, *PHEAP;
 
 typedef struct _IMAGE_DOS_HEADER
 {                      // DOS .EXE header
@@ -981,6 +1474,25 @@ typedef PIMAGE_NT_HEADERS32 PIMAGE_NT_HEADERS;
     ((PIMAGE_SECTION_HEADER)((ULONG_PTR)(ntheader) + FIELD_OFFSET(IMAGE_NT_HEADERS, OptionalHeader) +                  \
                              ((ntheader))->FileHeader.SizeOfOptionalHeader))
 
+//
+// Export Format
+//
+
+typedef struct _IMAGE_EXPORT_DIRECTORY
+{
+    ULONG Characteristics;
+    ULONG TimeDateStamp;
+    USHORT MajorVersion;
+    USHORT MinorVersion;
+    ULONG Name;
+    ULONG Base;
+    ULONG NumberOfFunctions;
+    ULONG NumberOfNames;
+    ULONG AddressOfFunctions;
+    ULONG AddressOfNames;
+    ULONG AddressOfNameOrdinals;
+} IMAGE_EXPORT_DIRECTORY, *PIMAGE_EXPORT_DIRECTORY;
+
 // Subsystem Values
 
 #define IMAGE_SUBSYSTEM_UNKNOWN 0     // Unknown subsystem.
@@ -1067,7 +1579,20 @@ typedef struct _IMAGE_SECTION_HEADER
 
 #define IMAGE_SIZEOF_SECTION_HEADER 40
 
+#define IMAGE_DOS_SIGNATURE 0x5A4D    // MZ
+#define IMAGE_NT_SIGNATURE 0x00004550 // PE00
+
 EXTERN_C_START
+
+NTKERNELAPI PVOID NTAPI PsGetProcessWow64Process(IN PEPROCESS Process);
+
+NTKERNELAPI PVOID NTAPI PsGetCurrentProcessWow64Process();
+
+NTKERNELAPI PPEB NTAPI PsGetProcessPeb(IN PEPROCESS Process);
+
+NTSYSAPI BOOLEAN NTAPI PsIsProcessBeingDebugged(PEPROCESS Process);
+
+NTSYSAPI PVOID RtlPcToFileHeader(_In_ PVOID PcValue, _Out_ PVOID *BaseOfImage);
 
 NTSYSAPI BOOLEAN NTAPI PsIsProtectedProcess(_In_ PEPROCESS Process);
 
@@ -1093,9 +1618,14 @@ NTSYSAPI NTSTATUS NTAPI ZwQueryInformationProcess(_In_ HANDLE ProcessHandle,
                                                   _Out_ PVOID ProcessInformation, _In_ ULONG ProcessInformationLength,
                                                   _Out_opt_ PULONG ReturnLength);
 
+NTSYSAPI NTSTATUS NTAPI ZwSetInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS ProcessInformationClass,
+                                                PVOID ProcessInformation, ULONG ProcessInformationLength);
+
 NTSYSAPI
 PIMAGE_NT_HEADERS
 NTAPI
 RtlImageNtHeader(IN PVOID ModuleAddress);
+
+NTSYSAPI NTSTATUS NTAPI KeRaiseUserException(NTSTATUS Status);
 
 EXTERN_C_END

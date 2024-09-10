@@ -17,11 +17,18 @@
 #include <ntstrsafe.h>
 
 #include "thirdparty/scope_guard/include/scope_guard.hpp"
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 #include <phnt.h>
-//#include <ntfill.h>
 #include <ntpebteb.h>
 #include <ntldr.h>
-//#include <kphapi.h>
+#include "ntfill.hpp"
+#ifdef __cplusplus
+}
+#endif
 
 #ifndef DBGPRINT
 #if _DEBUG
@@ -31,17 +38,20 @@
 #endif
 #endif
 
-#include "ntfill.hpp"
+#ifndef BIT
+#define BIT(x) (1ULL << (x))
+#endif
+
+
 #include "fnv1a.hpp"
 #include "wpp_trace.hpp"
+#include "dyn.hpp"
 #include "misc.hpp"
+#include "callbacks.hpp"
+#include "syscalls.hpp"
 #include "utils.hpp"
-#include "process.hpp"
-#ifdef USE_KASPERSKY
-#include "kaspersky.hpp"
-#endif
-#include "ssdt.hpp"
-#include "shadow_ssdt.hpp"
+#include "object.hpp"
+#include "rules.hpp"
 #include "hooks.hpp"
 
 using namespace masterhide;

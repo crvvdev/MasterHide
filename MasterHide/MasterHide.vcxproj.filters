@@ -28,12 +28,6 @@
     <ClCompile Include="misc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="shadow_ssdt.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ssdt.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\KasperskyHook\KasperskyHookDrv\hooks.cpp">
       <Filter>Header Files\KasperskyHook</Filter>
     </ClCompile>
@@ -55,6 +49,21 @@
     <ClCompile Include="..\KasperskyHook\KasperskyHookDrv\driver.cpp">
       <Filter>Header Files\KasperskyHook</Filter>
     </ClCompile>
+    <ClCompile Include="rules.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="syscalls.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="dyn.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="callbacks.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="object.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ntfill.hpp">
@@ -64,12 +73,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="misc.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="shadow_ssdt.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ssdt.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\kernel_modules.hpp">
@@ -93,10 +96,22 @@
     <ClInclude Include="fnv1a.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="process.hpp">
+    <ClInclude Include="rules.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="wpp_trace.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dyn.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="syscalls.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="callbacks.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="object.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
