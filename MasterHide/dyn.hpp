@@ -19,6 +19,7 @@ struct
         ULONG MajorVersion;
         ULONG MinorVersion;
         ULONG BuildVersion;
+        KDDEBUGGER_DATA64 KdBlock;
 
     } Kernel;
 
@@ -35,7 +36,6 @@ struct
 
     struct
     {
-        INT64(__fastcall *MiGetPteAddress)(UINT64);
 
     } Fn;
 

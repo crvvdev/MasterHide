@@ -45,20 +45,21 @@ enum EProcessPolicyFlags : ProcessPolicyFlag_t
     ProcessPolicyFlagNtSystemDebugControl = BIT(27),
     ProcessPolicyFlagNtClose = BIT(28),
     ProcessPolicyFlagNtCreateThreadEx = BIT(29),
-    ProcessPolicyFlagKUserSharedData = BIT(30),
+    ProcessPolicyFlagNtOpenThread = BIT(30),
+    ProcessPolicyFlagHideKUserSharedData = BIT(31),
 
     // Misc
-    ProcessPolicyFlagClearThreadHideFromDebuggerFlag = BIT(31),
-    ProcessPolicyFlagClearBypassProcessFreeze = BIT(32),
-    ProcessPolicyFlagClearPebBeingDebugged = BIT(33),
-    ProcessPolicyFlagClearPebNtGlobalFlag = BIT(34),
-    ProcessPolicyFlagClearHeapFlags = BIT(35),
-    ProcessPolicyFlagClearKUserSharedData = BIT(36),
-    ProcessPolicyFlagClearProcessBreakOnTerminationFlag = BIT(37),
-    ProcessPolicyFlagClearThreadBreakOnTerminationFlag = BIT(38),
-    ProcessPolicyFlagSaveProcessDebugFlags = BIT(39),
-    ProcessPolicyFlagSaveProcessHandleTracing = BIT(40),
-    ProcessPolicyFlagHideChildFromDebugger = BIT(41),
+    ProcessPolicyFlagClearThreadHideFromDebuggerFlag = BIT(32),
+    ProcessPolicyFlagClearBypassProcessFreeze = BIT(33),
+    ProcessPolicyFlagClearPebBeingDebugged = BIT(34),
+    ProcessPolicyFlagClearPebNtGlobalFlag = BIT(35),
+    ProcessPolicyFlagClearHeapFlags = BIT(36),
+    ProcessPolicyFlagClearKUserSharedData = BIT(37),
+    ProcessPolicyFlagClearProcessBreakOnTerminationFlag = BIT(38),
+    ProcessPolicyFlagClearThreadBreakOnTerminationFlag = BIT(39),
+    ProcessPolicyFlagSaveProcessDebugFlags = BIT(40),
+    ProcessPolicyFlagSaveProcessHandleTracing = BIT(41),
+    ProcessPolicyFlagHideChildFromDebugger = BIT(42),
 };
 
 #define PROCESS_POLICY_PROTECTED_FULL                                                                                  \
@@ -73,7 +74,7 @@ enum EProcessPolicyFlags : ProcessPolicyFlag_t
      rules::ProcessPolicyFlagNtQueryInformationThread | rules::ProcessPolicyFlagNtQueryInformationJobObject |          \
      rules::ProcessPolicyFlagNtQuerySystemTime | rules::ProcessPolicyFlagNtQueryPerformanceCounter |                   \
      rules::ProcessPolicyFlagNtSystemDebugControl | rules::ProcessPolicyFlagNtClose |                                  \
-     rules::ProcessPolicyFlagNtCreateThreadEx | rules::ProcessPolicyFlagKUserSharedData |                              \
+     rules::ProcessPolicyFlagNtCreateThreadEx | rules::ProcessPolicyFlagHideKUserSharedData |                          \
      rules::ProcessPolicyFlagClearThreadHideFromDebuggerFlag | rules::ProcessPolicyFlagClearBypassProcessFreeze |      \
      rules::ProcessPolicyFlagClearPebBeingDebugged | rules::ProcessPolicyFlagClearPebNtGlobalFlag |                    \
      rules::ProcessPolicyFlagClearHeapFlags | rules::ProcessPolicyFlagClearKUserSharedData |                           \
@@ -93,7 +94,7 @@ enum EProcessPolicyFlags : ProcessPolicyFlag_t
      rules::ProcessPolicyFlagNtQueryInformationThread | rules::ProcessPolicyFlagNtQueryInformationJobObject |          \
      rules::ProcessPolicyFlagNtQuerySystemTime | rules::ProcessPolicyFlagNtQueryPerformanceCounter |                   \
      rules::ProcessPolicyFlagNtSystemDebugControl | rules::ProcessPolicyFlagNtClose |                                  \
-     rules::ProcessPolicyFlagNtCreateThreadEx | rules::ProcessPolicyFlagKUserSharedData |                              \
+     rules::ProcessPolicyFlagNtCreateThreadEx | rules::ProcessPolicyFlagHideKUserSharedData |                          \
      rules::ProcessPolicyFlagClearThreadHideFromDebuggerFlag | rules::ProcessPolicyFlagClearBypassProcessFreeze |      \
      rules::ProcessPolicyFlagClearPebBeingDebugged | rules::ProcessPolicyFlagClearPebNtGlobalFlag |                    \
      rules::ProcessPolicyFlagClearHeapFlags | rules::ProcessPolicyFlagClearKUserSharedData |                           \
@@ -110,7 +111,7 @@ enum EObjectType : INT
 
 // Structs
 //
-//typedef struct _OBJ_HEADER
+// typedef struct _OBJ_HEADER
 //{
 //    struct
 //    {
@@ -148,6 +149,26 @@ typedef struct _WOW64_DEBUG_CONTEXT
 
 } WOW64_DEBUG_CONTEXT, *PWOW64_DEBUG_CONTEXT;
 
+typedef struct _KUSD
+{
+    PKUSER_SHARED_DATA KuserSharedData;
+    PMMPTE PteKuserSharedData;
+    ULONG OriginalKuserSharedDataPfn;
+    ULONG64 BeginInterruptTime;
+    ULONG64 BeginSystemTime;
+    ULONG BeginLastSystemRITEventTickCount;
+    ULONG64 BeginTickCount;
+    ULONG64 BeginTimeUpdateLock;
+    ULONG64 BeginBaselineSystemQpc;
+    ULONG64 DeltaInterruptTime;
+    ULONG64 DeltaSystemTime;
+    ULONG DeltaLastSystemRITEventTickCount;
+    ULONG64 DeltaTickCount;
+    ULONG64 DeltaTimeUpdateLock;
+    ULONG64 DeltaBaselineSystemQpc;
+
+} KUSD, *PKUSD;
+
 typedef struct _THREAD_ENTRY
 {
     PETHREAD Thread;
@@ -177,6 +198,7 @@ typedef struct _PROCESS_ENTRY
     union {
         struct
         {
+            BOOLEAN ProcessPaused : 1;
             BOOLEAN PebBeingDebuggedCleared : 1;
             BOOLEAN HeapFlagsCleared : 1;
             BOOLEAN PebNtGlobalFlagCleared : 1;
@@ -193,10 +215,10 @@ typedef struct _PROCESS_ENTRY
         } Flags;
         LONG Long;
     };
-
-    LIST_ENTRY ListEntry;
+    KUSD Kusd;
     THREAD_ENTRY Threads;
     mutex::EResource ThreadsResource;
+    LIST_ENTRY ListEntry;
 
     PTHREAD_ENTRY AppendThreadList(_In_ PETHREAD thread);
 
@@ -223,11 +245,16 @@ inline bool g_initialized = false;
 NTSTATUS Initialize();
 void Deinitialize();
 
+void CounterUpdater(PVOID Context);
+
 using ENUM_RULE_PROCESSES_CALLBACK = bool (*)(_In_ PPROCESS_RULE_ENTRY);
 
 template <typename Callback = ENUM_RULE_PROCESSES_CALLBACK> bool EnumRuleProcessesUnsafe(Callback &&callback)
 {
-    NT_ASSERT(g_initialized);
+    if (!g_initialized)
+    {
+        return false;
+    }
 
     if (IsListEmpty(&g_processRuleListHead))
     {
@@ -251,7 +278,10 @@ using ENUM_PROCESSES_CALLBACK = bool (*)(_In_ PPROCESS_ENTRY);
 
 template <typename Callback = ENUM_PROCESSES_CALLBACK> bool EnumProcessesUnsafe(Callback &&callback)
 {
-    NT_ASSERT(g_initialized);
+    if (!g_initialized)
+    {
+        return false;
+    }
 
     if (IsListEmpty(&g_processListHead))
     {
@@ -272,8 +302,8 @@ template <typename Callback = ENUM_PROCESSES_CALLBACK> bool EnumProcessesUnsafe(
 
 bool IsWhitelistedDriver(_In_ LPCSTR driverName);
 
-//void ReferenceObject(_In_ PVOID object);
-//void DereferenceObject(_In_ PVOID object);
+// void ReferenceObject(_In_ PVOID object);
+// void DereferenceObject(_In_ PVOID object);
 
 [[nodiscard]] NTSTATUS AddProcessRuleEntry(_In_ PUNICODE_STRING imageFileName, _In_ ProcessPolicyFlag_t flags);
 [[nodiscard]] PPROCESS_RULE_ENTRY GetProcessRuleEntry(_In_ PCUNICODE_STRING imageFileName);
@@ -301,6 +331,8 @@ bool IsHiddenFromDebugProcess(_In_ PUNICODE_STRING processFullPath);
 NTSTATUS RemoveProcessEntry(_In_ HANDLE processId);
 NTSTATUS RemoveProcessEntry(_In_ PEPROCESS process);
 
+NTSTATUS ModifyCounterForProcess(_In_ PEPROCESS process, _In_ BOOLEAN status);
+
 } // namespace rules
 
 namespace process
@@ -315,5 +347,8 @@ bool ClearProcessBreakOnTerminationFlag(_In_ rules::PPROCESS_ENTRY processEntry)
 void SaveProcessDebugFlags(_In_ rules::PPROCESS_ENTRY processEntry);
 void SaveProcessHandleTracing(_In_ rules::PPROCESS_ENTRY processEntry);
 bool ClearThreadBreakOnTerminationFlags(_In_ rules::PPROCESS_ENTRY processEntry);
+
+void HookKuserSharedData(_In_ rules::PPROCESS_ENTRY processEntry);
+void UnHookKuserSharedData(rules::PPROCESS_ENTRY processEntry);
 }; // namespace process
 } // namespace masterhide

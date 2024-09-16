@@ -4,7 +4,7 @@ namespace masterhide
 {
 namespace object
 {
-OBJECT_TYPE g_objectTypes[3] = {0};
+OBJECT_TYPE g_objectTypes[3]{};
 volatile LONG g_objectTypeCount = 0;
 
 void ObjectDelete(_In_ POBJECT_HEADER header)

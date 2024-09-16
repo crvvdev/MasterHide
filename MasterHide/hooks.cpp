@@ -4,6 +4,8 @@ namespace masterhide
 {
 namespace hooks
 {
+CONST PKUSER_SHARED_DATA KuserSharedData = (PKUSER_SHARED_DATA)KUSER_SHARED_DATA_USERMODE;
+
 #define BACKUP_RETURNLENGTH()                                                                                          \
     ULONG TempReturnLength = 0;                                                                                        \
     if (ARGUMENT_PRESENT(ReturnLength))                                                                                \
@@ -123,6 +125,30 @@ NTSTATUS Initialize()
         }                                                                                                              \
     }
 
+#define HOOK_SYSTEM_ROUTINE_PARAM(name, shadow, dst, src)                                                              \
+    {                                                                                                                  \
+        USHORT syscallNum = syscalls::GetSyscallIndexByName(#name);                                                    \
+        if (syscallNum == MAXUSHORT)                                                                                   \
+        {                                                                                                              \
+            DBGPRINT(#name " index was not found!");                                                                   \
+            return STATUS_UNSUCCESSFUL;                                                                                \
+        }                                                                                                              \
+        else                                                                                                           \
+        {                                                                                                              \
+            status =                                                                                                   \
+                CreateHook(shadow ? syscallNum + 0x1000 : syscallNum, dst, reinterpret_cast<PVOID *>(&src), shadow);   \
+            if (!NT_SUCCESS(status))                                                                                   \
+            {                                                                                                          \
+                DBGPRINT("Failed to hook " #name " 0x%08X", status);                                                   \
+                return STATUS_UNSUCCESSFUL;                                                                            \
+            }                                                                                                          \
+            else                                                                                                       \
+            {                                                                                                          \
+                DBGPRINT(#name " hooked successfully!");                                                               \
+            }                                                                                                          \
+        }                                                                                                              \
+    }
+
 #ifdef USE_KASPERSKY
     DBGPRINT("Using kaspersky hook.");
 
@@ -160,26 +186,34 @@ NTSTATUS Initialize()
     // HOOK_SYSTEM_ROUTINE(NtQueryInformationJobObject, false);
 
     HOOK_SYSTEM_ROUTINE(NtQueryObject, false);
-    // HOOK_SYSTEM_ROUTINE(NtQuerySystemTime, false);
-    // HOOK_SYSTEM_ROUTINE(NtQueryPerformanceCounter, false);
+    //HOOK_SYSTEM_ROUTINE(NtQuerySystemTime, false);
+    HOOK_SYSTEM_ROUTINE(NtQueryPerformanceCounter, false);
     HOOK_SYSTEM_ROUTINE(NtSetInformationProcess, false);
     HOOK_SYSTEM_ROUTINE(NtSetInformationThread, false);
     HOOK_SYSTEM_ROUTINE(NtSystemDebugControl, false);
 
     HOOK_SYSTEM_ROUTINE(NtClose, false);
-    // HOOK_SYSTEM_ROUTINE(NtCreateThreadEx, false);
+    HOOK_SYSTEM_ROUTINE(NtCreateThreadEx, false);
     HOOK_SYSTEM_ROUTINE(NtGetContextThread, false);
     HOOK_SYSTEM_ROUTINE(NtSetContextThread, false);
     HOOK_SYSTEM_ROUTINE(NtLoadDriver, false);
     HOOK_SYSTEM_ROUTINE(NtYieldExecution, false);
 
     HOOK_SYSTEM_ROUTINE(NtOpenProcess, false);
-    // HOOK_SYSTEM_ROUTINE(NtOpenThread, false);
+    HOOK_SYSTEM_ROUTINE(NtOpenThread, false);
     HOOK_SYSTEM_ROUTINE(NtAllocateVirtualMemory, false);
     HOOK_SYSTEM_ROUTINE(NtFreeVirtualMemory, false);
     HOOK_SYSTEM_ROUTINE(NtWriteVirtualMemory, false);
     HOOK_SYSTEM_ROUTINE(NtDeviceIoControlFile, false);
-    HOOK_SYSTEM_ROUTINE(NtContinue, false);
+
+    if (KERNEL_BUILD < WINDOWS_10_VERSION_20H1)
+    {
+        HOOK_SYSTEM_ROUTINE(NtContinue, false);
+    }
+    else
+    {
+        HOOK_SYSTEM_ROUTINE_PARAM(NtContinueEx, false, hkNtContinue, oNtContinue);
+    }
 
     HOOK_SYSTEM_ROUTINE(NtUserWindowFromPoint, true);
     HOOK_SYSTEM_ROUTINE(NtUserQueryWindow, true);
@@ -237,6 +271,135 @@ void Deinitialize()
 
     WppTracePrint(TRACE_LEVEL_VERBOSE, GENERAL, "Successfully de-initialized hooks interface!");
     return;
+}
+
+NTSTATUS NTAPI hkNtQuerySystemTime(PLARGE_INTEGER SystemTime)
+{
+    PAGED_CODE();
+
+    InterlockedIncrement(&g_refCount);
+    SCOPE_EXIT
+    {
+        InterlockedDecrement(&g_refCount);
+    };
+
+    const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
+    if (previousMode == UserMode)
+    {
+        const HANDLE currentProcessId = PsGetCurrentProcessId();
+        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+
+        SCOPE_EXIT
+        {
+            if (processEntry)
+            {
+                object::DereferenceObject(processEntry);
+                processEntry = nullptr;
+            }
+        };
+
+        // If (1) it's a ruled process and (2) current hook is meant to be intercepted
+        //
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtQuerySystemTime))
+        {
+            __try
+            {
+                ProbeForWrite(SystemTime, sizeof(ULONG64), 4);
+
+                if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideKUserSharedData))
+                {
+                    SystemTime->QuadPart = *(ULONG64 *)&processEntry->Kusd.KuserSharedData->SystemTime;
+                }
+                else
+                {
+                    if (processEntry->FakeSystemTime.QuadPart == NULL)
+                    {
+                        KeQuerySystemTime(&processEntry->FakeSystemTime);
+                    }
+
+                    SystemTime->QuadPart = processEntry->FakeSystemTime.QuadPart;
+                    processEntry->FakeSystemTime.QuadPart += 1;
+                }
+
+                return STATUS_SUCCESS;
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER)
+            {
+                return GetExceptionCode();
+            }
+        }
+    }
+    return oNtQuerySystemTime(SystemTime);
+}
+
+NTSTATUS NTAPI hkNtQueryPerformanceCounter(PLARGE_INTEGER PerformanceCounter, PLARGE_INTEGER PerformanceFrequency)
+{
+    PAGED_CODE();
+
+    InterlockedIncrement(&g_refCount);
+    SCOPE_EXIT
+    {
+        InterlockedDecrement(&g_refCount);
+    };
+
+    const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
+    if (previousMode == UserMode)
+    {
+        const HANDLE currentProcessId = PsGetCurrentProcessId();
+        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+
+        SCOPE_EXIT
+        {
+            if (processEntry)
+            {
+                object::DereferenceObject(processEntry);
+                processEntry = nullptr;
+            }
+        };
+
+        // If (1) it's a ruled process and (2) current hook is meant to be intercepted
+        //
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtQueryPerformanceCounter))
+        {
+            __try
+            {
+                ProbeForWrite(PerformanceCounter, sizeof(ULONG64), 4);
+
+                if (PerformanceFrequency != NULL)
+                {
+                    ProbeForWrite(PerformanceFrequency, sizeof(ULONG64), 4);
+                }
+
+                if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideKUserSharedData))
+                {
+                    PerformanceCounter->QuadPart = processEntry->Kusd.KuserSharedData->BaselineSystemTimeQpc;
+                }
+                else
+                {
+                    if (processEntry->FakePerformanceCounter.QuadPart == NULL)
+                    {
+                        processEntry->FakePerformanceCounter = KeQueryPerformanceCounter(NULL);
+                    }
+
+                    PerformanceCounter->QuadPart = processEntry->FakePerformanceCounter.QuadPart;
+                    processEntry->FakePerformanceCounter.QuadPart += 1;
+                }
+
+                if (PerformanceFrequency != NULL)
+                {
+                    PerformanceFrequency->QuadPart = KuserSharedData->QpcFrequency;
+                }
+
+                return STATUS_SUCCESS;
+            }
+
+            __except (EXCEPTION_EXECUTE_HANDLER)
+            {
+                return GetExceptionCode();
+            }
+        }
+    }
+    return oNtQueryPerformanceCounter(PerformanceCounter, PerformanceFrequency);
 }
 
 NTSTATUS NTAPI hkNtSystemDebugControl(SYSDBG_COMMAND Command, PVOID InputBuffer, ULONG InputBufferLength,
@@ -317,8 +480,8 @@ NTSTATUS NTAPI hkNtClose(HANDLE Handle)
             if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
             {
                 // If two or more threads were to simultaneously check and act on this information without
-                // synchronization, it might lead to inconsistent states where a handle that is meant to be protected
-                // gets closed, or an exception is raised improperly.
+                // synchronization, it might lead to inconsistent states where a handle that is meant to be
+                // protected gets closed, or an exception is raised improperly.
                 KeWaitForSingleObject(&g_ntCloseMutex, Executive, KernelMode, FALSE, nullptr);
 
                 OBJECT_HANDLE_ATTRIBUTE_INFORMATION handleAttribInfo{};
@@ -467,6 +630,80 @@ NTSTATUS NTAPI hkNtContinue(PCONTEXT Context, ULONG64 TestAlert)
     return oNtContinue(Context, TestAlert);
 }
 
+NTSTATUS NTAPI hkNtOpenThread(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes,
+                              PCLIENT_ID ClientId)
+{
+    PAGED_CODE();
+
+    InterlockedIncrement(&g_refCount);
+    SCOPE_EXIT
+    {
+        InterlockedDecrement(&g_refCount);
+    };
+
+    const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
+    if (previousMode == UserMode && ProcessHandle != ZwCurrentProcess())
+    {
+        const HANDLE currentProcessId = PsGetCurrentProcessId();
+        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+
+        SCOPE_EXIT
+        {
+            if (processEntry)
+            {
+                object::DereferenceObject(processEntry);
+                processEntry = nullptr;
+            }
+        };
+
+        __try
+        {
+            ProbeForWrite(ProcessHandle, sizeof(*ProcessHandle), 1);
+            ProbeForWrite(ObjectAttributes, sizeof(*ObjectAttributes), 1);
+
+            if (ClientId != NULL)
+            {
+                ProbeForRead(ClientId, sizeof(*ClientId), __alignof(CLIENT_ID));
+
+                // If (1) it's a blacklisted process and (2) current hook is meant to be intercepted
+                //
+                if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtOpenThread))
+                {
+                    if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+                    {
+                        PETHREAD thread = nullptr;
+                        NTSTATUS status = PsLookupThreadByThreadId(ClientId->UniqueThread, &thread);
+                        if (NT_SUCCESS(status))
+                        {
+                            SCOPE_EXIT
+                            {
+                                ObDereferenceObject(thread);
+                            };
+
+                            const HANDLE threadProcessId = PsGetThreadProcessId(thread);
+
+                            // Block access to any protected process.
+                            //
+                            if (rules::IsProtectedProcess(threadProcessId))
+                            {
+                                WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS, "Denying access from pid:%d to pid:%d\n",
+                                              HandleToUlong(PsGetCurrentProcessId()), HandleToUlong(threadProcessId));
+
+                                return STATUS_INVALID_CID;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER)
+        {
+            return GetExceptionCode();
+        }
+    }
+    return oNtOpenThread(ProcessHandle, DesiredAccess, ObjectAttributes, ClientId);
+}
+
 NTSTATUS NTAPI hkNtOpenProcess(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes,
                                PCLIENT_ID ClientId)
 {
@@ -495,8 +732,6 @@ NTSTATUS NTAPI hkNtOpenProcess(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess,
 
         __try
         {
-            // Probe usemode buffers
-            //
             ProbeForRead(ClientId, sizeof(*ClientId), __alignof(CLIENT_ID));
 
             // If (1) it's a blacklisted process and (2) current hook is meant to be intercepted
@@ -1340,6 +1575,110 @@ NTSTATUS NTAPI hkNtQueryObject(HANDLE Handle, OBJECT_INFORMATION_CLASS ObjectInf
         }
     }
     return status;
+}
+
+NTSTATUS NTAPI hkNtCreateThreadEx(PHANDLE ThreadHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes,
+                                  HANDLE ProcessHandle, PVOID StartRoutine, PVOID Argument, ULONG CreateFlags,
+                                  SIZE_T ZeroBits, SIZE_T StackSize, SIZE_T MaximumStackSize, PVOID AttributeList)
+{
+    PAGED_CODE();
+
+    InterlockedIncrement(&g_refCount);
+    SCOPE_EXIT
+    {
+        InterlockedDecrement(&g_refCount);
+    };
+
+    const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
+    if (previousMode == UserMode && (CreateFlags & THREAD_CREATE_FLAGS_HIDE_FROM_DEBUGGER ||
+                                     CreateFlags & THREAD_CREATE_FLAGS_BYPASS_PROCESS_FREEZE))
+    {
+        const HANDLE currentProcessId = PsGetCurrentProcessId();
+        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+
+        SCOPE_EXIT
+        {
+            if (processEntry)
+            {
+                object::DereferenceObject(processEntry);
+                processEntry = nullptr;
+            }
+        };
+
+        // (1) check if the process is blacklisted (2) check if hook is meant to be intercepted
+        //
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtCreateThreadEx))
+        {
+            NTSTATUS status;
+            ULONG OriginalFlags = CreateFlags;
+
+            if (KERNEL_BUILD >= WINDOWS_10_VERSION_19H1)
+            {
+                status = oNtCreateThreadEx(
+                    ThreadHandle, DesiredAccess, ObjectAttributes, ProcessHandle, StartRoutine, Argument,
+                    CreateFlags & ~(THREAD_CREATE_FLAGS_HIDE_FROM_DEBUGGER | THREAD_CREATE_FLAGS_BYPASS_PROCESS_FREEZE),
+                    ZeroBits, StackSize, MaximumStackSize, AttributeList);
+            }
+            else
+            {
+                status = oNtCreateThreadEx(ThreadHandle, DesiredAccess, ObjectAttributes, ProcessHandle, StartRoutine,
+                                           Argument, CreateFlags & ~(THREAD_CREATE_FLAGS_HIDE_FROM_DEBUGGER), ZeroBits,
+                                           StackSize, MaximumStackSize, AttributeList);
+            }
+
+            if (NT_SUCCESS(status))
+            {
+                PETHREAD thread = nullptr;
+                if (NT_SUCCESS(ObReferenceObjectByHandle(*ThreadHandle, THREAD_QUERY_INFORMATION, *PsThreadType,
+                                                         previousMode, reinterpret_cast<PVOID *>(&thread), NULL)))
+                {
+                    SCOPE_EXIT
+                    {
+                        ObDereferenceObject(thread);
+                    };
+
+                    PEPROCESS process = nullptr;
+                    if (NT_SUCCESS(ObReferenceObjectByHandle(ProcessHandle, PROCESS_QUERY_INFORMATION, *PsProcessType,
+                                                             previousMode, reinterpret_cast<PVOID *>(&process), NULL)))
+                    {
+                        rules::PPROCESS_ENTRY processEntry2 = rules::GetProcessEntry(process);
+
+                        SCOPE_EXIT
+                        {
+                            ObDereferenceObject(process);
+
+                            if (processEntry2)
+                            {
+                                object::DereferenceObject(processEntry2);
+                                processEntry2 = nullptr;
+                            }
+                        };
+
+                        // If (1) it's a blacklisted process and (2) current hook is meant to be intercepted
+                        //
+                        if (processEntry2 &&
+                            BooleanFlagOn(processEntry2->PolicyFlags, rules::ProcessPolicyFlagNtCreateThreadEx))
+                        {
+                            if (BooleanFlagOn(processEntry2->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+                            {
+                                rules::PTHREAD_ENTRY threadEntry = processEntry2->AppendThreadList(thread);
+                                if (threadEntry)
+                                {
+                                    threadEntry->Flags.IsThreadHidden =
+                                        OriginalFlags & THREAD_CREATE_FLAGS_HIDE_FROM_DEBUGGER;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return status;
+        }
+    }
+
+    return oNtCreateThreadEx(ThreadHandle, DesiredAccess, ObjectAttributes, ProcessHandle, StartRoutine, Argument,
+                             CreateFlags, ZeroBits, StackSize, MaximumStackSize, AttributeList);
 }
 
 NTSTATUS NTAPI hkNtGetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext)

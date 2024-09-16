@@ -12,6 +12,7 @@ static constexpr ULONG TAG_PROCESS_RULE_ENTRY = '40hm';
 static constexpr ULONG TAG_THREAD_ENTRY = '50hm';
 static constexpr ULONG TAG_IMAGE_PATH_ENTRY = '60hm';
 static constexpr ULONG TAG_HOOK = '70hm';
+static constexpr ULONG TAG_ERESOURCE = '80hm';
 } // namespace tags
 
 namespace mutex
@@ -51,7 +52,7 @@ class EResource
     /// Get pointer to ERESOURCE
     /// </summary>
     /// <returns></returns>
-    __forceinline ERESOURCE &Get()
+    __forceinline auto Get() -> PERESOURCE
     {
         return _eresource;
     }
@@ -59,7 +60,7 @@ class EResource
   private:
     bool _initialized = false;
     LONG _refCount = 0;
-    ERESOURCE _eresource{};
+    PERESOURCE _eresource{};
 };
 } // namespace mutex
 
@@ -107,6 +108,10 @@ inline void SwapEndianness(PCHAR ptr, size_t size)
     }
 }
 
+PIMAGE_SECTION_HEADER GetModuleSection(_In_ PIMAGE_NT_HEADERS64 nth, _In_ const char *secName);
+PUCHAR FindPattern(PUCHAR rangeStart, PUCHAR rangeEnd, const char *pattern);
+PUCHAR FindPattern(_In_ void *moduleAddress, _In_ const char *secName, _In_ const char *pattern);
+
 template <typename T = void *> inline T RVAtoRawAddress(PIMAGE_NT_HEADERS nth, ULONG rva, PUCHAR moduleBase)
 {
     PIMAGE_SECTION_HEADER section = IMAGE_FIRST_SECTION(nth);
@@ -133,7 +138,6 @@ template <typename T = void *> inline T AllocatePoolZero(POOL_TYPE poolType, SIZ
 
 NTSTATUS MapFileInSystemSpace(_In_ PUNICODE_STRING FileName, _Out_ PVOID *MappedBase, _Out_opt_ SIZE_T *MappedSize);
 bool DumpPE(PUCHAR moduleBase, PUNICODE_STRING saveFileName);
-ULONG64 GetPteAddress(ULONG64 Address);
 
 _IRQL_requires_max_(PASSIVE_LEVEL)
     _When_(NT_SUCCESS(return), _Outptr_result_buffer_(return) _At_(*systemInfo, __drv_allocatesMem(Mem))) NTSTATUS

@@ -190,9 +190,6 @@ extern "C" NTSTATUS NTAPI DriverEntry(PDRIVER_OBJECT driverObject, PUNICODE_STRI
 
 #undef INITIALIZE_INTERFACE
 
-    KeDetachProcess();
-    ObDereferenceObject(winlogon);
-
 #if DBG
     Test();
 #endif
@@ -200,6 +197,12 @@ extern "C" NTSTATUS NTAPI DriverEntry(PDRIVER_OBJECT driverObject, PUNICODE_STRI
     WppTracePrint(TRACE_LEVEL_INFORMATION, GENERAL, "MasterHide successfully loaded!");
 
 Exit:
+    if (winlogon)
+    {
+        KeDetachProcess();
+        ObDereferenceObject(winlogon);
+    }
+
     if (!NT_SUCCESS(status))
     {
         OnDriverUnload();

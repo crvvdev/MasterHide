@@ -23,6 +23,9 @@
 #pragma warning(push)
 #pragma warning(disable : 4201)
 
+#define THREAD_CREATE_FLAGS_BYPASS_PROCESS_FREEZE 0x40
+#define THREAD_CREATE_FLAGS_HIDE_FROM_DEBUGGER 0x4
+
 #define PROCESS_DEBUG_INHERIT 0x00000001    // default for a non-debugged process
 #define PROCESS_NO_DEBUG_INHERIT 0x00000002 // default for a debugged process
 
@@ -1582,6 +1585,526 @@ typedef struct _IMAGE_SECTION_HEADER
 #define IMAGE_DOS_SIGNATURE 0x5A4D    // MZ
 #define IMAGE_NT_SIGNATURE 0x00004550 // PE00
 
+typedef struct _MMPFN
+{
+    union {
+        LIST_ENTRY ListEntry;       // 0x0
+        RTL_BALANCED_NODE TreeNode; // 0x0
+        struct
+        {
+            union {
+                SINGLE_LIST_ENTRY NextSlistPfn; // 0x0
+                VOID *Next;                     // 0x0
+                ULONGLONG Flink : 36;           // 0x0
+                ULONGLONG NodeFlinkHigh : 28;   // 0x0
+                ULONGLONG Active;               // 0x0
+            } u1;                               // 0x0
+            union {
+                ULONGLONG *PteAddress; // 0x8
+                ULONGLONG PteLong;     // 0x8
+            };
+            ULONGLONG OriginalPte; // 0x10
+        };
+    };
+    ULONGLONG u2; // 0x18
+    union {
+        struct
+        {
+            USHORT ReferenceCount; // 0x20
+            UCHAR e1;              // 0x22
+        };
+        struct
+        {
+            UCHAR e3; // 0x23
+            struct
+            {
+                USHORT ReferenceCount; // 0x20
+            } e2;                      // 0x20
+        };
+        struct
+        {
+            ULONG EntireField; // 0x20
+        } e4;                  // 0x20
+    } u3;                      // 0x20
+    USHORT NodeBlinkLow;       // 0x24
+    UCHAR Unused : 4;          // 0x26
+    UCHAR Unused2 : 4;         // 0x26
+    union {
+        UCHAR ViewCount;    // 0x27
+        UCHAR NodeFlinkLow; // 0x27
+    };
+    union {
+        ULONGLONG PteFrame : 36;    // 0x28
+        ULONGLONG Channel : 2;      // 0x28
+        ULONGLONG Unused1 : 1;      // 0x28
+        ULONGLONG Unused2 : 1;      // 0x28
+        ULONGLONG Partition : 10;   // 0x28
+        ULONGLONG Spare : 2;        // 0x28
+        ULONGLONG FileOnly : 1;     // 0x28
+        ULONGLONG PfnExists : 1;    // 0x28
+        ULONGLONG PageIdentity : 3; // 0x28
+        ULONGLONG PrototypePte : 1; // 0x28
+        ULONGLONG PageColor : 6;    // 0x28
+        ULONGLONG EntireField;      // 0x28
+    } u4;                           // 0x28
+
+} MMPFN, *PMMPFN;
+
+struct _MMPTE_HARDWARE
+{
+    ULONGLONG Valid : 1;               // 0x0
+    ULONGLONG Dirty1 : 1;              // 0x0
+    ULONGLONG Owner : 1;               // 0x0
+    ULONGLONG WriteThrough : 1;        // 0x0
+    ULONGLONG CacheDisable : 1;        // 0x0
+    ULONGLONG Accessed : 1;            // 0x0
+    ULONGLONG Dirty : 1;               // 0x0
+    ULONGLONG LargePage : 1;           // 0x0
+    ULONGLONG Global : 1;              // 0x0
+    ULONGLONG CopyOnWrite : 1;         // 0x0
+    ULONGLONG Unused : 1;              // 0x0
+    ULONGLONG Write : 1;               // 0x0
+    ULONGLONG PageFrameNumber : 40;    // 0x0
+    ULONGLONG ReservedForSoftware : 4; // 0x0
+    ULONGLONG WsleAge : 4;             // 0x0
+    ULONGLONG WsleProtection : 3;      // 0x0
+    ULONGLONG NoExecute : 1;           // 0x0
+};
+
+typedef struct _MMPTE
+{
+    union {
+        ULONGLONG Long;                  // 0x0
+        volatile ULONGLONG VolatileLong; // 0x0
+        struct _MMPTE_HARDWARE Hard;     // 0x0
+    } u;
+
+} MMPTE, *PMMPTE;
+
+//
+// This structure is used by the debugger for all targets
+// It is the same size as DBGKD_DATA_HEADER on all systems
+//
+typedef struct _DBGKD_DEBUG_DATA_HEADER64
+{
+
+    //
+    // Link to other blocks
+    //
+
+    LIST_ENTRY64 List;
+
+    //
+    // This is a unique tag to identify the owner of the block.
+    // If your component only uses one pool tag, use it for this, too.
+    //
+
+    ULONG OwnerTag;
+
+    //
+    // This must be initialized to the size of the data block,
+    // including this structure.
+    //
+
+    ULONG Size;
+
+} DBGKD_DEBUG_DATA_HEADER64, *PDBGKD_DEBUG_DATA_HEADER64;
+
+//
+// This structure is the same size on all systems.  The only field
+// which must be translated by the debugger is Header.List.
+//
+
+//
+// DO NOT ADD OR REMOVE FIELDS FROM THE MIDDLE OF THIS STRUCTURE!!!
+//
+// If you remove a field, replace it with an "unused" placeholder.
+// Do not reuse fields until there has been enough time for old debuggers
+// and extensions to age out.
+//
+typedef struct _KDDEBUGGER_DATA64
+{
+
+    DBGKD_DEBUG_DATA_HEADER64 Header;
+
+    //
+    // Base address of kernel image
+    //
+
+    ULONG64 KernBase;
+
+    //
+    // DbgBreakPointWithStatus is a function which takes an argument
+    // and hits a breakpoint.  This field contains the address of the
+    // breakpoint instruction.  When the debugger sees a breakpoint
+    // at this address, it may retrieve the argument from the first
+    // argument register, or on x86 the eax register.
+    //
+
+    ULONG64 BreakpointWithStatus; // address of breakpoint
+
+    //
+    // Address of the saved context record during a bugcheck
+    //
+    // N.B. This is an automatic in KeBugcheckEx's frame, and
+    // is only valid after a bugcheck.
+    //
+
+    ULONG64 SavedContext;
+
+    //
+    // help for walking stacks with user callbacks:
+    //
+
+    //
+    // The address of the thread structure is provided in the
+    // WAIT_STATE_CHANGE packet.  This is the offset from the base of
+    // the thread structure to the pointer to the kernel stack frame
+    // for the currently active usermode callback.
+    //
+
+    USHORT ThCallbackStack; // offset in thread data
+
+    //
+    // these values are offsets into that frame:
+    //
+
+    USHORT NextCallback; // saved pointer to next callback frame
+    USHORT FramePointer; // saved frame pointer
+
+    //
+    // pad to a quad boundary
+    //
+    USHORT PaeEnabled;
+
+    //
+    // Address of the kernel callout routine.
+    //
+
+    ULONG64 KiCallUserMode; // kernel routine
+
+    //
+    // Address of the usermode entry point for callbacks.
+    //
+
+    ULONG64 KeUserCallbackDispatcher; // address in ntdll
+
+    //
+    // Addresses of various kernel data structures and lists
+    // that are of interest to the kernel debugger.
+    //
+
+    ULONG64 PsLoadedModuleList;
+    ULONG64 PsActiveProcessHead;
+    ULONG64 PspCidTable;
+
+    ULONG64 ExpSystemResourcesList;
+    ULONG64 ExpPagedPoolDescriptor;
+    ULONG64 ExpNumberOfPagedPools;
+
+    ULONG64 KeTimeIncrement;
+    ULONG64 KeBugCheckCallbackListHead;
+    ULONG64 KiBugcheckData;
+
+    ULONG64 IopErrorLogListHead;
+
+    ULONG64 ObpRootDirectoryObject;
+    ULONG64 ObpTypeObjectType;
+
+    ULONG64 MmSystemCacheStart;
+    ULONG64 MmSystemCacheEnd;
+    ULONG64 MmSystemCacheWs;
+
+    ULONG64 MmPfnDatabase;
+    ULONG64 MmSystemPtesStart;
+    ULONG64 MmSystemPtesEnd;
+    ULONG64 MmSubsectionBase;
+    ULONG64 MmNumberOfPagingFiles;
+
+    ULONG64 MmLowestPhysicalPage;
+    ULONG64 MmHighestPhysicalPage;
+    ULONG64 MmNumberOfPhysicalPages;
+
+    ULONG64 MmMaximumNonPagedPoolInBytes;
+    ULONG64 MmNonPagedSystemStart;
+    ULONG64 MmNonPagedPoolStart;
+    ULONG64 MmNonPagedPoolEnd;
+
+    ULONG64 MmPagedPoolStart;
+    ULONG64 MmPagedPoolEnd;
+    ULONG64 MmPagedPoolInformation;
+    ULONG64 MmPageSize;
+
+    ULONG64 MmSizeOfPagedPoolInBytes;
+
+    ULONG64 MmTotalCommitLimit;
+    ULONG64 MmTotalCommittedPages;
+    ULONG64 MmSharedCommit;
+    ULONG64 MmDriverCommit;
+    ULONG64 MmProcessCommit;
+    ULONG64 MmPagedPoolCommit;
+    ULONG64 MmExtendedCommit;
+
+    ULONG64 MmZeroedPageListHead;
+    ULONG64 MmFreePageListHead;
+    ULONG64 MmStandbyPageListHead;
+    ULONG64 MmModifiedPageListHead;
+    ULONG64 MmModifiedNoWritePageListHead;
+    ULONG64 MmAvailablePages;
+    ULONG64 MmResidentAvailablePages;
+
+    ULONG64 PoolTrackTable;
+    ULONG64 NonPagedPoolDescriptor;
+
+    ULONG64 MmHighestUserAddress;
+    ULONG64 MmSystemRangeStart;
+    ULONG64 MmUserProbeAddress;
+
+    ULONG64 KdPrintCircularBuffer;
+    ULONG64 KdPrintCircularBufferEnd;
+    ULONG64 KdPrintWritePointer;
+    ULONG64 KdPrintRolloverCount;
+
+    ULONG64 MmLoadedUserImageList;
+
+    // NT 5.1 Addition
+
+    ULONG64 NtBuildLab;
+    ULONG64 KiNormalSystemCall;
+
+    // NT 5.0 hotfix addition
+
+    ULONG64 KiProcessorBlock;
+    ULONG64 MmUnloadedDrivers;
+    ULONG64 MmLastUnloadedDriver;
+    ULONG64 MmTriageActionTaken;
+    ULONG64 MmSpecialPoolTag;
+    ULONG64 KernelVerifier;
+    ULONG64 MmVerifierData;
+    ULONG64 MmAllocatedNonPagedPool;
+    ULONG64 MmPeakCommitment;
+    ULONG64 MmTotalCommitLimitMaximum;
+    ULONG64 CmNtCSDVersion;
+
+    // NT 5.1 Addition
+
+    ULONG64 MmPhysicalMemoryBlock;
+    ULONG64 MmSessionBase;
+    ULONG64 MmSessionSize;
+    ULONG64 MmSystemParentTablePage;
+
+    // Server 2003 addition
+
+    ULONG64 MmVirtualTranslationBase;
+
+    USHORT OffsetKThreadNextProcessor;
+    USHORT OffsetKThreadTeb;
+    USHORT OffsetKThreadKernelStack;
+    USHORT OffsetKThreadInitialStack;
+
+    USHORT OffsetKThreadApcProcess;
+    USHORT OffsetKThreadState;
+    USHORT OffsetKThreadBStore;
+    USHORT OffsetKThreadBStoreLimit;
+
+    USHORT SizeEProcess;
+    USHORT OffsetEprocessPeb;
+    USHORT OffsetEprocessParentCID;
+    USHORT OffsetEprocessDirectoryTableBase;
+
+    USHORT SizePrcb;
+    USHORT OffsetPrcbDpcRoutine;
+    USHORT OffsetPrcbCurrentThread;
+    USHORT OffsetPrcbMhz;
+
+    USHORT OffsetPrcbCpuType;
+    USHORT OffsetPrcbVendorString;
+    USHORT OffsetPrcbProcStateContext;
+    USHORT OffsetPrcbNumber;
+
+    USHORT SizeEThread;
+
+    ULONG64 KdPrintCircularBufferPtr;
+    ULONG64 KdPrintBufferSize;
+
+    ULONG64 KeLoaderBlock;
+
+    USHORT SizePcr;
+    USHORT OffsetPcrSelfPcr;
+    USHORT OffsetPcrCurrentPrcb;
+    USHORT OffsetPcrContainedPrcb;
+
+    USHORT OffsetPcrInitialBStore;
+    USHORT OffsetPcrBStoreLimit;
+    USHORT OffsetPcrInitialStack;
+    USHORT OffsetPcrStackLimit;
+
+    USHORT OffsetPrcbPcrPage;
+    USHORT OffsetPrcbProcStateSpecialReg;
+    USHORT GdtR0Code;
+    USHORT GdtR0Data;
+
+    USHORT GdtR0Pcr;
+    USHORT GdtR3Code;
+    USHORT GdtR3Data;
+    USHORT GdtR3Teb;
+
+    USHORT GdtLdt;
+    USHORT GdtTss;
+    USHORT Gdt64R3CmCode;
+    USHORT Gdt64R3CmTeb;
+
+    ULONG64 IopNumTriageDumpDataBlocks;
+    ULONG64 IopTriageDumpDataBlocks;
+
+    // Longhorn addition
+
+    ULONG64 VfCrashDataBlock;
+    ULONG64 MmBadPagesDetected;
+    ULONG64 MmZeroedPageSingleBitErrorsDetected;
+
+    // Windows 7 addition
+
+    ULONG64 EtwpDebuggerData;
+    USHORT OffsetPrcbContext;
+
+    // Windows 8 addition
+
+    USHORT OffsetPrcbMaxBreakpoints;
+    USHORT OffsetPrcbMaxWatchpoints;
+
+    ULONG OffsetKThreadStackLimit;
+    ULONG OffsetKThreadStackBase;
+    ULONG OffsetKThreadQueueListEntry;
+    ULONG OffsetEThreadIrpList;
+
+    USHORT OffsetPrcbIdleThread;
+    USHORT OffsetPrcbNormalDpcState;
+    USHORT OffsetPrcbDpcStack;
+    USHORT OffsetPrcbIsrStack;
+
+    USHORT SizeKDPC_STACK_FRAME;
+
+    // Windows 8.1 Addition
+
+    USHORT OffsetKPriQueueThreadListHead;
+    USHORT OffsetKThreadWaitReason;
+
+    // Windows 10 RS1 Addition
+
+    USHORT Padding;
+    ULONG64 PteBase;
+
+    // Windows 10 RS5 Addition
+
+    ULONG64 RetpolineStubFunctionTable;
+    ULONG RetpolineStubFunctionTableSize;
+    ULONG RetpolineStubOffset;
+    ULONG RetpolineStubSize;
+
+} KDDEBUGGER_DATA64, *PKDDEBUGGER_DATA64;
+
+typedef struct _DUMP_HEADER
+{
+    ULONG Signature;
+    ULONG ValidDump;
+    ULONG MajorVersion;
+    ULONG MinorVersion;
+    ULONG_PTR DirectoryTableBase;
+    ULONG_PTR PfnDataBase;
+    PLIST_ENTRY PsLoadedModuleList;
+    PLIST_ENTRY PsActiveProcessHead;
+    ULONG MachineImageType;
+    ULONG NumberProcessors;
+    ULONG BugCheckCode;
+    ULONG_PTR BugCheckParameter1;
+    ULONG_PTR BugCheckParameter2;
+    ULONG_PTR BugCheckParameter3;
+    ULONG_PTR BugCheckParameter4;
+    CHAR VersionUser[32];
+    struct _KDDEBUGGER_DATA64 *KdDebuggerDataBlock;
+
+} DUMP_HEADER, *PDUMP_HEADER;
+
+#ifndef _WIN64
+#define DUMP_BLOCK_SIZE 0x20000
+#else
+#define DUMP_BLOCK_SIZE 0x40000
+#endif
+
+#ifndef _WIN64
+#define KDDEBUGGER_DATA_OFFSET 0x1068
+#else
+#define KDDEBUGGER_DATA_OFFSET 0x2080
+#endif
+
+__forceinline __int64 KeFlushCurrentTbImmediately()
+{
+    unsigned __int64 v0; // rcx
+    __int64 result;      // rax
+
+    v0 = __readcr4();
+    if ((v0 & 0x20080) != 0)
+    {
+        result = v0 ^ 0x80;
+        __writecr4(v0 ^ 0x80);
+        __writecr4(v0);
+    }
+    else
+    {
+        result = __readcr3();
+        __writecr3(result);
+    }
+    return result;
+}
+
+inline PMMPFN MmPfnDatabase = (PMMPFN)0xFFFFFA8000000000;
+inline auto MmPteBase = 0xFFFFF68000000000U;
+inline auto MmPdeBase = 0xFFFFF6FB40000000U;
+inline auto MmPpeBase = 0xFFFFF6FB7DA00000U;
+inline auto MmPxeBase = 0xFFFFF6FB7DBED000U;
+inline auto MmPxeSelf = 0xFFFFF6FB7DBEDF68U;
+
+__forceinline void PteInitialize(ULONG_PTR PteBase, PMMPFN PfnDatabase)
+{
+    MmPteBase = PteBase;
+    MmPdeBase = MmPteBase + (MmPteBase >> 9 & 0x7FFFFFFFFF);
+    MmPpeBase = MmPdeBase + (MmPdeBase >> 9 & 0x3FFFFFFF);
+    MmPxeBase = MmPpeBase + (MmPpeBase >> 9 & 0x1FFFFF);
+    MmPxeSelf = MmPxeBase + (MmPxeBase >> 9 & 0xFFF);
+    MmPfnDatabase = PfnDatabase;
+}
+
+__forceinline PMMPTE MiGetPteAddress(IN PVOID VirtualAddress)
+{
+    return (PMMPTE)(MmPteBase + (((ULONG_PTR)VirtualAddress >> 9) & 0x7FFFFFFFF8));
+}
+
+__forceinline PMMPTE MiGetPdeAddress(IN PVOID VirtualAddress)
+{
+    return (PMMPTE)(MmPdeBase + (((ULONG_PTR)VirtualAddress >> 18) & 0x3FFFFFF8));
+}
+
+__forceinline PMMPTE MiGetPpeAddress(IN PVOID VirtualAddress)
+{
+    return (PMMPTE)(MmPpeBase + (((ULONG_PTR)VirtualAddress >> 27) & 0x1FFFF8));
+}
+
+__forceinline PMMPTE MiGetPxeAddress(IN PVOID VirtualAddress)
+{
+    return ((PMMPTE)MmPxeBase + (((ULONG_PTR)VirtualAddress >> 39) & 0x1FF));
+}
+
+__forceinline PVOID MiGetVirtualAddressMappedByPte(IN PMMPTE PteAddress)
+{
+    return ((PVOID)((((LONG_PTR)PteAddress - (LONG_PTR)MmPteBase) << 25) >> 16));
+}
+
+#define KUSER_SHARED_DATA_USERMODE 0x7FFE0000
+#define KUSER_SHARED_DATA_KERNELMODE 0xFFFFF78000000000
+
+static PKUSER_SHARED_DATA KernelKuserSharedData = (PKUSER_SHARED_DATA)(KUSER_SHARED_DATA_KERNELMODE);
+
 EXTERN_C_START
 
 NTKERNELAPI PVOID NTAPI PsGetProcessWow64Process(IN PEPROCESS Process);
@@ -1627,5 +2150,12 @@ NTAPI
 RtlImageNtHeader(IN PVOID ModuleAddress);
 
 NTSYSAPI NTSTATUS NTAPI KeRaiseUserException(NTSTATUS Status);
+
+NTSYSAPI
+ULONG
+NTAPI
+KeCapturePersistentThreadState(IN PCONTEXT Context, IN PKTHREAD Thread, IN ULONG BugCheckCode,
+                               IN ULONG BugCheckParameter1, IN ULONG BugCheckParameter2, IN ULONG BugCheckParameter3,
+                               IN ULONG BugCheckParameter4, OUT PVOID VirtualAddress);
 
 EXTERN_C_END

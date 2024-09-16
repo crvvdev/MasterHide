@@ -12,6 +12,14 @@ DECLARE_GLOBAL_CONST_UNICODE_STRING(g_processRuleEntryObjectName, L"ProcessRuleE
 object::POBJECT_TYPE g_objTypeProcessEntry = nullptr;
 object::POBJECT_TYPE g_objTypeProcessRuleEntry = nullptr;
 
+bool g_stopCounterThread = false;
+HANDLE g_counterThreadHandle = nullptr;
+
+/*
+
+    Process entry object Allocate, Delete and Free.
+
+*/
 PVOID AllocateProcessEntry(_In_ SIZE_T size)
 {
     PAGED_CODE();
@@ -60,6 +68,11 @@ void DeleteProcessEntry(_In_ PVOID object)
     ObDereferenceObject(processEntry->Process);
 }
 
+/*
+
+    Process rules object Allocate, Delete and Free.
+
+*/
 void FreeProcessRuleEntry(_In_ PVOID object)
 {
     PAGED_CODE();
@@ -84,8 +97,6 @@ void DeleteProcessRuleEntry(_In_ PVOID object)
     {
         RtlFreeUnicodeString(&processRuleEntry->ImageFileName);
     }
-
-    ExFreePool(object);
 }
 
 NTSTATUS Initialize()
@@ -114,6 +125,18 @@ NTSTATUS Initialize()
     {
         WppTracePrint(TRACE_LEVEL_VERBOSE, GENERAL, "Failed to initialize processes resource %!STATUS!", status);
         return STATUS_UNSUCCESSFUL;
+    }
+
+    status = PsCreateSystemThread(&g_counterThreadHandle, THREAD_ALL_ACCESS, nullptr, nullptr, nullptr, CounterUpdater,
+                                  nullptr);
+    if (!NT_SUCCESS(status))
+    {
+        g_processRuleResource.Deinitialize();
+        g_processResource.Deinitialize();
+
+        WppTracePrint(TRACE_LEVEL_VERBOSE, GENERAL, "PsCreateSystemThread returned %!STATUS!", status);
+
+        return status;
     }
 
     // Create object types
@@ -155,7 +178,12 @@ void Deinitialize()
         return;
     }
 
-    g_initialized = false;
+    // Tell counter thread to stop.
+    //
+    g_stopCounterThread = true;
+
+    ZwWaitForSingleObject(g_counterThreadHandle, FALSE, nullptr);
+    ZwClose(g_counterThreadHandle);
 
     // (1) Obtain lock and free all list objects recursively
     //
@@ -166,8 +194,6 @@ void Deinitialize()
             PLIST_ENTRY listEntry = RemoveHeadList(&g_processListHead);
             PPROCESS_ENTRY processEntry = CONTAINING_RECORD(listEntry, PROCESS_ENTRY, ListEntry);
 
-            // Entry will be automatically free'd when ref count reaches zero
-            //
             object::DereferenceObject(processEntry);
         }
 
@@ -181,8 +207,6 @@ void Deinitialize()
             PLIST_ENTRY listEntry = RemoveHeadList(&g_processRuleListHead);
             PPROCESS_RULE_ENTRY processRuleEntry = CONTAINING_RECORD(listEntry, PROCESS_RULE_ENTRY, ListEntry);
 
-            // Entry will be automatically free'd when ref count reaches zero
-            //
             object::DereferenceObject(processRuleEntry);
         }
 
@@ -193,6 +217,8 @@ void Deinitialize()
     //
     g_processResource.Deinitialize();
     g_processRuleResource.Deinitialize();
+
+    g_initialized = false;
 
     WppTracePrint(TRACE_LEVEL_VERBOSE, GENERAL, "Successfully de-initialized rules interface!");
     return;
@@ -448,16 +474,16 @@ void UpdateProcessEntryFlags(_In_ PPROCESS_ENTRY processEntry, _In_ ProcessPolic
 {
     // Check if any flag was changed
     //
-    /*if (BooleanFlagOn(newPolicyFlags, ProcessPolicyFlagKUserSharedData) &&
-        !BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagKUserSharedData))
+    if (BooleanFlagOn(newFlags, ProcessPolicyFlagHideKUserSharedData) &&
+        !BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideKUserSharedData))
     {
-        HookKuserSharedData(HiddenProcess);
+        process::HookKuserSharedData(processEntry);
     }
-    else if (!BooleanFlagOn(newPolicyFlags, ProcessPolicyFlagKUserSharedData) &&
-             BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagKUserSharedData))
+    else if (!BooleanFlagOn(newFlags, ProcessPolicyFlagHideKUserSharedData) &&
+             BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideKUserSharedData))
     {
-        UnHookKuserSharedData(HiddenProcess);
-    }*/
+        process::UnHookKuserSharedData(processEntry);
+    }
 
     if (BooleanFlagOn(newFlags, ProcessPolicyFlagClearThreadHideFromDebuggerFlag) &&
         processEntry->Flags.HideFromDebuggerFlagCleared == FALSE)
@@ -493,15 +519,15 @@ void UpdateProcessEntryFlags(_In_ PPROCESS_ENTRY processEntry, _In_ ProcessPolic
         processEntry->Flags.HeapFlagsCleared = TRUE;
     }
 
-    /*if (BooleanFlagOn(newPolicyFlags, ProcessPolicyFlagClearKUserSharedData) &&
+    if (BooleanFlagOn(newFlags, ProcessPolicyFlagClearKUserSharedData) &&
         processEntry->Flags.KUserSharedDataCleared == FALSE)
     {
-        if (HiddenProcess->Kusd.KuserSharedData != NULL)
+        if (processEntry->Kusd.KuserSharedData != NULL)
         {
-            HiddenProcess->Kusd.KuserSharedData->KdDebuggerEnabled = 0;
-            HiddenProcess->KUserSharedDataCleared = TRUE;
+            processEntry->Kusd.KuserSharedData->KdDebuggerEnabled = 0;
+            processEntry->Flags.KUserSharedDataCleared = TRUE;
         }
-    }*/
+    }
 
     if (BooleanFlagOn(newFlags, ProcessPolicyFlagClearProcessBreakOnTerminationFlag) &&
         processEntry->Flags.ProcessBreakOnTerminationCleared == FALSE)
@@ -660,13 +686,18 @@ NTSTATUS RemoveProcessEntry(_In_ HANDLE processId)
     PAGED_CODE();
     NT_ASSERT(g_initialized);
 
-    NTSTATUS status = STATUS_NOT_FOUND;
+    NTSTATUS status = STATUS_NOT_CAPABLE;
 
     if (g_processResource.LockExclusive())
     {
         if (EnumProcessesUnsafe([&](PPROCESS_ENTRY processEntry) -> bool {
                 if (processEntry->ProcessId == processId)
                 {
+                    if (processEntry->Kusd.KuserSharedData != NULL)
+                    {
+                        process::UnHookKuserSharedData(processEntry);
+                    }
+
                     RemoveEntryList(&processEntry->ListEntry);
                     object::DereferenceObject(processEntry);
 
@@ -690,6 +721,145 @@ NTSTATUS RemoveProcessEntry(_In_ PEPROCESS process)
     NT_ASSERT(process);
 
     return RemoveProcessEntry(PsGetProcessId(process));
+}
+
+void CounterUpdater(PVOID Context)
+{
+    UNREFERENCED_PARAMETER(Context);
+
+    LARGE_INTEGER TimeToWait = {0};
+    TimeToWait.QuadPart = -10000LL; // relative 1ms
+
+    while (!g_stopCounterThread)
+    {
+        KeDelayExecutionThread(KernelMode, FALSE, &TimeToWait);
+
+        if (rules::g_processResource.LockExclusive())
+        {
+            rules::EnumProcessesUnsafe([](_In_ rules::PPROCESS_ENTRY processEntry) -> bool {
+                if (!processEntry->Flags.ProcessPaused && processEntry->Kusd.KuserSharedData &&
+                    BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideKUserSharedData))
+                {
+                    *(ULONG64 *)&processEntry->Kusd.KuserSharedData->InterruptTime =
+                        *(ULONG64 *)&KernelKuserSharedData->InterruptTime.LowPart -
+                        processEntry->Kusd.DeltaInterruptTime;
+                    processEntry->Kusd.KuserSharedData->InterruptTime.High2Time =
+                        processEntry->Kusd.KuserSharedData->InterruptTime.High1Time;
+
+                    *(ULONG64 *)&processEntry->Kusd.KuserSharedData->SystemTime =
+                        *(ULONG64 *)&KernelKuserSharedData->SystemTime.LowPart - processEntry->Kusd.DeltaSystemTime;
+                    processEntry->Kusd.KuserSharedData->SystemTime.High2Time =
+                        processEntry->Kusd.KuserSharedData->SystemTime.High1Time;
+
+                    processEntry->Kusd.KuserSharedData->LastSystemRITEventTickCount =
+                        KernelKuserSharedData->LastSystemRITEventTickCount -
+                        processEntry->Kusd.DeltaLastSystemRITEventTickCount;
+
+                    *(ULONG64 *)&processEntry->Kusd.KuserSharedData->TickCount =
+                        *(ULONG64 *)&KernelKuserSharedData->TickCount.LowPart - processEntry->Kusd.DeltaTickCount;
+                    processEntry->Kusd.KuserSharedData->TickCount.High2Time =
+                        processEntry->Kusd.KuserSharedData->TickCount.High1Time;
+
+                    processEntry->Kusd.KuserSharedData->TimeUpdateLock =
+                        KernelKuserSharedData->TimeUpdateLock - processEntry->Kusd.DeltaTimeUpdateLock;
+
+                    processEntry->Kusd.KuserSharedData->BaselineSystemTimeQpc =
+                        KernelKuserSharedData->BaselineSystemTimeQpc - processEntry->Kusd.DeltaBaselineSystemQpc;
+                    processEntry->Kusd.KuserSharedData->BaselineInterruptTimeQpc =
+                        processEntry->Kusd.KuserSharedData->BaselineSystemTimeQpc;
+                }
+
+                return false;
+            });
+
+            rules::g_processResource.Unlock();
+        }
+    }
+
+    PsTerminateSystemThread(STATUS_SUCCESS);
+}
+
+void GetBegin(_In_ PEPROCESS process)
+{
+    if (rules::g_processResource.LockExclusive())
+    {
+        rules::EnumProcessesUnsafe([&](_In_ rules::PPROCESS_ENTRY processEntry) -> bool {
+            if (processEntry->Process == process && processEntry->Kusd.BeginInterruptTime == NULL)
+            {
+                processEntry->Kusd.BeginInterruptTime = *(ULONG64 *)&KernelKuserSharedData->InterruptTime;
+                processEntry->Kusd.BeginSystemTime = *(ULONG64 *)&KernelKuserSharedData->SystemTime;
+                processEntry->Kusd.BeginLastSystemRITEventTickCount =
+                    KernelKuserSharedData->LastSystemRITEventTickCount;
+                processEntry->Kusd.BeginTickCount = *(ULONG64 *)&KernelKuserSharedData->TickCount;
+                processEntry->Kusd.BeginTimeUpdateLock = KernelKuserSharedData->TimeUpdateLock;
+                processEntry->Kusd.BeginBaselineSystemQpc = KernelKuserSharedData->BaselineSystemTimeQpc;
+            }
+
+            return false;
+        });
+
+        rules::g_processResource.Unlock();
+    }
+}
+
+void UpdateDelta(_In_ PEPROCESS process)
+{
+    if (rules::g_processResource.LockExclusive())
+    {
+        rules::EnumProcessesUnsafe([&](_In_ rules::PPROCESS_ENTRY processEntry) -> bool {
+            if (processEntry->Process == process && processEntry->Kusd.BeginInterruptTime != NULL)
+            {
+                processEntry->Kusd.DeltaInterruptTime +=
+                    *(ULONG64 *)&KernelKuserSharedData->InterruptTime - processEntry->Kusd.BeginInterruptTime;
+                processEntry->Kusd.DeltaSystemTime +=
+                    *(ULONG64 *)&KernelKuserSharedData->SystemTime - processEntry->Kusd.BeginSystemTime;
+                processEntry->Kusd.DeltaLastSystemRITEventTickCount +=
+                    KernelKuserSharedData->LastSystemRITEventTickCount -
+                    processEntry->Kusd.BeginLastSystemRITEventTickCount;
+                processEntry->Kusd.DeltaTickCount +=
+                    *(ULONG64 *)&KernelKuserSharedData->TickCount - processEntry->Kusd.BeginTickCount;
+                processEntry->Kusd.DeltaTimeUpdateLock +=
+                    KernelKuserSharedData->TimeUpdateLock - processEntry->Kusd.BeginTimeUpdateLock;
+                processEntry->Kusd.DeltaBaselineSystemQpc +=
+                    KernelKuserSharedData->BaselineSystemTimeQpc - processEntry->Kusd.BeginBaselineSystemQpc;
+
+                RtlZeroMemory(&processEntry->Kusd.BeginInterruptTime, sizeof(ULONG64) * 5 + 4);
+            }
+
+            return false;
+        });
+
+        rules::g_processResource.Unlock();
+    }
+}
+
+NTSTATUS ModifyCounterForProcess(_In_ PEPROCESS process, _In_ BOOLEAN value)
+{
+    PAGED_CODE();
+    NT_ASSERT(g_initialized);
+    NT_ASSERT(process);
+
+    NTSTATUS status = STATUS_NOT_CAPABLE;
+
+    if (g_processResource.LockExclusive())
+    {
+        if (EnumProcessesUnsafe([&](PPROCESS_ENTRY processEntry) -> bool {
+                if (processEntry->Process == process)
+                {
+                    processEntry->Flags.ProcessPaused = value;
+
+                    return true;
+                }
+                return false;
+            }))
+        {
+            status = STATUS_SUCCESS;
+        }
+
+        g_processResource.Unlock();
+    }
+
+    return status;
 }
 
 PTHREAD_ENTRY PROCESS_ENTRY::AppendThreadList(_In_ PETHREAD thread)
@@ -1102,5 +1272,81 @@ bool ClearThreadBreakOnTerminationFlags(_In_ rules::PPROCESS_ENTRY processEntry)
     }
     return false;
 }
+
+static ULONG_PTR IpiFlushTbCallback(ULONG_PTR argument)
+{
+    UNREFERENCED_PARAMETER(argument);
+
+    KeFlushCurrentTbImmediately();
+
+    return 0;
+};
+
+void HookKuserSharedData(_In_ rules::PPROCESS_ENTRY processEntry)
+{
+    PAGED_CODE();
+    NT_ASSERT(processEntry);
+
+    PHYSICAL_ADDRESS PhysicalMax;
+    PhysicalMax.QuadPart = ~0ULL;
+
+    PVOID NewKuserSharedData = MmAllocateContiguousMemory(sizeof(KUSER_SHARED_DATA), PhysicalMax);
+    if (!NewKuserSharedData)
+    {
+        return;
+    }
+
+    ULONG64 PfnNewKuserSharedData = MmGetPhysicalAddress(NewKuserSharedData).QuadPart >> PAGE_SHIFT;
+
+    KAPC_STATE apcState{};
+    KeStackAttachProcess(processEntry->Process, &apcState);
+    {
+        PMMPFN FakeKUSDMmpfn = (PMMPFN)(MmPfnDatabase + PfnNewKuserSharedData);
+
+        FakeKUSDMmpfn->u4.EntireField |= 0x200000000000000;
+
+        RtlCopyMemory(NewKuserSharedData, (PVOID)KUSER_SHARED_DATA_USERMODE, sizeof(KUSER_SHARED_DATA));
+
+        processEntry->Kusd.PteKuserSharedData = MiGetPteAddress((PVOID)KUSER_SHARED_DATA_USERMODE);
+        processEntry->Kusd.OriginalKuserSharedDataPfn = processEntry->Kusd.PteKuserSharedData->u.Hard.PageFrameNumber;
+        processEntry->Kusd.PteKuserSharedData->u.Hard.PageFrameNumber = PfnNewKuserSharedData;
+        processEntry->Kusd.KuserSharedData = (PKUSER_SHARED_DATA)NewKuserSharedData;
+
+        // issue IPI to flush tb on all cores
+        //
+        KeIpiGenericCall(IpiFlushTbCallback, NULL);
+        KeInvalidateAllCaches();
+
+        KeUnstackDetachProcess(&apcState);
+    }
+}
+
+void UnHookKuserSharedData(rules::PPROCESS_ENTRY processEntry)
+{
+    PAGED_CODE();
+    NT_ASSERT(processEntry);
+
+    ClearFlag(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideKUserSharedData);
+
+    KAPC_STATE apcState{};
+    KeStackAttachProcess(processEntry->Process, &apcState);
+    {
+        PMMPFN FakeKUSDMmpfn = (PMMPFN)(MmPfnDatabase + processEntry->Kusd.PteKuserSharedData->u.Hard.PageFrameNumber);
+        FakeKUSDMmpfn->u4.EntireField &= ~0x200000000000000;
+
+        MmFreeContiguousMemory(processEntry->Kusd.KuserSharedData);
+
+        processEntry->Kusd.KuserSharedData = NULL;
+        processEntry->Kusd.PteKuserSharedData->u.Hard.PageFrameNumber = processEntry->Kusd.OriginalKuserSharedDataPfn;
+
+        // issue IPI to flush tb on all cores
+        //
+        KeIpiGenericCall(IpiFlushTbCallback, NULL);
+        KeInvalidateAllCaches();
+
+        KeUnstackDetachProcess(&apcState);
+    }
+}
+
 } // namespace process
 } // namespace masterhide

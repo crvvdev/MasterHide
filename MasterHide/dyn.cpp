@@ -4,8 +4,10 @@ namespace masterhide
 {
 namespace dyn
 {
-static void GetOffsets()
+static NTSTATUS GetOffsets()
 {
+    NTSTATUS status = STATUS_SUCCESS;
+
     if (KERNEL_BUILD >= WINDOWS_11)
     {
         DynCtx.Offsets.BypassProcessFreezeFlagOffset = 0x74;
@@ -125,6 +127,12 @@ static void GetOffsets()
         DynCtx.Offsets.RestrictSetThreadContextOffset = 0;
         DynCtx.Offsets.SeAuditProcessCreationInfoOffset = 0x390;
     }
+    else
+    {
+        status = STATUS_NOT_SUPPORTED;
+    }
+
+    return status;
 }
 
 NTSTATUS Initialize()
@@ -139,11 +147,12 @@ NTSTATUS Initialize()
     RTL_OSVERSIONINFOW os{};
     os.dwOSVersionInfoSize = sizeof(os);
 
-    const NTSTATUS status = RtlGetVersion(&os);
+    NTSTATUS status = RtlGetVersion(&os);
     if (!NT_SUCCESS(status))
     {
         WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "RtlGetVersion returned %!STATUS!", status);
-        return false;
+
+        return status;
     }
 
     const ULONG majorVersion = os.dwMajorVersion;
@@ -159,30 +168,59 @@ NTSTATUS Initialize()
     {
         WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Unsupported Windows version major:%d minor:%d", majorVersion,
                       minorVersion);
-        return STATUS_UNSUCCESSFUL;
+
+        return STATUS_NOT_SUPPORTED;
     }
 
     DynCtx.Kernel.MajorVersion = majorVersion;
     DynCtx.Kernel.MinorVersion = minorVersion;
     DynCtx.Kernel.BuildVersion = os.dwBuildNumber;
 
-    // Quick and dirty way to obtain kernel base and size
-    //
-    PVOID kernelBase = nullptr;
-    RtlPcToFileHeader(&RtlGetVersion, &kernelBase);
+     auto InitializeDebuggerBlock = []() -> bool {
+        CONTEXT context = {0};
+        context.ContextFlags = CONTEXT_FULL;
+        RtlCaptureContext(&context);
 
-    if (!kernelBase)
+        auto dumpHeader = tools::AllocatePoolZero<PDUMP_HEADER>(NonPagedPool, DUMP_BLOCK_SIZE, tags::TAG_DEFAULT);
+        if (!dumpHeader)
+        {
+            return false;
+        }
+
+        KeCapturePersistentThreadState(&context, NULL, 0, 0, 0, 0, 0, dumpHeader);
+        RtlCopyMemory(&DynCtx.Kernel.KdBlock, reinterpret_cast<PUCHAR>(dumpHeader) + KDDEBUGGER_DATA_OFFSET,
+                      sizeof(DynCtx.Kernel.KdBlock));
+
+        ExFreePool(dumpHeader);
+        return true;
+    };
+
+    if (!InitializeDebuggerBlock())
     {
-        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Kernel base not found!");
-        return STATUS_UNSUCCESSFUL;
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to read debugger block!");
+
+        return status;
     }
+
+    if (KERNEL_BUILD > WINDOWS_10_VERSION_THRESHOLD2)
+    {
+        PteInitialize(DynCtx.Kernel.KdBlock.PteBase, *(PMMPFN *)DynCtx.Kernel.KdBlock.MmPfnDatabase);
+    }
+
+    auto kernelBase = reinterpret_cast<PUCHAR>(DynCtx.Kernel.KdBlock.KernBase);
 
     PIMAGE_NT_HEADERS nth = RtlImageNtHeader(kernelBase);
 
-    DynCtx.Kernel.Base = PUCHAR(kernelBase);
+    DynCtx.Kernel.Base = kernelBase;
     DynCtx.Kernel.Size = nth->OptionalHeader.SizeOfImage;
 
-    GetOffsets();
+    status = GetOffsets();
+    if (!NT_SUCCESS(status))
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to fill dynamic system offsets!");
+
+        return status;
+    }
 
     g_initialized = true;
 

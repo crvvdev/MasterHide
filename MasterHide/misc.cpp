@@ -14,11 +14,22 @@ NTSTATUS EResource::Initialize()
         return STATUS_ALREADY_INITIALIZED;
     }
 
-    const NTSTATUS status = ExInitializeResourceLite(&_eresource);
+    _eresource = tools::AllocatePoolZero<PERESOURCE>(NonPagedPool, sizeof(ERESOURCE), tags::TAG_ERESOURCE);
+    if (!_eresource)
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to allocate memory for resource!");
+
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+
+    const NTSTATUS status = ExInitializeResourceLite(_eresource);
     if (!NT_SUCCESS(status))
     {
+        ExFreePool(_eresource);
+
         WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "ExInitializeResource returned %!STATUS!", status);
-        return STATUS_UNSUCCESSFUL;
+
+        return status;
     }
 
     _initialized = true;
@@ -43,9 +54,10 @@ NTSTATUS EResource::Deinitialize()
         YieldProcessor();
     }
 
-    ExDeleteResourceLite(&_eresource);
-
     _initialized = false;
+
+    ExDeleteResourceLite(_eresource);
+    ExFreePool(_eresource);
 
     return STATUS_SUCCESS;
 }
@@ -53,29 +65,37 @@ NTSTATUS EResource::Deinitialize()
 BOOLEAN EResource::LockExclusive(_In_ BOOLEAN wait)
 {
     PAGED_CODE();
-    NT_ASSERT(_initialized);
+
+    if (!_initialized)
+    {
+        return FALSE;
+    }
 
     InterlockedIncrement(&_refCount);
     KeEnterCriticalRegion();
-    return ExAcquireResourceExclusiveLite(&_eresource, wait);
+    return ExAcquireResourceExclusiveLite(_eresource, wait);
 }
 
 BOOLEAN EResource::LockShared(_In_ BOOLEAN wait)
 {
     PAGED_CODE();
-    NT_ASSERT(_initialized);
+
+    if (!_initialized)
+    {
+        return FALSE;
+    }
 
     InterlockedIncrement(&_refCount);
     KeEnterCriticalRegion();
-    return ExAcquireResourceSharedLite(&_eresource, wait);
+    return ExAcquireResourceSharedLite(_eresource, wait);
 }
 
 void EResource::Unlock()
 {
     PAGED_CODE();
-    NT_ASSERT(_initialized);
+    NT_ASSERT(_initialized && "Possible bug, resource is not initialized but Unlock was called.");
 
-    ExReleaseResourceAndLeaveCriticalRegion(&_eresource);
+    ExReleaseResourceAndLeaveCriticalRegion(_eresource);
     InterlockedDecrement(&_refCount);
 }
 
@@ -400,15 +420,99 @@ bool DumpPE(PUCHAR moduleBase, PUNICODE_STRING saveFileName)
     return true;
 }
 
-ULONG64 GetPteAddress(ULONG64 Address)
+PIMAGE_SECTION_HEADER GetModuleSection(_In_ PIMAGE_NT_HEADERS nth, _In_ const char *secName)
 {
-    if (KERNEL_BUILD <= WINDOWS_10_VERSION_THRESHOLD2)
+    PAGED_CODE();
+    NT_ASSERT(nth);
+    NT_ASSERT(secName);
+
+    PIMAGE_SECTION_HEADER sec = IMAGE_FIRST_SECTION(nth);
+
+    for (auto i = 0; i < nth->FileHeader.NumberOfSections; i++, sec++)
     {
-        return (ULONG64)(((Address >> 9) & 0x7FFFFFFFF8) - 0x98000000000);
+        if (!strncmp((const CHAR *)sec->Name, secName, IMAGE_SIZEOF_SHORT_NAME))
+        {
+            return sec;
+        }
     }
-    else
+    return nullptr;
+}
+
+#define INRANGE(x, a, b) (x >= a && x <= b)
+#define getBits(x) (INRANGE(x, '0', '9') ? (x - '0') : ((x & (~0x20)) - 'A' + 0xa))
+#define getByte(x) (getBits(x[0]) << 4 | getBits(x[1]))
+
+PUCHAR FindPattern(PUCHAR searchAddress, const size_t searchSize, const char *pattern)
+{
+    NT_ASSERT(searchAddress);
+    NT_ASSERT(pattern);
+
+    auto pat = reinterpret_cast<const unsigned char *>(pattern);
+    PUCHAR firstMatch = nullptr;
+
+    for (PUCHAR cur = searchAddress; cur < searchAddress + searchSize; ++cur)
     {
-        return dyn::DynCtx.Fn.MiGetPteAddress(Address);
+        if (*(PUCHAR)pat == static_cast<UCHAR>('\?') || *cur == getByte(pat))
+        {
+            if (!firstMatch)
+            {
+                firstMatch = cur;
+            }
+
+            pat += (*(USHORT *)pat == static_cast<USHORT>(16191) || *(PUCHAR)pat != static_cast<UCHAR>('\?')) ? 2 : 1;
+
+            if (!*pat)
+            {
+                return firstMatch;
+            }
+
+            pat++;
+
+            if (!*pat)
+            {
+                return firstMatch;
+            }
+        }
+        else if (firstMatch)
+        {
+            cur = firstMatch;
+            pat = reinterpret_cast<const unsigned char *>(pattern);
+            firstMatch = nullptr;
+        }
+    }
+    return NULL;
+}
+
+PUCHAR FindPattern(_In_ void *moduleAddress, _In_ const char *secName, _In_ const char *pattern)
+{
+    NT_ASSERT(secName);
+    NT_ASSERT(pattern);
+
+    __try
+    {
+        PIMAGE_NT_HEADERS nth = RtlImageNtHeader(moduleAddress);
+        if (!nth)
+        {
+            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to parse NT headers!");
+
+            return nullptr;
+        }
+
+        PIMAGE_SECTION_HEADER sec = GetModuleSection(nth, secName);
+        if (!sec)
+        {
+            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Section %s not found!", secName);
+
+            return nullptr;
+        }
+
+        auto *searchAddress = reinterpret_cast<PUCHAR>(moduleAddress) + sec->VirtualAddress;
+
+        return FindPattern(searchAddress, sec->Misc.VirtualSize, pattern);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        return nullptr;
     }
 }
 

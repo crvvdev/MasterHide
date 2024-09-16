@@ -107,6 +107,11 @@ NTSTATUS NTAPI hkNtQueryObject(HANDLE Handle, OBJECT_INFORMATION_CLASS ObjectInf
                                ULONG ObjectInformationLength, PULONG ReturnLength);
 inline decltype(&hkNtQueryObject) oNtQueryObject = nullptr;
 
+NTSTATUS NTAPI hkNtCreateThreadEx(PHANDLE ThreadHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes,
+                                  HANDLE ProcessHandle, PVOID StartRoutine, PVOID Argument, ULONG CreateFlags,
+                                  SIZE_T ZeroBits, SIZE_T StackSize, SIZE_T MaximumStackSize, PVOID AttributeList);
+inline decltype(&hkNtCreateThreadEx) oNtCreateThreadEx = nullptr;
+
 NTSTATUS NTAPI hkNtGetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext);
 inline decltype(&hkNtGetContextThread) oNtGetContextThread = nullptr;
 
@@ -115,6 +120,10 @@ inline decltype(&hkNtSetContextThread) oNtSetContextThread = nullptr;
 
 NTSTATUS NTAPI hkNtContinue(PCONTEXT Context, ULONG64 TestAlert);
 inline decltype(&hkNtContinue) oNtContinue = nullptr;
+
+NTSTATUS NTAPI hkNtOpenThread(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes,
+                              PCLIENT_ID ClientId);
+inline decltype(&hkNtOpenThread) oNtOpenThread = nullptr;
 
 NTSTATUS NTAPI hkNtYieldExecution();
 inline decltype(&hkNtYieldExecution) oNtYieldExecution = nullptr;
@@ -125,6 +134,12 @@ inline decltype(&hkNtClose) oNtClose = nullptr;
 NTSTATUS NTAPI hkNtSystemDebugControl(SYSDBG_COMMAND Command, PVOID InputBuffer, ULONG InputBufferLength,
                                       PVOID OutputBuffer, ULONG OutputBufferLength, PULONG ReturnLength);
 inline decltype(&hkNtSystemDebugControl) oNtSystemDebugControl = nullptr;
+
+NTSTATUS NTAPI hkNtQuerySystemTime(PLARGE_INTEGER SystemTime);
+inline decltype(&hkNtQuerySystemTime) oNtQuerySystemTime = nullptr;
+
+NTSTATUS NTAPI hkNtQueryPerformanceCounter(PLARGE_INTEGER PerformanceCounter, PLARGE_INTEGER PerformanceFrequency);
+inline decltype(&hkNtQueryPerformanceCounter) oNtQueryPerformanceCounter = nullptr;
 
 // Shadow SSDT hooks
 //
