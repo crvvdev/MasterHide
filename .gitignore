@@ -396,3 +396,5 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+.vs/MasterHide/v17/DocumentLayout.json
+.vs/MasterHide/v17/DocumentLayout.backup.json

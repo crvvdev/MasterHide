@@ -60,6 +60,11 @@ void DeleteProcessEntry(_In_ PVOID object)
 
     // Delete process objects
     //
+    if (processEntry->Kusd.KuserSharedData != NULL)
+    {
+        process::UnHookKuserSharedData(processEntry);
+    }
+
     if (processEntry->ImageFileName.Buffer)
     {
         RtlFreeUnicodeString(&processEntry->ImageFileName);

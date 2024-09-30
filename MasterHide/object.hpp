@@ -11,14 +11,17 @@ using TYPE_FREE_PROCEDURE = void (*)(_In_ PVOID);
 
 typedef struct _OBJECT_HEADER
 {
-    volatile SSIZE_T PointerCount;
     UCHAR TypeIndex;
+    volatile SSIZE_T PointerCount;
+    QUAD Body;
 
 } OBJECT_HEADER, *POBJECT_HEADER;
 
-#define ObjectToObjectHeader(x) ((POBJECT_HEADER)CONTAINING_RECORD((PCHAR)x, OBJECT_HEADER, TypeIndex))
-#define ObjectHeaderToObject(x) ((PVOID) & ((POBJECT_HEADER)(x))->TypeIndex)
-#define AddObjectHeaderSize(x) ((SIZE_T)(x) + FIELD_OFFSET(OBJECT_HEADER, TypeIndex))
+C_ASSERT((FIELD_OFFSET(OBJECT_HEADER, Body) % MEMORY_ALLOCATION_ALIGNMENT) == 0);
+
+#define ObjectToObjectHeader(x) ((POBJECT_HEADER)CONTAINING_RECORD((PCHAR)x, OBJECT_HEADER, Body))
+#define ObjectHeaderToObject(x) ((PVOID) & ((POBJECT_HEADER)(x))->Body)
+#define AddObjectHeaderSize(x) ((SIZE_T)(x) + FIELD_OFFSET(OBJECT_HEADER, Body))
 
 typedef struct _OBJECT_TYPE_INFO
 {
@@ -46,7 +49,7 @@ void DereferenceObject(_In_ PVOID object);
 void CreateObjectType(_In_ PCUNICODE_STRING typeName, _In_ POBJECT_TYPE_INFO typeInfo,
                       _Outptr_ POBJECT_TYPE *objectType);
 
-_Must_inspect_result_ NTSTATUS CreateObject(_In_ POBJECT_TYPE objectType, _In_ ULONG objectBodySize,
-                                            _Outptr_result_nullonfailure_ PVOID *object, _In_opt_ PVOID parameter);
+[[nodiscard]] NTSTATUS CreateObject(_In_ POBJECT_TYPE objectType, _In_ ULONG objectBodySize,
+                                    _Outptr_result_nullonfailure_ PVOID *object, _In_opt_ PVOID parameter);
 } // namespace object
 } // namespace masterhide

@@ -94,7 +94,7 @@ static NTSTATUS FillSyscallTable(_In_ PUNICODE_STRING fileName)
 
                 // Allocate new entry and insert to hash table.
                 auto entry = tools::AllocatePoolZero<PSYSCALL_TABLE_ENTRY>(NonPagedPool, sizeof(SYSCALL_TABLE_ENTRY),
-                                                                           tags::TAG_HASH_TABLE);
+                                                                           tags::TAG_HASH_TABLE_ENTRY);
                 if (entry)
                 {
                     const FNV1A_t serviceHash = FNV1A::Hash(routineName);
@@ -203,6 +203,7 @@ void Deinitialize()
 
     RtlDeleteHashTable(g_hashTable);
     RtlReleaseHashTableContext(&g_hashTableContext);
+    ExFreePool(g_hashTable);
 
     g_initialized = false;
 

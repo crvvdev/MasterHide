@@ -186,7 +186,7 @@ NTSTATUS Initialize()
     // HOOK_SYSTEM_ROUTINE(NtQueryInformationJobObject, false);
 
     HOOK_SYSTEM_ROUTINE(NtQueryObject, false);
-    //HOOK_SYSTEM_ROUTINE(NtQuerySystemTime, false);
+    // HOOK_SYSTEM_ROUTINE(NtQuerySystemTime, false);
     HOOK_SYSTEM_ROUTINE(NtQueryPerformanceCounter, false);
     HOOK_SYSTEM_ROUTINE(NtSetInformationProcess, false);
     HOOK_SYSTEM_ROUTINE(NtSetInformationThread, false);
@@ -258,16 +258,18 @@ void Deinitialize()
 
     WppTracePrint(TRACE_LEVEL_VERBOSE, GENERAL, "Waiting for all hooks to complete before proceeding...");
 
-    // (2) We have to wait for the gobal reference count to reach zero unless we wanna bugcheck the system :)
-    //
-    // !! BUG !! If one of the hooks cannot be removed this will hang the current thread indefinitively
-    //
+// (2) We have to wait for the gobal reference count to reach zero unless we wanna bugcheck the system :)
+//
+// !! BUG !! If one of the hooks cannot be removed this will hang the current thread indefinitively
+//
+#if 0
     while (LONG count = InterlockedCompareExchange(&g_refCount, 0, 0) != 0)
     {
         WppTracePrint(TRACE_LEVEL_VERBOSE, GENERAL, "%d references left", count);
 
         YieldProcessor();
     }
+#endif
 
     WppTracePrint(TRACE_LEVEL_VERBOSE, GENERAL, "Successfully de-initialized hooks interface!");
     return;

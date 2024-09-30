@@ -7,12 +7,13 @@ namespace tags
 static constexpr ULONG TAG_DEFAULT = '00hm';
 static constexpr ULONG TAG_STRING = '10hm';
 static constexpr ULONG TAG_HASH_TABLE = '20hm';
-static constexpr ULONG TAG_PROCESS_ENTRY = '30hm';
-static constexpr ULONG TAG_PROCESS_RULE_ENTRY = '40hm';
-static constexpr ULONG TAG_THREAD_ENTRY = '50hm';
-static constexpr ULONG TAG_IMAGE_PATH_ENTRY = '60hm';
-static constexpr ULONG TAG_HOOK = '70hm';
-static constexpr ULONG TAG_ERESOURCE = '80hm';
+static constexpr ULONG TAG_HASH_TABLE_ENTRY = '30hm';
+static constexpr ULONG TAG_PROCESS_ENTRY = '40hm';
+static constexpr ULONG TAG_PROCESS_RULE_ENTRY = '50hm';
+static constexpr ULONG TAG_THREAD_ENTRY = '60hm';
+static constexpr ULONG TAG_IMAGE_PATH_ENTRY = '70hm';
+static constexpr ULONG TAG_HOOK = '80hm';
+static constexpr ULONG TAG_ERESOURCE = '90hm';
 } // namespace tags
 
 namespace mutex

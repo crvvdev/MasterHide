@@ -71,8 +71,8 @@ void CreateObjectType(_In_ PCUNICODE_STRING typeName, _In_ POBJECT_TYPE_INFO typ
     *objectType = type;
 }
 
-_Must_inspect_result_ NTSTATUS CreateObject(_In_ POBJECT_TYPE objectType, _In_ ULONG objectBodySize,
-                                            _Outptr_result_nullonfailure_ PVOID *object, _In_opt_ PVOID parameter)
+NTSTATUS CreateObject(_In_ POBJECT_TYPE objectType, _In_ ULONG objectBodySize,
+                      _Outptr_result_nullonfailure_ PVOID *object, _In_opt_ PVOID parameter)
 {
     NTSTATUS status;
 
@@ -107,9 +107,5 @@ _Must_inspect_result_ NTSTATUS CreateObject(_In_ POBJECT_TYPE objectType, _In_ U
 
     return STATUS_SUCCESS;
 }
-
-#undef ObjectToObjectHeader
-#undef ObjectHeaderToObject
-#undef AddObjectHeaderSize
 } // namespace object
 } // namespace masterhide

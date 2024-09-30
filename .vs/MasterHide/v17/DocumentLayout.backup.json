@@ -3,8 +3,8 @@
   "WorkspaceRootPath": "A:\\work\\MasterHide\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|A:\\work\\MasterHide\\MasterHide\\rules.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|solutionrelative:MasterHide\\rules.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|A:\\work\\MasterHide\\MasterHide\\drivermain.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|solutionrelative:MasterHide\\drivermain.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|A:\\work\\MasterHide\\MasterHide\\object.hpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
@@ -15,8 +15,28 @@
       "RelativeMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|solutionrelative:MasterHide\\object.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
+      "AbsoluteMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|A:\\work\\MasterHide\\MasterHide\\misc.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|solutionrelative:MasterHide\\misc.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|A:\\work\\MasterHide\\MasterHide\\dyn.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|solutionrelative:MasterHide\\dyn.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|A:\\work\\MasterHide\\MasterHide\\hooks.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|solutionrelative:MasterHide\\hooks.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|A:\\work\\MasterHide\\MasterHide\\syscalls.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|solutionrelative:MasterHide\\syscalls.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|A:\\work\\MasterHide\\MasterHide\\misc.hpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|solutionrelative:MasterHide\\misc.hpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|A:\\work\\MasterHide\\MasterHide\\rules.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|solutionrelative:MasterHide\\rules.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|A:\\work\\MasterHide\\MasterHide\\callbacks.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
@@ -27,36 +47,16 @@
       "RelativeMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|solutionrelative:MasterHide\\rules.hpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|A:\\work\\MasterHide\\MasterHide\\dyn.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|solutionrelative:MasterHide\\dyn.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|A:\\work\\MasterHide\\MasterHide\\dyn.hpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|solutionrelative:MasterHide\\dyn.hpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|A:\\work\\MasterHide\\MasterHide\\drivermain.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|solutionrelative:MasterHide\\drivermain.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|A:\\work\\MasterHide\\MasterHide\\misc.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|solutionrelative:MasterHide\\misc.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|A:\\work\\MasterHide\\MasterHide\\hooks.hpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|solutionrelative:MasterHide\\hooks.hpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|A:\\work\\MasterHide\\MasterHide\\misc.hpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|solutionrelative:MasterHide\\misc.hpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|A:\\work\\MasterHide\\MasterHide\\includes.hpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|solutionrelative:MasterHide\\includes.hpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|A:\\work\\MasterHide\\MasterHide\\syscalls.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|solutionrelative:MasterHide\\syscalls.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{68D74A79-3DE6-463F-9F5A-03E719657B14}|MasterHide\\MasterHide.vcxproj|A:\\work\\MasterHide\\MasterHide\\syscalls.hpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
@@ -114,7 +114,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 4,
+          "SelectedChildIndex": 10,
           "Children": [
             {
               "$type": "Document",
@@ -124,7 +124,7 @@
               "RelativeDocumentMoniker": "MasterHide\\object.hpp",
               "ToolTip": "A:\\work\\MasterHide\\MasterHide\\object.hpp",
               "RelativeToolTip": "MasterHide\\object.hpp",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAABEAAAAAAAAAAAAiwBwAAAApAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
               "WhenOpened": "2024-09-16T06:55:07.795Z",
               "EditorCaption": ""
@@ -137,27 +137,37 @@
               "RelativeDocumentMoniker": "MasterHide\\object.cpp",
               "ToolTip": "A:\\work\\MasterHide\\MasterHide\\object.cpp",
               "RelativeToolTip": "MasterHide\\object.cpp",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAMAAAABAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAB0AAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2024-09-16T06:50:17.589Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-09-16T06:50:17.589Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 8,
+              "Title": "rules.cpp",
+              "DocumentMoniker": "A:\\work\\MasterHide\\MasterHide\\rules.cpp",
+              "RelativeDocumentMoniker": "MasterHide\\rules.cpp",
+              "ToolTip": "A:\\work\\MasterHide\\MasterHide\\rules.cpp",
+              "RelativeToolTip": "MasterHide\\rules.cpp",
+              "ViewState": "AgIAAEQAAAAAAAAAAAAiwEIAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2024-09-10T02:49:17.205Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
               "Title": "dyn.cpp",
               "DocumentMoniker": "A:\\work\\MasterHide\\MasterHide\\dyn.cpp",
               "RelativeDocumentMoniker": "MasterHide\\dyn.cpp",
               "ToolTip": "A:\\work\\MasterHide\\MasterHide\\dyn.cpp",
               "RelativeToolTip": "MasterHide\\dyn.cpp",
-              "ViewState": "AgIAALIAAAAAAAAAAADgv8IAAAAUAAAAAAAAAA==",
+              "ViewState": "AgIAAKMAAAAAAAAAAADgv8IAAAAUAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2024-08-30T01:17:32.053Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-08-30T01:17:32.053Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 10,
               "Title": "rules.hpp",
               "DocumentMoniker": "A:\\work\\MasterHide\\MasterHide\\rules.hpp",
               "RelativeDocumentMoniker": "MasterHide\\rules.hpp",
@@ -165,64 +175,47 @@
               "RelativeToolTip": "MasterHide\\rules.hpp",
               "ViewState": "AgIAAD4BAAAAAAAAAAAiwEsBAAAYAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2024-09-10T03:41:14.99Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-09-10T03:41:14.99Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "rules.cpp",
-              "DocumentMoniker": "A:\\work\\MasterHide\\MasterHide\\rules.cpp",
-              "RelativeDocumentMoniker": "MasterHide\\rules.cpp",
-              "ToolTip": "A:\\work\\MasterHide\\MasterHide\\rules.cpp",
-              "RelativeToolTip": "MasterHide\\rules.cpp",
-              "ViewState": "AgIAAHECAAAAAAAAAADgv4oCAABdAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2024-09-10T02:49:17.205Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 9,
+              "DocumentIndex": 3,
               "Title": "misc.cpp",
               "DocumentMoniker": "A:\\work\\MasterHide\\MasterHide\\misc.cpp",
               "RelativeDocumentMoniker": "MasterHide\\misc.cpp",
               "ToolTip": "A:\\work\\MasterHide\\MasterHide\\misc.cpp",
               "RelativeToolTip": "MasterHide\\misc.cpp",
-              "ViewState": "AgIAAOMBAAAAAAAAAADwv74BAAAdAAAAAAAAAA==",
+              "ViewState": "AgIAAPgBAAAAAAAAAADwv7wBAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2024-09-09T18:02:56.068Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-09-09T18:02:56.068Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 11,
+              "DocumentIndex": 7,
               "Title": "misc.hpp",
               "DocumentMoniker": "A:\\work\\MasterHide\\MasterHide\\misc.hpp",
               "RelativeDocumentMoniker": "MasterHide\\misc.hpp",
               "ToolTip": "A:\\work\\MasterHide\\MasterHide\\misc.hpp",
               "RelativeToolTip": "MasterHide\\misc.hpp",
-              "ViewState": "AgIAAFYAAAAAAAAAAAAiwF8AAAABAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAkAAAArAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2024-09-02T05:15:17.287Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-09-02T05:15:17.287Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 5,
               "Title": "hooks.cpp",
               "DocumentMoniker": "A:\\work\\MasterHide\\MasterHide\\hooks.cpp",
               "RelativeDocumentMoniker": "MasterHide\\hooks.cpp",
               "ToolTip": "A:\\work\\MasterHide\\MasterHide\\hooks.cpp",
               "RelativeToolTip": "MasterHide\\hooks.cpp",
-              "ViewState": "AgIAALUAAAAAAAAAAAAiwMMAAAAxAAAAAAAAAA==",
+              "ViewState": "AgIAAPAAAAAAAAAAAAAiwA8BAAAGAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2024-08-30T01:16:53.254Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-08-30T01:16:53.254Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 10,
+              "DocumentIndex": 12,
               "Title": "hooks.hpp",
               "DocumentMoniker": "A:\\work\\MasterHide\\MasterHide\\hooks.hpp",
               "RelativeDocumentMoniker": "MasterHide\\hooks.hpp",
@@ -230,12 +223,11 @@
               "RelativeToolTip": "MasterHide\\hooks.hpp",
               "ViewState": "AgIAAFsAAAAAAAAAAAAiwGwAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2024-09-10T01:11:46.578Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-09-10T01:11:46.578Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 9,
               "Title": "callbacks.cpp",
               "DocumentMoniker": "A:\\work\\MasterHide\\MasterHide\\callbacks.cpp",
               "RelativeDocumentMoniker": "MasterHide\\callbacks.cpp",
@@ -243,18 +235,17 @@
               "RelativeToolTip": "MasterHide\\callbacks.cpp",
               "ViewState": "AgIAADkAAAAAAAAAAADgv08AAAAYAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2024-09-02T17:13:40.189Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-09-02T17:13:40.189Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 8,
+              "DocumentIndex": 0,
               "Title": "drivermain.cpp",
               "DocumentMoniker": "A:\\work\\MasterHide\\MasterHide\\drivermain.cpp",
               "RelativeDocumentMoniker": "MasterHide\\drivermain.cpp",
               "ToolTip": "A:\\work\\MasterHide\\MasterHide\\drivermain.cpp",
               "RelativeToolTip": "MasterHide\\drivermain.cpp",
-              "ViewState": "AgIAAKYAAAAAAAAAAAAiwL8AAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAKYAAAAAAAAAAAAiwLAAAAB4AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2024-08-23T18:20:14.613Z",
               "EditorCaption": ""
@@ -273,13 +264,13 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 13,
+              "DocumentIndex": 6,
               "Title": "syscalls.cpp",
               "DocumentMoniker": "A:\\work\\MasterHide\\MasterHide\\syscalls.cpp",
               "RelativeDocumentMoniker": "MasterHide\\syscalls.cpp",
               "ToolTip": "A:\\work\\MasterHide\\MasterHide\\syscalls.cpp",
               "RelativeToolTip": "MasterHide\\syscalls.cpp",
-              "ViewState": "AgIAAJcAAAAAAAAAAAArwKkAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAHIAAAAAAAAAAAAiwLsAAAAJAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2024-08-30T19:28:43.011Z"
             },
@@ -297,7 +288,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 7,
+              "DocumentIndex": 11,
               "Title": "dyn.hpp",
               "DocumentMoniker": "A:\\work\\MasterHide\\MasterHide\\dyn.hpp",
               "RelativeDocumentMoniker": "MasterHide\\dyn.hpp",
@@ -305,12 +296,11 @@
               "RelativeToolTip": "MasterHide\\dyn.hpp",
               "ViewState": "AgIAAAMAAAAAAAAAAAAAADEAAAAWAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2024-09-09T18:51:09.332Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-09-09T18:51:09.332Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 12,
+              "DocumentIndex": 13,
               "Title": "includes.hpp",
               "DocumentMoniker": "A:\\work\\MasterHide\\MasterHide\\includes.hpp",
               "RelativeDocumentMoniker": "MasterHide\\includes.hpp",
