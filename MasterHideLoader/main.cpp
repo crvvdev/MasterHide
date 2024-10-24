@@ -16,7 +16,7 @@ int main()
 
     try
     {
-#if USE_KASPERSKY
+#if (MASTERHIDE_MODE == MASTERHIDE_MODE_KASPERSKYHOOK)
         kaspersky::Load();
         printf("Kaspersky loaded!\n");
 #endif
@@ -33,13 +33,13 @@ int main()
 
         loader::Cleanup();
 
-#if USE_KASPERSKY
+#if (MASTERHIDE_MODE == MASTERHIDE_MODE_KASPERSKYHOOK)
         kaspersky::Cleanup(false);
 #endif
     }
     catch (const std::exception &e)
     {
-#if USE_KASPERSKY
+#if (MASTERHIDE_MODE == MASTERHIDE_MODE_KASPERSKYHOOK)
         kaspersky::Cleanup(false);
 #endif
 

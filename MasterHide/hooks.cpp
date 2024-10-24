@@ -18,70 +18,95 @@ CONST PKUSER_SHARED_DATA KuserSharedData = (PKUSER_SHARED_DATA)KUSER_SHARED_DATA
     if (ARGUMENT_PRESENT(ReturnLength))                                                                                \
     (*ReturnLength) = TempReturnLength
 
-[[nodiscard]] static NTSTATUS CreateHook(_In_ USHORT syscallNum, _In_ PVOID dst, _Out_ PVOID *org, _In_ bool shadow)
+[[nodiscard]] static NTSTATUS CreateHook(_In_ LPCSTR serviceName, _In_ PVOID original)
 {
     PAGED_CODE();
-    NT_ASSERT(dst);
-    NT_ASSERT(org);
 
-    auto hookEntry = tools::AllocatePoolZero<PHOOK_ENTRY>(NonPagedPool, sizeof(HOOK_ENTRY), tags::TAG_HOOK);
-    if (!hookEntry)
+    for (HOOK_ENTRY &entry : g_HookList)
     {
-        return STATUS_INSUFFICIENT_RESOURCES;
-    }
-
-#ifdef USE_KASPERSKY
-    if (shadow)
-    {
-        if (!kaspersky::hook_shadow_ssdt_routine(syscallNum, dst, org))
+        if (KERNEL_BUILD >= WINDOWS_10_VERSION_20H1)
         {
-            return STATUS_UNSUCCESSFUL;
+            if (!strcmp(entry.ServiceName, "NtContinue"))
+            {
+                strncpy(entry.ServiceName, "NtContinueEx", ARRAYSIZE(entry.ServiceName) - 1);
+            }
         }
-    }
-    else
-    {
-        if (!kaspersky::hook_ssdt_routine(syscallNum, dst, org))
+        else if (KERNEL_BUILD <= WINDOWS_7_SP1)
         {
-            return STATUS_UNSUCCESSFUL;
+            if (!strcmp(entry.ServiceName, "NtUserBuildHwndList"))
+            {
+                entry.New = &hkNtUserBuildHwndList_Win7;
+                original = oNtUserBuildHwndList_Win7;
+            }
         }
-    }
 
-    hookEntry->SyscallNum = syscallNum;
-    hookEntry->Original = *org;
-    hookEntry->Current = dst;
-    hookEntry->Shadow = shadow;
+        if (!strcmp(entry.ServiceName, serviceName))
+        {
+            const USHORT serviceIndex = syscalls::GetSyscallIndexByName(entry.ServiceName);
+            if (serviceIndex == MAXUSHORT)
+            {
+                WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Could not find index for service %s", entry.ServiceName);
+                return STATUS_PROCEDURE_NOT_FOUND;
+            }
+
+            entry.ServiceIndex = entry.Shadow ? serviceIndex + 0x1000 : serviceIndex;
+            entry.Original = original;
+
+#if (MASTERHIDE_MODE == MASTERHIDE_MODE_KASPERSKYHOOK)
+            if (entry.Shadow)
+            {
+                if (!kaspersky::hook_shadow_ssdt_routine(entry.ServiceIndex, entry.New,
+                                                         reinterpret_cast<PVOID *>(&entry.Original)))
+                {
+                    return STATUS_UNSUCCESSFUL;
+                }
+            }
+            else
+            {
+                if (!kaspersky::hook_ssdt_routine(entry.ServiceIndex, entry.New,
+                                                  reinterpret_cast<PVOID *>(&entry.Original)))
+                {
+                    return STATUS_UNSUCCESSFUL;
+                }
+            }
+#elif (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
+            // TODO: implement
 #else
-    // TODO: implement
+            // TODO: implement
 #endif
-
-    InsertTailList(&g_hooksListHead, &hookEntry->ListEntry);
+        }
+    }
 
     return STATUS_SUCCESS;
 }
 
-static NTSTATUS RemoveHook(_In_ USHORT syscallNum, _Out_ PVOID org, _In_ bool shadow)
+static NTSTATUS UninstallHooks()
 {
     PAGED_CODE();
-    NT_ASSERT(org);
 
-#ifdef USE_KASPERSKY
-    if (shadow)
+    for (HOOK_ENTRY &entry : g_HookList)
     {
-        if (!kaspersky::unhook_shadow_ssdt_routine(syscallNum, org))
+#if (MASTERHIDE_MODE == MASTERHIDE_MODE_KASPERSKYHOOK)
+        if (entry.Shadow)
         {
-            return STATUS_UNSUCCESSFUL;
+            if (!kaspersky::unhook_shadow_ssdt_routine(entry.ServiceIndex, entry.Original))
+            {
+                return STATUS_UNSUCCESSFUL;
+            }
         }
-    }
-    else
-    {
-        if (!kaspersky::unhook_ssdt_routine(syscallNum, org))
+        else
         {
-            return STATUS_UNSUCCESSFUL;
+            if (!kaspersky::unhook_ssdt_routine(entry.ServiceIndex, entry.Original))
+            {
+                return STATUS_UNSUCCESSFUL;
+            }
         }
-    }
+#elif (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
+        // TODO: implement
 #else
-    // TODO: implement
+        // TODO: implement
 #endif
+    }
 
     return STATUS_SUCCESS;
 }
@@ -98,58 +123,9 @@ NTSTATUS Initialize()
 
     NTSTATUS status = STATUS_SUCCESS;
 
-    InitializeListHead(&g_hooksListHead);
     KeInitializeMutex(&g_ntCloseMutex, 0);
 
-#define HOOK_SYSTEM_ROUTINE(name, shadow)                                                                              \
-    {                                                                                                                  \
-        USHORT syscallNum = syscalls::GetSyscallIndexByName(#name);                                                    \
-        if (syscallNum == MAXUSHORT)                                                                                   \
-        {                                                                                                              \
-            DBGPRINT(#name " index was not found!");                                                                   \
-            return STATUS_UNSUCCESSFUL;                                                                                \
-        }                                                                                                              \
-        else                                                                                                           \
-        {                                                                                                              \
-            status = CreateHook(shadow ? syscallNum + 0x1000 : syscallNum, hk##name,                                   \
-                                reinterpret_cast<PVOID *>(&o##name), shadow);                                          \
-            if (!NT_SUCCESS(status))                                                                                   \
-            {                                                                                                          \
-                DBGPRINT("Failed to hook " #name " 0x%08X", status);                                                   \
-                return STATUS_UNSUCCESSFUL;                                                                            \
-            }                                                                                                          \
-            else                                                                                                       \
-            {                                                                                                          \
-                DBGPRINT(#name " hooked successfully!");                                                               \
-            }                                                                                                          \
-        }                                                                                                              \
-    }
-
-#define HOOK_SYSTEM_ROUTINE_PARAM(name, shadow, dst, src)                                                              \
-    {                                                                                                                  \
-        USHORT syscallNum = syscalls::GetSyscallIndexByName(#name);                                                    \
-        if (syscallNum == MAXUSHORT)                                                                                   \
-        {                                                                                                              \
-            DBGPRINT(#name " index was not found!");                                                                   \
-            return STATUS_UNSUCCESSFUL;                                                                                \
-        }                                                                                                              \
-        else                                                                                                           \
-        {                                                                                                              \
-            status =                                                                                                   \
-                CreateHook(shadow ? syscallNum + 0x1000 : syscallNum, dst, reinterpret_cast<PVOID *>(&src), shadow);   \
-            if (!NT_SUCCESS(status))                                                                                   \
-            {                                                                                                          \
-                DBGPRINT("Failed to hook " #name " 0x%08X", status);                                                   \
-                return STATUS_UNSUCCESSFUL;                                                                            \
-            }                                                                                                          \
-            else                                                                                                       \
-            {                                                                                                          \
-                DBGPRINT(#name " hooked successfully!");                                                               \
-            }                                                                                                          \
-        }                                                                                                              \
-    }
-
-#ifdef USE_KASPERSKY
+#if (MASTERHIDE_MODE == MASTERHIDE_MODE_KASPERSKYHOOK)
     DBGPRINT("Using kaspersky hook.");
 
     if (!::utils::init())
@@ -180,46 +156,49 @@ NTSTATUS Initialize()
         "PatchGuard is enabled.\n");
 #endif
 
-    HOOK_SYSTEM_ROUTINE(NtQuerySystemInformation, false);
-    HOOK_SYSTEM_ROUTINE(NtQueryInformationProcess, false);
-    HOOK_SYSTEM_ROUTINE(NtQueryInformationThread, false);
-    // HOOK_SYSTEM_ROUTINE(NtQueryInformationJobObject, false);
-
-    HOOK_SYSTEM_ROUTINE(NtQueryObject, false);
-    // HOOK_SYSTEM_ROUTINE(NtQuerySystemTime, false);
-    HOOK_SYSTEM_ROUTINE(NtQueryPerformanceCounter, false);
-    HOOK_SYSTEM_ROUTINE(NtSetInformationProcess, false);
-    HOOK_SYSTEM_ROUTINE(NtSetInformationThread, false);
-    HOOK_SYSTEM_ROUTINE(NtSystemDebugControl, false);
-
-    HOOK_SYSTEM_ROUTINE(NtClose, false);
-    HOOK_SYSTEM_ROUTINE(NtCreateThreadEx, false);
-    HOOK_SYSTEM_ROUTINE(NtGetContextThread, false);
-    HOOK_SYSTEM_ROUTINE(NtSetContextThread, false);
-    HOOK_SYSTEM_ROUTINE(NtLoadDriver, false);
-    HOOK_SYSTEM_ROUTINE(NtYieldExecution, false);
-
-    HOOK_SYSTEM_ROUTINE(NtOpenProcess, false);
-    HOOK_SYSTEM_ROUTINE(NtOpenThread, false);
-    HOOK_SYSTEM_ROUTINE(NtAllocateVirtualMemory, false);
-    HOOK_SYSTEM_ROUTINE(NtFreeVirtualMemory, false);
-    HOOK_SYSTEM_ROUTINE(NtWriteVirtualMemory, false);
-    HOOK_SYSTEM_ROUTINE(NtDeviceIoControlFile, false);
-
-    if (KERNEL_BUILD < WINDOWS_10_VERSION_20H1)
-    {
-        HOOK_SYSTEM_ROUTINE(NtContinue, false);
-    }
-    else
-    {
-        HOOK_SYSTEM_ROUTINE_PARAM(NtContinueEx, false, hkNtContinue, oNtContinue);
+#define INSTALL_HOOK(name)                                                                                             \
+    status = CreateHook(#name, &o##name);                                                                              \
+    if (!NT_SUCCESS(status))                                                                                           \
+    {                                                                                                                  \
+        DBGPRINT("Failed to hook " #name " 0x%08X", status);                                                           \
+        UninstallHooks();                                                                                              \
+        return STATUS_UNSUCCESSFUL;                                                                                    \
     }
 
-    HOOK_SYSTEM_ROUTINE(NtUserWindowFromPoint, true);
-    HOOK_SYSTEM_ROUTINE(NtUserQueryWindow, true);
-    HOOK_SYSTEM_ROUTINE(NtUserFindWindowEx, true);
-    HOOK_SYSTEM_ROUTINE(NtUserBuildHwndList, true);
-    HOOK_SYSTEM_ROUTINE(NtUserGetForegroundWindow, true);
+    INSTALL_HOOK(NtQuerySystemInformation);
+    INSTALL_HOOK(NtQueryInformationProcess);
+    INSTALL_HOOK(NtQueryInformationThread);
+    // HOOK_SYSTEM_ROUTINE(NtQueryInformationJobObject);
+
+    INSTALL_HOOK(NtQueryObject);
+    // HOOK_SYSTEM_ROUTINE(NtQuerySystemTime);
+    INSTALL_HOOK(NtQueryPerformanceCounter);
+    INSTALL_HOOK(NtSetInformationProcess);
+    INSTALL_HOOK(NtSetInformationThread);
+    INSTALL_HOOK(NtSystemDebugControl);
+    INSTALL_HOOK(NtClose);
+    INSTALL_HOOK(NtCreateThreadEx);
+    INSTALL_HOOK(NtGetContextThread);
+    INSTALL_HOOK(NtSetContextThread);
+    INSTALL_HOOK(NtLoadDriver);
+    INSTALL_HOOK(NtYieldExecution);
+    INSTALL_HOOK(NtOpenProcess);
+    INSTALL_HOOK(NtOpenThread);
+    INSTALL_HOOK(NtAllocateVirtualMemory);
+    INSTALL_HOOK(NtFreeVirtualMemory);
+    INSTALL_HOOK(NtWriteVirtualMemory);
+    INSTALL_HOOK(NtDeviceIoControlFile);
+    INSTALL_HOOK(NtContinue);
+
+    // Win32K
+    //
+    INSTALL_HOOK(NtUserWindowFromPoint);
+    INSTALL_HOOK(NtUserQueryWindow);
+    INSTALL_HOOK(NtUserFindWindowEx);
+    INSTALL_HOOK(NtUserBuildHwndList);
+    INSTALL_HOOK(NtUserGetForegroundWindow);
+
+#undef INSTALL_HOOK
 
     g_initialized = true;
 
@@ -237,21 +216,9 @@ void Deinitialize()
 
     // (1) (Try) Remove all active hooks
     //
-    while (!IsListEmpty(&g_hooksListHead))
+    const NTSTATUS status = UninstallHooks();
+    if (!NT_SUCCESS(status))
     {
-        PLIST_ENTRY listEntry = RemoveHeadList(&g_hooksListHead);
-        PHOOK_ENTRY hookEntry = CONTAINING_RECORD(listEntry, HOOK_ENTRY, ListEntry);
-
-        const NTSTATUS status = RemoveHook(hookEntry->SyscallNum, hookEntry->Original, hookEntry->Shadow);
-        if (!NT_SUCCESS(status))
-        {
-            // Honestly there's nothing we can do if the hook cannot be removed so just log it i guess?
-            //
-            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to unhook syscallNum:%d org:0x%p new:0x%p %!STATUS!",
-                          hookEntry->SyscallNum, hookEntry->Original, hookEntry->Current, status);
-        }
-
-        ExFreePool(hookEntry);
     }
 
     g_initialized = false;

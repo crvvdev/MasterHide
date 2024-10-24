@@ -31,7 +31,7 @@ extern "C"
 #endif
 
 #ifndef DBGPRINT
-#if _DEBUG
+#if DBG
 #define DBGPRINT(x, ...) DbgPrintEx(NULL, NULL, "[ MasterHide ] " x "\n", __VA_ARGS__);
 #else
 #define DBGPRINT(...)
@@ -42,6 +42,14 @@ extern "C"
 #define BIT(x) (1ULL << (x))
 #endif
 
+#define MASTERHIDE_MODE_KASPERSKYHOOK 0
+#define MASTERHIDE_MODE_INFINITYHOOK 1
+
+#if (MASTERHIDE_MODE == MASTERHIDE_MODE_KASPERSKYHOOK)
+#include "kaspersky.hpp"
+#elif (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
+#include "infinityhook.hpp"
+#endif
 
 #include "fnv1a.hpp"
 #include "wpp_trace.hpp"

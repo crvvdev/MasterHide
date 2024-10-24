@@ -103,49 +103,49 @@ void EResource::Unlock()
 
 namespace tools
 {
-HANDLE GetProcessIdFromProcessHandle(_In_ HANDLE processHandle)
+HANDLE GetProcessIDFromProcessHandle(_In_ HANDLE ProcessHandle)
 {
     PAGED_CODE();
 
-    if (processHandle == ZwCurrentProcess())
+    if (ProcessHandle == ZwCurrentProcess())
     {
         return PsGetCurrentProcessId();
     }
 
-    HANDLE processId = (HANDLE)(LONG_PTR)-1;
-    PEPROCESS process = nullptr;
+    HANDLE Pid = (HANDLE)(LONG_PTR)-1;
+    PEPROCESS Process = nullptr;
 
     const NTSTATUS status =
-        ObReferenceObjectByHandle(processHandle, PROCESS_QUERY_INFORMATION, *PsProcessType, ExGetPreviousMode(),
-                                  reinterpret_cast<PVOID *>(&process), nullptr);
+        ObReferenceObjectByHandle(ProcessHandle, PROCESS_QUERY_INFORMATION, *PsProcessType, ExGetPreviousMode(),
+                                  reinterpret_cast<PVOID *>(&Process), nullptr);
     if (NT_SUCCESS(status))
     {
-        processId = PsGetProcessId(process);
-        ObDereferenceObject(process);
+        Pid = PsGetProcessId(Process);
+        ObDereferenceObject(Process);
     }
-    return processId;
+    return Pid;
 }
 
-HANDLE GetProcessIdFromThreadHandle(_In_ HANDLE threadHandle)
+HANDLE GetProcessIDFromThreadHandle(_In_ HANDLE ThreadHandle)
 {
     PAGED_CODE();
 
-    if (threadHandle == ZwCurrentThread())
+    if (ThreadHandle == ZwCurrentThread())
     {
-        return PsGetCurrentProcessId();
+        return PsGetThreadProcessId(PsGetCurrentThread());
     }
 
-    HANDLE processId = (HANDLE)(LONG_PTR)-1;
-    PETHREAD thread = nullptr;
+    HANDLE Pid = (HANDLE)(LONG_PTR)-1;
+    PETHREAD Thread = nullptr;
 
-    const NTSTATUS status = ObReferenceObjectByHandle(threadHandle, THREAD_QUERY_INFORMATION, *PsThreadType,
-                                                      ExGetPreviousMode(), reinterpret_cast<PVOID *>(&thread), nullptr);
+    const NTSTATUS status = ObReferenceObjectByHandle(ThreadHandle, THREAD_QUERY_INFORMATION, *PsThreadType,
+                                                      ExGetPreviousMode(), reinterpret_cast<PVOID *>(&Thread), nullptr);
     if (NT_SUCCESS(status))
     {
-        processId = PsGetProcessId(PsGetThreadProcess(thread));
-        ObDereferenceObject(thread);
+        Pid = PsGetThreadProcessId(Thread);
+        ObDereferenceObject(Thread);
     }
-    return processId;
+    return Pid;
 }
 
 bool HasDebugPrivilege()
@@ -516,12 +516,11 @@ PUCHAR FindPattern(_In_ void *moduleAddress, _In_ const char *secName, _In_ cons
     }
 }
 
-_IRQL_requires_max_(PASSIVE_LEVEL)
-    _When_(NT_SUCCESS(return), _Outptr_result_buffer_(return) _At_(*systemInfo, __drv_allocatesMem(Mem))) NTSTATUS
-    QuerySystemInformation(
-        _In_ SYSTEM_INFORMATION_CLASS systemInfoClass,
-        _Outptr_result_maybenull_ _At_(*systemInfo, _Pre_maybenull_ _Post_notnull_ _Post_writable_byte_size_(return))
-            PVOID *systemInfo)
+NTSTATUS
+QuerySystemInformation(_In_ SYSTEM_INFORMATION_CLASS systemInfoClass,
+                       _Outptr_result_maybenull_ _At_(*systemInfo,
+                                                      _Pre_maybenull_ _Post_notnull_ _Post_writable_byte_size_(return))
+                           PVOID *systemInfo)
 {
     PAGED_CODE();
     NT_ASSERT(systemInfo);
@@ -550,17 +549,15 @@ _IRQL_requires_max_(PASSIVE_LEVEL)
 
         status = ZwQuerySystemInformation(systemInfoClass, buffer, bufferSize, &bufferSize);
 
-        // Check if buffer needs to be increased
-        //
-        if (status == STATUS_INFO_LENGTH_MISMATCH || status == STATUS_BUFFER_TOO_SMALL)
-        {
-            bufferSize *= 2;
-            continue;
-        }
-        else if (NT_SUCCESS(status))
+        if (NT_SUCCESS(status))
         {
             *systemInfo = buffer;
             break;
+        }
+        else if (status == STATUS_INFO_LENGTH_MISMATCH || status == STATUS_BUFFER_TOO_SMALL)
+        {
+            bufferSize *= 2;
+            continue;
         }
         else
         {

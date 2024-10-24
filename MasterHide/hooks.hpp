@@ -1,54 +1,28 @@
 #pragma once
 
-#ifdef USE_KASPERSKY
-#include "kaspersky.hpp"
-#endif
-
 namespace masterhide
 {
 namespace hooks
 {
-// Struct
-//
 typedef struct _HOOK_ENTRY
 {
-    USHORT SyscallNum;
+    BOOLEAN Shadow;
+    CHAR ServiceName[64];
     PVOID Original;
-    PVOID Current;
-    bool Shadow;
-    LIST_ENTRY ListEntry;
-
+    PVOID New;
+    USHORT ServiceIndex;
+#if (MASTERHIDE_MODE != MASTERHIDE_MODE_INFINITYHOOK) && (MASTERHIDE_MODE != MASTERHIDE_MODE_KASPERSKYHOOK)
+    LONG OldSsdt;
+    LONG NewSsdt;
+    UCHAR OriginalBytes[12];
+#endif
 } HOOK_ENTRY, *PHOOK_ENTRY;
 
 // Globals
 //
-inline LIST_ENTRY g_hooksListHead{};
 inline KMUTEX g_ntCloseMutex{};
 inline volatile LONG g_refCount = 0;
 inline bool g_initialized = false;
-
-using ENUM_HOOKS_CALLBACK = bool (*)(_In_ PHOOK_ENTRY);
-
-template <typename Callback = ENUM_HOOKS_CALLBACK> bool EnumHooks(_In_ Callback &&callback)
-{
-    NT_ASSERT(g_initialized);
-
-    if (IsListEmpty(&g_hooksListHead))
-    {
-        // No entries in list.
-        return false;
-    }
-
-    for (PLIST_ENTRY listEntry = g_hooksListHead.Flink; listEntry != &g_hooksListHead; listEntry = listEntry->Flink)
-    {
-        PHOOK_ENTRY hookEntry = CONTAINING_RECORD(listEntry, HOOK_ENTRY, ListEntry);
-        if (callback(hookEntry))
-        {
-            return true;
-        }
-    }
-    return false;
-}
 
 // Functions
 //
@@ -165,5 +139,38 @@ inline decltype(&hkNtUserBuildHwndList) oNtUserBuildHwndList = nullptr;
 
 HWND NTAPI hkNtUserGetForegroundWindow(VOID);
 inline decltype(&hkNtUserGetForegroundWindow) oNtUserGetForegroundWindow = nullptr;
+
+inline HOOK_ENTRY g_HookList[] = {
+    // NT
+    //
+    {FALSE, ("NtQuerySystemInformation"), nullptr, &hkNtQuerySystemInformation, MAXUSHORT},
+    {FALSE, ("NtOpenProcess"), nullptr, &hkNtOpenProcess, MAXUSHORT},
+    {FALSE, ("NtAllocateVirtualMemory"), nullptr, &hkNtAllocateVirtualMemory, MAXUSHORT},
+    {FALSE, ("NtWriteVirtualMemory"), nullptr, &hkNtWriteVirtualMemory, MAXUSHORT},
+    {FALSE, ("NtDeviceIoControlFile"), nullptr, &hkNtDeviceIoControlFile, MAXUSHORT},
+    {FALSE, ("NtLoadDriver"), nullptr, &hkNtLoadDriver, MAXUSHORT},
+    {FALSE, ("NtSetInformationThread"), nullptr, &hkNtSetInformationThread, MAXUSHORT},
+    {FALSE, ("NtQueryInformationThread"), nullptr, &hkNtQueryInformationThread, MAXUSHORT},
+    {FALSE, ("NtSetInformationProcess"), nullptr, &hkNtSetInformationProcess, MAXUSHORT},
+    {FALSE, ("NtQueryInformationProcess"), nullptr, &hkNtQueryInformationProcess, MAXUSHORT},
+    {FALSE, ("NtQueryObject"), nullptr, &hkNtQueryObject, MAXUSHORT},
+    {FALSE, ("NtCreateThreadEx"), nullptr, &hkNtCreateThreadEx, MAXUSHORT},
+    {FALSE, ("NtGetContextThread"), nullptr, &hkNtGetContextThread, MAXUSHORT},
+    {FALSE, ("NtSetContextThread"), nullptr, &hkNtSetContextThread, MAXUSHORT},
+    {FALSE, ("NtContinue"), nullptr, &hkNtContinue, MAXUSHORT},
+    {FALSE, ("NtOpenThread"), nullptr, &hkNtOpenThread, MAXUSHORT},
+    {FALSE, ("NtYieldExecution"), nullptr, &hkNtYieldExecution, MAXUSHORT},
+    {FALSE, ("NtClose"), nullptr, &hkNtClose, MAXUSHORT},
+    {FALSE, ("NtSystemDebugControl"), nullptr, &hkNtSystemDebugControl, MAXUSHORT},
+    {FALSE, ("NtQuerySystemTime"), nullptr, &hkNtQuerySystemTime, MAXUSHORT},
+    {FALSE, ("NtQueryPerformanceCounter"), nullptr, &hkNtQueryPerformanceCounter, MAXUSHORT},
+    // Win32K
+    //
+    {TRUE, ("NtUserWindowFromPoint"), nullptr, &hkNtUserWindowFromPoint, MAXUSHORT},
+    {TRUE, ("NtUserQueryWindow"), nullptr, &hkNtUserQueryWindow, MAXUSHORT},
+    {TRUE, ("NtUserFindWindowEx"), nullptr, &hkNtUserFindWindowEx, MAXUSHORT},
+    {TRUE, ("NtUserBuildHwndList"), nullptr, &hkNtUserBuildHwndList, MAXUSHORT},
+    {TRUE, ("NtUserGetForegroundWindow"), nullptr, &hkNtUserGetForegroundWindow, MAXUSHORT}};
+
 } // namespace hooks
 } // namespace masterhide

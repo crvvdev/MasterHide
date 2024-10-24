@@ -5,28 +5,46 @@ VisualStudioVersion = 17.11.35219.272
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MasterHide", "MasterHide\MasterHide.vcxproj", "{68D74A79-3DE6-463F-9F5A-03E719657B14}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestHide", "TestHide\TestHide.vcxproj", "{F3EC3652-037E-45A3-9C0B-7703800D858B}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MasterHideLoader", "MasterHideLoader\MasterHideLoader.vcxproj", "{018FEB18-6063-4D5F-AC3A-7CDFBD224016}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug - infinityhook|x64 = Debug - infinityhook|x64
+		Debug - KasperskyHook|x64 = Debug - KasperskyHook|x64
 		Debug|x64 = Debug|x64
+		Release - infinityhook|x64 = Release - infinityhook|x64
+		Release - KasperskyHook|x64 = Release - KasperskyHook|x64
 		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{68D74A79-3DE6-463F-9F5A-03E719657B14}.Debug - infinityhook|x64.ActiveCfg = Debug - infinityhook|x64
+		{68D74A79-3DE6-463F-9F5A-03E719657B14}.Debug - infinityhook|x64.Build.0 = Debug - infinityhook|x64
+		{68D74A79-3DE6-463F-9F5A-03E719657B14}.Debug - infinityhook|x64.Deploy.0 = Debug - infinityhook|x64
+		{68D74A79-3DE6-463F-9F5A-03E719657B14}.Debug - KasperskyHook|x64.ActiveCfg = Debug - KasperskyHook|x64
+		{68D74A79-3DE6-463F-9F5A-03E719657B14}.Debug - KasperskyHook|x64.Build.0 = Debug - KasperskyHook|x64
+		{68D74A79-3DE6-463F-9F5A-03E719657B14}.Debug - KasperskyHook|x64.Deploy.0 = Debug - KasperskyHook|x64
 		{68D74A79-3DE6-463F-9F5A-03E719657B14}.Debug|x64.ActiveCfg = Debug|x64
 		{68D74A79-3DE6-463F-9F5A-03E719657B14}.Debug|x64.Build.0 = Debug|x64
 		{68D74A79-3DE6-463F-9F5A-03E719657B14}.Debug|x64.Deploy.0 = Debug|x64
+		{68D74A79-3DE6-463F-9F5A-03E719657B14}.Release - infinityhook|x64.ActiveCfg = Release - infinityhook|x64
+		{68D74A79-3DE6-463F-9F5A-03E719657B14}.Release - infinityhook|x64.Build.0 = Release - infinityhook|x64
+		{68D74A79-3DE6-463F-9F5A-03E719657B14}.Release - infinityhook|x64.Deploy.0 = Release - infinityhook|x64
+		{68D74A79-3DE6-463F-9F5A-03E719657B14}.Release - KasperskyHook|x64.ActiveCfg = Release - KasperskyHook|x64
+		{68D74A79-3DE6-463F-9F5A-03E719657B14}.Release - KasperskyHook|x64.Build.0 = Release - KasperskyHook|x64
+		{68D74A79-3DE6-463F-9F5A-03E719657B14}.Release - KasperskyHook|x64.Deploy.0 = Release - KasperskyHook|x64
 		{68D74A79-3DE6-463F-9F5A-03E719657B14}.Release|x64.ActiveCfg = Release|x64
 		{68D74A79-3DE6-463F-9F5A-03E719657B14}.Release|x64.Build.0 = Release|x64
 		{68D74A79-3DE6-463F-9F5A-03E719657B14}.Release|x64.Deploy.0 = Release|x64
-		{F3EC3652-037E-45A3-9C0B-7703800D858B}.Debug|x64.ActiveCfg = Debug|x64
-		{F3EC3652-037E-45A3-9C0B-7703800D858B}.Debug|x64.Build.0 = Debug|x64
-		{F3EC3652-037E-45A3-9C0B-7703800D858B}.Release|x64.ActiveCfg = Release|x64
-		{F3EC3652-037E-45A3-9C0B-7703800D858B}.Release|x64.Build.0 = Release|x64
+		{018FEB18-6063-4D5F-AC3A-7CDFBD224016}.Debug - infinityhook|x64.ActiveCfg = Debug - infinityhook|x64
+		{018FEB18-6063-4D5F-AC3A-7CDFBD224016}.Debug - infinityhook|x64.Build.0 = Debug - infinityhook|x64
+		{018FEB18-6063-4D5F-AC3A-7CDFBD224016}.Debug - KasperskyHook|x64.ActiveCfg = Debug - KasperskyHook|Win32
+		{018FEB18-6063-4D5F-AC3A-7CDFBD224016}.Debug - KasperskyHook|x64.Build.0 = Debug - KasperskyHook|Win32
 		{018FEB18-6063-4D5F-AC3A-7CDFBD224016}.Debug|x64.ActiveCfg = Debug|x64
 		{018FEB18-6063-4D5F-AC3A-7CDFBD224016}.Debug|x64.Build.0 = Debug|x64
+		{018FEB18-6063-4D5F-AC3A-7CDFBD224016}.Release - infinityhook|x64.ActiveCfg = Release - infinityhook|Win32
+		{018FEB18-6063-4D5F-AC3A-7CDFBD224016}.Release - infinityhook|x64.Build.0 = Release - infinityhook|Win32
+		{018FEB18-6063-4D5F-AC3A-7CDFBD224016}.Release - KasperskyHook|x64.ActiveCfg = Release - KasperskyHook|Win32
+		{018FEB18-6063-4D5F-AC3A-7CDFBD224016}.Release - KasperskyHook|x64.Build.0 = Release - KasperskyHook|Win32
 		{018FEB18-6063-4D5F-AC3A-7CDFBD224016}.Release|x64.ActiveCfg = Release|x64
 		{018FEB18-6063-4D5F-AC3A-7CDFBD224016}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection

@@ -20,6 +20,9 @@
     <Filter Include="Header Files\KasperskyHook">
       <UniqueIdentifier>{6c5d2264-5690-4b45-b290-99996ca571c5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\infinityhook">
+      <UniqueIdentifier>{11a32ebc-6299-48de-ab64-db9b9aaca9d2}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="drivermain.cpp">
@@ -112,6 +115,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="object.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="infinityhook.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
