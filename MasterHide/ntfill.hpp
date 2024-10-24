@@ -20,6 +20,9 @@
 #define WINDOWS_10_VERSION_22H2 19045
 #define WINDOWS_11 22000
 
+#define PTR_OFFSET_ADD(p, o) ((ULONG_PTR)(p) + (ULONG_PTR)(o))
+#define PTR_OFFSET_SUB(p, o) ((ULONG_PTR)(p) - (ULONG_PTR)(o))
+
 #pragma warning(push)
 #pragma warning(disable : 4201)
 
@@ -2157,5 +2160,12 @@ NTAPI
 KeCapturePersistentThreadState(IN PCONTEXT Context, IN PKTHREAD Thread, IN ULONG BugCheckCode,
                                IN ULONG BugCheckParameter1, IN ULONG BugCheckParameter2, IN ULONG BugCheckParameter3,
                                IN ULONG BugCheckParameter4, OUT PVOID VirtualAddress);
+
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
+ZwTraceControl(_In_ ULONG FunctionCode, _In_reads_bytes_opt_(InBufferLen) PVOID InBuffer, _In_ ULONG InBufferLen,
+               _Out_writes_bytes_opt_(OutBufferLen) PVOID OutBuffer, _In_ ULONG OutBufferLen,
+               _Out_ PULONG ReturnLength);
 
 EXTERN_C_END

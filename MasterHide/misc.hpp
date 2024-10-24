@@ -67,6 +67,11 @@ class EResource
 
 namespace tools
 {
+template <class T = void *> FORCEINLINE T RipToAbsolute(_In_ ULONG_PTR rip, _In_ INT offset, _In_ INT len)
+{
+    return (T)(rip + len + *reinterpret_cast<INT32 *>(rip + offset));
+}
+
 /// <summary>
 /// Try to find code cave in specified memory area.
 /// </summary>

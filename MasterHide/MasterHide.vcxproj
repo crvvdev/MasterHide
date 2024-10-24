@@ -307,8 +307,10 @@
     <ClCompile Include="..\KasperskyHook\KasperskyHookDrv\utils.cpp" />
     <ClCompile Include="callbacks.cpp" />
     <ClCompile Include="dyn.cpp" />
+    <ClCompile Include="hde\hde64.cpp" />
     <ClCompile Include="hooks.cpp" />
     <ClCompile Include="drivermain.cpp" />
+    <ClCompile Include="infinityhook.cpp" />
     <ClCompile Include="object.cpp" />
     <ClCompile Include="rules.cpp" />
     <ClCompile Include="misc.cpp" />
@@ -330,6 +332,9 @@
     <ClInclude Include="callbacks.hpp" />
     <ClInclude Include="dyn.hpp" />
     <ClInclude Include="fnv1a.hpp" />
+    <ClInclude Include="hde\hde64.h" />
+    <ClInclude Include="hde\pstdint.h" />
+    <ClInclude Include="hde\table64.h" />
     <ClInclude Include="hooks.hpp" />
     <ClInclude Include="infinityhook.hpp" />
     <ClInclude Include="object.hpp" />

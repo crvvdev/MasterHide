@@ -18,6 +18,20 @@ CONST PKUSER_SHARED_DATA KuserSharedData = (PKUSER_SHARED_DATA)KUSER_SHARED_DATA
     if (ARGUMENT_PRESENT(ReturnLength))                                                                                \
     (*ReturnLength) = TempReturnLength
 
+#if (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
+void __fastcall SsdtCallback(ULONG ServiceIndex, PVOID *ServiceAddress)
+{
+    for (HOOK_ENTRY &entry : g_HookList)
+    {
+        if (ServiceIndex == entry.ServiceIndex)
+        {
+            *ServiceAddress = entry.New;
+            return;
+        }
+    }
+}
+#endif
+
 [[nodiscard]] static NTSTATUS CreateHook(_In_ LPCSTR serviceName, _In_ PVOID original)
 {
     PAGED_CODE();
@@ -70,14 +84,15 @@ CONST PKUSER_SHARED_DATA KuserSharedData = (PKUSER_SHARED_DATA)KUSER_SHARED_DATA
                 }
             }
 #elif (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
-            // TODO: implement
+            // Nothing has to be done.
 #else
             // TODO: implement
 #endif
+
+            return STATUS_SUCCESS;
         }
     }
-
-    return STATUS_SUCCESS;
+    return STATUS_UNSUCCESSFUL;
 }
 
 static NTSTATUS UninstallHooks()
@@ -102,10 +117,12 @@ static NTSTATUS UninstallHooks()
             }
         }
 #elif (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
-        // TODO: implement
+        // Nothing has to be done here
 #else
         // TODO: implement
 #endif
+
+        entry.Original = nullptr;
     }
 
     return STATUS_SUCCESS;
@@ -154,6 +171,15 @@ NTSTATUS Initialize()
         "MasterHide is using odinary SSDT hooks, which means: It only can be used on PatchGuard disabled "
         "environment, such as kernel debugger attached or manually patching the kernel! The system WILL crash if "
         "PatchGuard is enabled.\n");
+#endif
+
+#if (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
+    status = InitializeInfinityHook(&SsdtCallback);
+    if (!NT_SUCCESS(status))
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "InitializeInfinityHook returned %!STATUS!", status);
+        return STATUS_UNSUCCESSFUL;
+    }
 #endif
 
 #define INSTALL_HOOK(name)                                                                                             \
