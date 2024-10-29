@@ -25,14 +25,14 @@ void __fastcall SsdtCallback(ULONG ServiceIndex, PVOID *ServiceAddress)
     {
         if (ServiceIndex == entry.ServiceIndex)
         {
-            *ServiceAddress = entry.New;
+            entry.Original = InterlockedExchangePointer(ServiceAddress, entry.New);
             return;
         }
     }
 }
 #endif
 
-[[nodiscard]] static NTSTATUS CreateHook(_In_ LPCSTR serviceName, _In_ PVOID original)
+[[nodiscard]] static NTSTATUS CreateHooks()
 {
     PAGED_CODE();
 
@@ -50,49 +50,40 @@ void __fastcall SsdtCallback(ULONG ServiceIndex, PVOID *ServiceAddress)
             if (!strcmp(entry.ServiceName, "NtUserBuildHwndList"))
             {
                 entry.New = &hkNtUserBuildHwndList_Win7;
-                original = oNtUserBuildHwndList_Win7;
             }
         }
 
-        if (!strcmp(entry.ServiceName, serviceName))
+        const USHORT serviceIndex = syscalls::GetSyscallIndexByName(entry.ServiceName);
+        if (serviceIndex == MAXUSHORT)
         {
-            const USHORT serviceIndex = syscalls::GetSyscallIndexByName(entry.ServiceName);
-            if (serviceIndex == MAXUSHORT)
-            {
-                WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Could not find index for service %s", entry.ServiceName);
-                return STATUS_PROCEDURE_NOT_FOUND;
-            }
+            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Could not find index for service %s", entry.ServiceName);
+            return STATUS_PROCEDURE_NOT_FOUND;
+        }
 
-            entry.ServiceIndex = entry.Shadow ? serviceIndex + 0x1000 : serviceIndex;
-            entry.Original = original;
+        entry.ServiceIndex = entry.Shadow ? serviceIndex + 0x1000 : serviceIndex;
 
 #if (MASTERHIDE_MODE == MASTERHIDE_MODE_KASPERSKYHOOK)
-            if (entry.Shadow)
+        if (entry.Shadow)
+        {
+            if (!kaspersky::hook_shadow_ssdt_routine(entry.ServiceIndex, entry.New,
+                                                     reinterpret_cast<PVOID *>(&entry.Original)))
             {
-                if (!kaspersky::hook_shadow_ssdt_routine(entry.ServiceIndex, entry.New,
-                                                         reinterpret_cast<PVOID *>(&entry.Original)))
-                {
-                    return STATUS_UNSUCCESSFUL;
-                }
+                return STATUS_UNSUCCESSFUL;
             }
-            else
-            {
-                if (!kaspersky::hook_ssdt_routine(entry.ServiceIndex, entry.New,
-                                                  reinterpret_cast<PVOID *>(&entry.Original)))
-                {
-                    return STATUS_UNSUCCESSFUL;
-                }
-            }
-#elif (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
-            // Nothing has to be done.
-#else
-            // TODO: implement
-#endif
-
-            return STATUS_SUCCESS;
         }
+        else
+        {
+            if (!kaspersky::hook_ssdt_routine(entry.ServiceIndex, entry.New,
+                                              reinterpret_cast<PVOID *>(&entry.Original)))
+            {
+                return STATUS_UNSUCCESSFUL;
+            }
+        }
+#elif (MASTERHIDE_MODE == MASTERHIDE_MODE_SSDTHOOK)
+        // TODO: implement
+#endif
     }
-    return STATUS_UNSUCCESSFUL;
+    return STATUS_SUCCESS;
 }
 
 static NTSTATUS UninstallHooks()
@@ -122,6 +113,13 @@ static NTSTATUS UninstallHooks()
         // TODO: implement
 #endif
 
+        DBGPRINT("Waiting for references in %s", entry.ServiceName);
+
+        while (InterlockedCompareExchange(&entry.RefCount, 0, 0) != 0)
+        {
+            YieldProcessor();
+        }
+
         entry.Original = nullptr;
     }
 
@@ -140,7 +138,7 @@ NTSTATUS Initialize()
 
     NTSTATUS status = STATUS_SUCCESS;
 
-    KeInitializeMutex(&g_ntCloseMutex, 0);
+    KeInitializeMutex(&g_NtCloseMutex, 0);
 
 #if (MASTERHIDE_MODE == MASTERHIDE_MODE_KASPERSKYHOOK)
     DBGPRINT("Using kaspersky hook.");
@@ -165,66 +163,26 @@ NTSTATUS Initialize()
     }
 
     WppTracePrint(TRACE_LEVEL_VERBOSE, GENERAL, "Kaspersky hypervisor is set up!");
-#else
-    WppTracePrint(
-        TRACE_LEVEL_VERBOSE, GENERAL,
-        "MasterHide is using odinary SSDT hooks, which means: It only can be used on PatchGuard disabled "
-        "environment, such as kernel debugger attached or manually patching the kernel! The system WILL crash if "
-        "PatchGuard is enabled.\n");
-#endif
-
-#if (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
+#elif (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
     status = InitializeInfinityHook(&SsdtCallback);
     if (!NT_SUCCESS(status))
     {
         WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "InitializeInfinityHook returned %!STATUS!", status);
         return STATUS_UNSUCCESSFUL;
     }
+#else
+    DBG_PRINTF(
+        "MasterHide is using odinary SSDT hooks, which means: It only can be used on PatchGuard disabled "
+        "environment, such as kernel debugger attached or manually patching the kernel! The system WILL crash if "
+        "PatchGuard is enabled.\n");
 #endif
 
-#define INSTALL_HOOK(name)                                                                                             \
-    status = CreateHook(#name, &o##name);                                                                              \
-    if (!NT_SUCCESS(status))                                                                                           \
-    {                                                                                                                  \
-        DBGPRINT("Failed to hook " #name " 0x%08X", status);                                                           \
-        UninstallHooks();                                                                                              \
-        return STATUS_UNSUCCESSFUL;                                                                                    \
+    status = CreateHooks();
+    if (!NT_SUCCESS(status))
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "CreateHooks returned %!STATUS!", status);
+        return STATUS_UNSUCCESSFUL;
     }
-
-    INSTALL_HOOK(NtQuerySystemInformation);
-    INSTALL_HOOK(NtQueryInformationProcess);
-    INSTALL_HOOK(NtQueryInformationThread);
-    // HOOK_SYSTEM_ROUTINE(NtQueryInformationJobObject);
-
-    INSTALL_HOOK(NtQueryObject);
-    // HOOK_SYSTEM_ROUTINE(NtQuerySystemTime);
-    INSTALL_HOOK(NtQueryPerformanceCounter);
-    INSTALL_HOOK(NtSetInformationProcess);
-    INSTALL_HOOK(NtSetInformationThread);
-    INSTALL_HOOK(NtSystemDebugControl);
-    INSTALL_HOOK(NtClose);
-    INSTALL_HOOK(NtCreateThreadEx);
-    INSTALL_HOOK(NtGetContextThread);
-    INSTALL_HOOK(NtSetContextThread);
-    INSTALL_HOOK(NtLoadDriver);
-    INSTALL_HOOK(NtYieldExecution);
-    INSTALL_HOOK(NtOpenProcess);
-    INSTALL_HOOK(NtOpenThread);
-    INSTALL_HOOK(NtAllocateVirtualMemory);
-    INSTALL_HOOK(NtFreeVirtualMemory);
-    INSTALL_HOOK(NtWriteVirtualMemory);
-    INSTALL_HOOK(NtDeviceIoControlFile);
-    INSTALL_HOOK(NtContinue);
-
-    // Win32K
-    //
-    INSTALL_HOOK(NtUserWindowFromPoint);
-    INSTALL_HOOK(NtUserQueryWindow);
-    INSTALL_HOOK(NtUserFindWindowEx);
-    INSTALL_HOOK(NtUserBuildHwndList);
-    INSTALL_HOOK(NtUserGetForegroundWindow);
-
-#undef INSTALL_HOOK
 
     g_initialized = true;
 
@@ -240,29 +198,15 @@ void Deinitialize()
         return;
     }
 
-    // (1) (Try) Remove all active hooks
-    //
     const NTSTATUS status = UninstallHooks();
     if (!NT_SUCCESS(status))
     {
+        WppTracePrint(TRACE_LEVEL_WARNING, GENERAL,
+                      "UninstallHooks returned %!STATUS!, one of more hooks where not successfully unninstalled!",
+                      status);
     }
 
     g_initialized = false;
-
-    WppTracePrint(TRACE_LEVEL_VERBOSE, GENERAL, "Waiting for all hooks to complete before proceeding...");
-
-// (2) We have to wait for the gobal reference count to reach zero unless we wanna bugcheck the system :)
-//
-// !! BUG !! If one of the hooks cannot be removed this will hang the current thread indefinitively
-//
-#if 0
-    while (LONG count = InterlockedCompareExchange(&g_refCount, 0, 0) != 0)
-    {
-        WppTracePrint(TRACE_LEVEL_VERBOSE, GENERAL, "%d references left", count);
-
-        YieldProcessor();
-    }
-#endif
 
     WppTracePrint(TRACE_LEVEL_VERBOSE, GENERAL, "Successfully de-initialized hooks interface!");
     return;
@@ -272,11 +216,8 @@ NTSTATUS NTAPI hkNtQuerySystemTime(PLARGE_INTEGER SystemTime)
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtQuerySystemTime"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
@@ -324,18 +265,15 @@ NTSTATUS NTAPI hkNtQuerySystemTime(PLARGE_INTEGER SystemTime)
             }
         }
     }
-    return oNtQuerySystemTime(SystemTime);
+    return reinterpret_cast<decltype(&hkNtQuerySystemTime)>(hookEntry->Original)(SystemTime);
 }
 
 NTSTATUS NTAPI hkNtQueryPerformanceCounter(PLARGE_INTEGER PerformanceCounter, PLARGE_INTEGER PerformanceFrequency)
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtQueryPerformanceCounter"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
@@ -394,7 +332,8 @@ NTSTATUS NTAPI hkNtQueryPerformanceCounter(PLARGE_INTEGER PerformanceCounter, PL
             }
         }
     }
-    return oNtQueryPerformanceCounter(PerformanceCounter, PerformanceFrequency);
+    return reinterpret_cast<decltype(&hkNtQueryPerformanceCounter)>(hookEntry->Original)(PerformanceCounter,
+                                                                                         PerformanceFrequency);
 }
 
 NTSTATUS NTAPI hkNtSystemDebugControl(SYSDBG_COMMAND Command, PVOID InputBuffer, ULONG InputBufferLength,
@@ -402,11 +341,8 @@ NTSTATUS NTAPI hkNtSystemDebugControl(SYSDBG_COMMAND Command, PVOID InputBuffer,
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtSystemDebugControl"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
@@ -439,19 +375,16 @@ NTSTATUS NTAPI hkNtSystemDebugControl(SYSDBG_COMMAND Command, PVOID InputBuffer,
             }
         }
     }
-    return oNtSystemDebugControl(Command, InputBuffer, InputBufferLength, OutputBuffer, OutputBufferLength,
-                                 ReturnLength);
+    return reinterpret_cast<decltype(&hkNtSystemDebugControl)>(hookEntry->Original)(
+        Command, InputBuffer, InputBufferLength, OutputBuffer, OutputBufferLength, ReturnLength);
 }
 
 NTSTATUS NTAPI hkNtClose(HANDLE Handle)
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtClose"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
@@ -477,17 +410,17 @@ NTSTATUS NTAPI hkNtClose(HANDLE Handle)
                 // If two or more threads were to simultaneously check and act on this information without
                 // synchronization, it might lead to inconsistent states where a handle that is meant to be
                 // protected gets closed, or an exception is raised improperly.
-                KeWaitForSingleObject(&g_ntCloseMutex, Executive, KernelMode, FALSE, nullptr);
+                KeWaitForSingleObject(&g_NtCloseMutex, Executive, KernelMode, FALSE, nullptr);
 
                 OBJECT_HANDLE_ATTRIBUTE_INFORMATION handleAttribInfo{};
 
-                const NTSTATUS status =
-                    oNtQueryObject(Handle, OBJECT_INFORMATION_CLASS(4) /*ObjectDataInformation*/, &handleAttribInfo,
-                                   sizeof(OBJECT_HANDLE_ATTRIBUTE_INFORMATION), nullptr);
+                const NTSTATUS status = reinterpret_cast<decltype(&hkNtQueryObject)>(hookEntry->Original)(
+                    Handle, OBJECT_INFORMATION_CLASS(4) /*ObjectDataInformation*/, &handleAttribInfo,
+                    sizeof(OBJECT_HANDLE_ATTRIBUTE_INFORMATION), nullptr);
 
                 if (status == STATUS_INVALID_HANDLE)
                 {
-                    KeReleaseMutex(&g_ntCloseMutex, FALSE);
+                    KeReleaseMutex(&g_NtCloseMutex, FALSE);
 
                     WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS, "Spoofed NtClose(Invalid Handle) anti-debug query!");
 
@@ -502,7 +435,7 @@ NTSTATUS NTAPI hkNtClose(HANDLE Handle)
                 {
                     if (handleAttribInfo.ProtectFromClose == TRUE)
                     {
-                        KeReleaseMutex(&g_ntCloseMutex, FALSE);
+                        KeReleaseMutex(&g_NtCloseMutex, FALSE);
 
                         WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
                                       "Spoofed NtClose(ProtectFromClose) anti-debug query!");
@@ -516,22 +449,19 @@ NTSTATUS NTAPI hkNtClose(HANDLE Handle)
                     }
                 }
 
-                KeReleaseMutex(&g_ntCloseMutex, FALSE);
+                KeReleaseMutex(&g_NtCloseMutex, FALSE);
             }
         }
     }
-    return oNtClose(Handle);
+    return reinterpret_cast<decltype(&hkNtClose)>(hookEntry->Original)(Handle);
 }
 
 NTSTATUS NTAPI hkNtYieldExecution()
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtYieldExecution"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
@@ -556,23 +486,20 @@ NTSTATUS NTAPI hkNtYieldExecution()
             {
                 WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS, "Spoofed NtYieldExecution anti-debug query!");
 
-                oNtYieldExecution();
+                reinterpret_cast<decltype(&hkNtYieldExecution)>(hookEntry->Original)();
                 return STATUS_SUCCESS;
             }
         }
     }
-    return oNtYieldExecution();
+    return reinterpret_cast<decltype(&hkNtYieldExecution)>(hookEntry->Original)();
 }
 
 NTSTATUS NTAPI hkNtContinue(PCONTEXT Context, ULONG64 TestAlert)
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtContinue"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
@@ -613,7 +540,7 @@ NTSTATUS NTAPI hkNtContinue(PCONTEXT Context, ULONG64 TestAlert)
 
                     WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS, "Spoofed NtContinue anti-debug query!");
 
-                    return oNtContinue(Context, TestAlert);
+                    return reinterpret_cast<decltype(&hkNtContinue)>(hookEntry->Original)(Context, TestAlert);
                 }
                 __except (EXCEPTION_EXECUTE_HANDLER)
                 {
@@ -622,7 +549,7 @@ NTSTATUS NTAPI hkNtContinue(PCONTEXT Context, ULONG64 TestAlert)
             }
         }
     }
-    return oNtContinue(Context, TestAlert);
+    return reinterpret_cast<decltype(&hkNtContinue)>(hookEntry->Original)(Context, TestAlert);
 }
 
 NTSTATUS NTAPI hkNtOpenThread(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes,
@@ -630,11 +557,8 @@ NTSTATUS NTAPI hkNtOpenThread(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess, 
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtOpenThread"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode && ProcessHandle != ZwCurrentProcess())
@@ -696,7 +620,8 @@ NTSTATUS NTAPI hkNtOpenThread(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess, 
             return GetExceptionCode();
         }
     }
-    return oNtOpenThread(ProcessHandle, DesiredAccess, ObjectAttributes, ClientId);
+    return reinterpret_cast<decltype(&hkNtOpenThread)>(hookEntry->Original)(ProcessHandle, DesiredAccess,
+                                                                            ObjectAttributes, ClientId);
 }
 
 NTSTATUS NTAPI hkNtOpenProcess(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes,
@@ -704,11 +629,8 @@ NTSTATUS NTAPI hkNtOpenProcess(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess,
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtOpenProcess"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode && ProcessHandle != ZwCurrentProcess())
@@ -752,7 +674,8 @@ NTSTATUS NTAPI hkNtOpenProcess(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess,
             return GetExceptionCode();
         }
     }
-    return oNtOpenProcess(ProcessHandle, DesiredAccess, ObjectAttributes, ClientId);
+    return reinterpret_cast<decltype(&hkNtOpenProcess)>(hookEntry->Original)(ProcessHandle, DesiredAccess,
+                                                                             ObjectAttributes, ClientId);
 }
 
 NTSTATUS NTAPI hkNtSetInformationThread(HANDLE ThreadHandle, THREADINFOCLASS ThreadInformationClass,
@@ -760,11 +683,8 @@ NTSTATUS NTAPI hkNtSetInformationThread(HANDLE ThreadHandle, THREADINFOCLASS Thr
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtSetInformationThread"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
     NTSTATUS status;
 
@@ -860,8 +780,8 @@ NTSTATUS NTAPI hkNtSetInformationThread(HANDLE ThreadHandle, THREADINFOCLASS Thr
 
                                 Wow64Context->ContextFlags &= ~0x10;
 
-                                status = oNtSetInformationThread(ThreadHandle, ThreadInformationClass,
-                                                                 ThreadInformation, ThreadInformationLength);
+                                status = reinterpret_cast<decltype(&hkNtSetInformationThread)>(hookEntry->Original)(
+                                    ThreadHandle, ThreadInformationClass, ThreadInformation, ThreadInformationLength);
 
                                 if (OriginalFlags & 0x10)
                                 {
@@ -920,7 +840,8 @@ NTSTATUS NTAPI hkNtSetInformationThread(HANDLE ThreadHandle, THREADINFOCLASS Thr
             }
         }
     }
-    return oNtSetInformationThread(ThreadHandle, ThreadInformationClass, ThreadInformation, ThreadInformationLength);
+    return reinterpret_cast<decltype(&hkNtSetInformationThread)>(hookEntry->Original)(
+        ThreadHandle, ThreadInformationClass, ThreadInformation, ThreadInformationLength);
 }
 
 NTSTATUS NTAPI hkNtQueryInformationThread(HANDLE ThreadHandle, THREADINFOCLASS ThreadInformationClass,
@@ -928,11 +849,8 @@ NTSTATUS NTAPI hkNtQueryInformationThread(HANDLE ThreadHandle, THREADINFOCLASS T
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtQueryInformationThread"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
@@ -1058,9 +976,10 @@ NTSTATUS NTAPI hkNtQueryInformationThread(HANDLE ThreadHandle, THREADINFOCLASS T
 
                                             Context->ContextFlags &= ~0x10;
 
-                                            status = oNtQueryInformationThread(ThreadHandle, ThreadInformationClass,
-                                                                               ThreadInformation,
-                                                                               ThreadInformationLength, ReturnLength);
+                                            status = reinterpret_cast<decltype(&hkNtQueryInformationThread)>(
+                                                hookEntry->Original)(ThreadHandle, ThreadInformationClass,
+                                                                     ThreadInformation, ThreadInformationLength,
+                                                                     ReturnLength);
 
                                             if (NT_SUCCESS(status) && OriginalFlags & 0x10)
                                             {
@@ -1090,8 +1009,8 @@ NTSTATUS NTAPI hkNtQueryInformationThread(HANDLE ThreadHandle, THREADINFOCLASS T
             }
         }
     }
-    return oNtQueryInformationThread(ThreadHandle, ThreadInformationClass, ThreadInformation, ThreadInformationLength,
-                                     ReturnLength);
+    return reinterpret_cast<decltype(&hkNtQueryInformationThread)>(hookEntry->Original)(
+        ThreadHandle, ThreadInformationClass, ThreadInformation, ThreadInformationLength, ReturnLength);
 }
 
 NTSTATUS NTAPI hkNtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS ProcessInformationClass,
@@ -1100,11 +1019,8 @@ NTSTATUS NTAPI hkNtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLAS
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtQueryInformationProcess"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
     NTSTATUS status;
 
@@ -1238,9 +1154,9 @@ NTSTATUS NTAPI hkNtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLAS
                                 return STATUS_SUCCESS;
                             }
 
-                            status =
-                                oNtQueryInformationProcess(ProcessHandle, ProcessInformationClass, ProcessInformation,
-                                                           ProcessInformationLength, ReturnLength);
+                            status = reinterpret_cast<decltype(&hkNtQueryInformationProcess)>(hookEntry->Original)(
+                                ProcessHandle, ProcessInformationClass, ProcessInformation, ProcessInformationLength,
+                                ReturnLength);
 
                             if (NT_SUCCESS(status))
                             {
@@ -1303,8 +1219,8 @@ NTSTATUS NTAPI hkNtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLAS
             }
         }
     }
-    return oNtQueryInformationProcess(ProcessHandle, ProcessInformationClass, ProcessInformation,
-                                      ProcessInformationLength, ReturnLength);
+    return reinterpret_cast<decltype(&hkNtQueryInformationProcess)>(hookEntry->Original)(
+        ProcessHandle, ProcessInformationClass, ProcessInformation, ProcessInformationLength, ReturnLength);
 }
 
 NTSTATUS NTAPI hkNtSetInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS ProcessInformationClass,
@@ -1312,11 +1228,8 @@ NTSTATUS NTAPI hkNtSetInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS 
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtSetInformationProcess"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
     NTSTATUS status;
 
@@ -1463,8 +1376,8 @@ NTSTATUS NTAPI hkNtSetInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS 
             }
         }
     }
-    return oNtSetInformationProcess(ProcessHandle, ProcessInformationClass, ProcessInformation,
-                                    ProcessInformationLength);
+    return reinterpret_cast<decltype(&hkNtSetInformationProcess)>(hookEntry->Original)(
+        ProcessHandle, ProcessInformationClass, ProcessInformation, ProcessInformationLength);
 }
 
 void FilterObject(POBJECT_TYPE_INFORMATION pObject)
@@ -1497,14 +1410,11 @@ NTSTATUS NTAPI hkNtQueryObject(HANDLE Handle, OBJECT_INFORMATION_CLASS ObjectInf
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtQueryObject"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
-    const NTSTATUS status =
-        oNtQueryObject(Handle, ObjectInformationClass, ObjectInformation, ObjectInformationLength, ReturnLength);
+    const NTSTATUS status = reinterpret_cast<decltype(&hkNtQueryObject)>(hookEntry->Original)(
+        Handle, ObjectInformationClass, ObjectInformation, ObjectInformationLength, ReturnLength);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode && ObjectInformation)
@@ -1578,11 +1488,8 @@ NTSTATUS NTAPI hkNtCreateThreadEx(PHANDLE ThreadHandle, ACCESS_MASK DesiredAcces
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtCreateThreadEx"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode && (CreateFlags & THREAD_CREATE_FLAGS_HIDE_FROM_DEBUGGER ||
@@ -1609,16 +1516,17 @@ NTSTATUS NTAPI hkNtCreateThreadEx(PHANDLE ThreadHandle, ACCESS_MASK DesiredAcces
 
             if (KERNEL_BUILD >= WINDOWS_10_VERSION_19H1)
             {
-                status = oNtCreateThreadEx(
+                status = reinterpret_cast<decltype(&hkNtCreateThreadEx)>(hookEntry->Original)(
                     ThreadHandle, DesiredAccess, ObjectAttributes, ProcessHandle, StartRoutine, Argument,
                     CreateFlags & ~(THREAD_CREATE_FLAGS_HIDE_FROM_DEBUGGER | THREAD_CREATE_FLAGS_BYPASS_PROCESS_FREEZE),
                     ZeroBits, StackSize, MaximumStackSize, AttributeList);
             }
             else
             {
-                status = oNtCreateThreadEx(ThreadHandle, DesiredAccess, ObjectAttributes, ProcessHandle, StartRoutine,
-                                           Argument, CreateFlags & ~(THREAD_CREATE_FLAGS_HIDE_FROM_DEBUGGER), ZeroBits,
-                                           StackSize, MaximumStackSize, AttributeList);
+                status = reinterpret_cast<decltype(&hkNtCreateThreadEx)>(hookEntry->Original)(
+                    ThreadHandle, DesiredAccess, ObjectAttributes, ProcessHandle, StartRoutine, Argument,
+                    CreateFlags & ~(THREAD_CREATE_FLAGS_HIDE_FROM_DEBUGGER), ZeroBits, StackSize, MaximumStackSize,
+                    AttributeList);
             }
 
             if (NT_SUCCESS(status))
@@ -1671,20 +1579,17 @@ NTSTATUS NTAPI hkNtCreateThreadEx(PHANDLE ThreadHandle, ACCESS_MASK DesiredAcces
             return status;
         }
     }
-
-    return oNtCreateThreadEx(ThreadHandle, DesiredAccess, ObjectAttributes, ProcessHandle, StartRoutine, Argument,
-                             CreateFlags, ZeroBits, StackSize, MaximumStackSize, AttributeList);
+    return reinterpret_cast<decltype(&hkNtCreateThreadEx)>(hookEntry->Original)(
+        ThreadHandle, DesiredAccess, ObjectAttributes, ProcessHandle, StartRoutine, Argument, CreateFlags, ZeroBits,
+        StackSize, MaximumStackSize, AttributeList);
 }
 
 NTSTATUS NTAPI hkNtGetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext)
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtGetContextThread"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
     NTSTATUS status;
 
@@ -1737,7 +1642,8 @@ NTSTATUS NTAPI hkNtGetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext)
                             ULONG OriginalFlags = ThreadContext->ContextFlags;
                             ThreadContext->ContextFlags &= ~0x10;
 
-                            status = oNtGetContextThread(ThreadHandle, ThreadContext);
+                            status = reinterpret_cast<decltype(&hkNtGetContextThread)>(hookEntry->Original)(
+                                ThreadHandle, ThreadContext);
 
                             if (OriginalFlags & 0x10)
                             {
@@ -1771,18 +1677,15 @@ NTSTATUS NTAPI hkNtGetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext)
             }
         }
     }
-    return oNtGetContextThread(ThreadHandle, ThreadContext);
+    return reinterpret_cast<decltype(&hkNtGetContextThread)>(hookEntry->Original)(ThreadHandle, ThreadContext);
 }
 
 NTSTATUS NTAPI hkNtSetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext)
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtSetContextThread"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
     NTSTATUS status;
 
@@ -1835,7 +1738,8 @@ NTSTATUS NTAPI hkNtSetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext)
                             ULONG OriginalFlags = ThreadContext->ContextFlags;
                             ThreadContext->ContextFlags &= ~0x10;
 
-                            status = oNtSetContextThread(ThreadHandle, ThreadContext);
+                            status = reinterpret_cast<decltype(&hkNtSetContextThread)>(hookEntry->Original)(
+                                ThreadHandle, ThreadContext);
 
                             if (OriginalFlags & 0x10)
                             {
@@ -1864,7 +1768,7 @@ NTSTATUS NTAPI hkNtSetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext)
             }
         }
     }
-    return oNtSetContextThread(ThreadHandle, ThreadContext);
+    return reinterpret_cast<decltype(&hkNtSetContextThread)>(hookEntry->Original)(ThreadHandle, ThreadContext);
 }
 
 NTSTATUS NTAPI hkNtWriteVirtualMemory(HANDLE ProcessHandle, PVOID BaseAddress, PVOID Buffer, ULONG NumberOfBytesToWrite,
@@ -1872,14 +1776,11 @@ NTSTATUS NTAPI hkNtWriteVirtualMemory(HANDLE ProcessHandle, PVOID BaseAddress, P
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtWriteVirtualMemory"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
-    const NTSTATUS status =
-        oNtWriteVirtualMemory(ProcessHandle, BaseAddress, Buffer, NumberOfBytesToWrite, NumberOfBytesWritten);
+    const NTSTATUS status = reinterpret_cast<decltype(&hkNtWriteVirtualMemory)>(hookEntry->Original)(
+        ProcessHandle, BaseAddress, Buffer, NumberOfBytesToWrite, NumberOfBytesWritten);
 
     // TODO: implement
 
@@ -1891,14 +1792,11 @@ NTSTATUS NTAPI hkNtAllocateVirtualMemory(HANDLE ProcessHandle, PVOID *BaseAddres
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtAllocateVirtualMemory"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
-    const NTSTATUS status =
-        oNtAllocateVirtualMemory(ProcessHandle, BaseAddress, ZeroBits, RegionSize, AllocationType, Protect);
+    const NTSTATUS status = reinterpret_cast<decltype(&hkNtAllocateVirtualMemory)>(hookEntry->Original)(
+        ProcessHandle, BaseAddress, ZeroBits, RegionSize, AllocationType, Protect);
 
     // TODO: implement
 
@@ -1909,13 +1807,11 @@ NTSTATUS NTAPI hkNtFreeVirtualMemory(HANDLE ProcessHandle, PVOID *BaseAddress, P
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtFreeVirtualMemory"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
-    const NTSTATUS status = oNtFreeVirtualMemory(ProcessHandle, BaseAddress, RegionSize, FreeType);
+    const NTSTATUS status = reinterpret_cast<decltype(&hkNtFreeVirtualMemory)>(hookEntry->Original)(
+        ProcessHandle, BaseAddress, RegionSize, FreeType);
 
     // TODO: implement
 
@@ -1928,14 +1824,12 @@ NTSTATUS NTAPI hkNtDeviceIoControlFile(HANDLE FileHandle, HANDLE Event, PIO_APC_
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtDeviceIoControlFile"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
-    NTSTATUS status = oNtDeviceIoControlFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, IoControlCode,
-                                             InputBuffer, InputBufferLength, OutputBuffer, OutputBufferLength);
+    NTSTATUS status = reinterpret_cast<decltype(&NtDeviceIoControlFile)>(hookEntry->Original)(
+        FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, IoControlCode, InputBuffer, InputBufferLength,
+        OutputBuffer, OutputBufferLength);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
@@ -1958,7 +1852,7 @@ NTSTATUS NTAPI hkNtDeviceIoControlFile(HANDLE FileHandle, HANDLE Event, PIO_APC_
         {
             if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
             {
-                const LPWSTR moduleName = wcsrchr(processEntry->ImageFileName.Buffer, '\\') + 1;
+                [[maybe_unused]] const LPWSTR moduleName = wcsrchr(processEntry->ImageFileName.Buffer, '\\') + 1;
 
                 //
                 // Hardware Spoofing
@@ -2309,14 +2203,11 @@ NTSTATUS NTAPI hkNtQuerySystemInformation(SYSTEM_INFORMATION_CLASS SystemInforma
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtQuerySystemInformation"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
-    const NTSTATUS status =
-        oNtQuerySystemInformation(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
+    const NTSTATUS status = reinterpret_cast<decltype(&hkNtQuerySystemInformation)>(hookEntry->Original)(
+        SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
@@ -2548,11 +2439,8 @@ NTSTATUS NTAPI hkNtLoadDriver(PUNICODE_STRING DriverServiceName)
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtLoadDriver"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
@@ -2607,20 +2495,17 @@ NTSTATUS NTAPI hkNtLoadDriver(PUNICODE_STRING DriverServiceName)
             }
         }
     }
-    return oNtLoadDriver(DriverServiceName);
+    return reinterpret_cast<decltype(&hkNtLoadDriver)>(hookEntry->Original)(DriverServiceName);
 }
 
 HWND NTAPI hkNtUserWindowFromPoint(LONG x, LONG y)
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtUserWindowFromPoint"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
-    const HWND resultHwnd = oNtUserWindowFromPoint(x, y);
+    const HWND resultHwnd = reinterpret_cast<decltype(&hkNtUserWindowFromPoint)>(hookEntry->Original)(x, y);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
@@ -2643,7 +2528,8 @@ HWND NTAPI hkNtUserWindowFromPoint(LONG x, LONG y)
         {
             if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
             {
-                const HANDLE processId = oNtUserQueryWindow(resultHwnd, WindowProcess);
+                const HANDLE processId = reinterpret_cast<decltype(&hkNtUserQueryWindow)>(
+                    FindHookEntry(FNV("NtUserQueryWindow"))->Original)(resultHwnd, WindowProcess);
                 if (rules::IsProtectedProcess(processId))
                 {
                     return NtUserGetThreadState(THREADSTATE_ACTIVEWINDOW);
@@ -2658,11 +2544,8 @@ HANDLE NTAPI hkNtUserQueryWindow(HWND WindowHandle, WINDOWINFOCLASS WindowInfo)
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtUserQueryWindow"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
@@ -2687,7 +2570,8 @@ HANDLE NTAPI hkNtUserQueryWindow(HWND WindowHandle, WINDOWINFOCLASS WindowInfo)
             {
                 // Spoof result if trying to query protected process
                 //
-                const HANDLE processId = oNtUserQueryWindow(WindowHandle, WindowProcess);
+                const HANDLE processId =
+                    reinterpret_cast<decltype(&hkNtUserQueryWindow)>(hookEntry->Original)(WindowHandle, WindowProcess);
                 if (rules::IsProtectedProcess(processId))
                 {
                     switch (WindowInfo)
@@ -2704,7 +2588,7 @@ HANDLE NTAPI hkNtUserQueryWindow(HWND WindowHandle, WINDOWINFOCLASS WindowInfo)
             }
         }
     }
-    return oNtUserQueryWindow(WindowHandle, WindowInfo);
+    return reinterpret_cast<decltype(&hkNtUserQueryWindow)>(hookEntry->Original)(WindowHandle, WindowInfo);
 }
 
 HWND NTAPI hkNtUserFindWindowEx(HWND hWndParent, HWND hWndChildAfter, PUNICODE_STRING lpszClass,
@@ -2712,13 +2596,11 @@ HWND NTAPI hkNtUserFindWindowEx(HWND hWndParent, HWND hWndChildAfter, PUNICODE_S
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtUserFindWindowEx"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
-    const HWND resultHwnd = oNtUserFindWindowEx(hWndParent, hWndChildAfter, lpszClass, lpszWindow, dwType);
+    const HWND resultHwnd = reinterpret_cast<decltype(&hkNtUserFindWindowEx)>(hookEntry->Original)(
+        hWndParent, hWndChildAfter, lpszClass, lpszWindow, dwType);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
@@ -2744,7 +2626,8 @@ HWND NTAPI hkNtUserFindWindowEx(HWND hWndParent, HWND hWndChildAfter, PUNICODE_S
             {
                 // Spoof result if trying to query protected process
                 //
-                const HANDLE processId = oNtUserQueryWindow(resultHwnd, WindowProcess);
+                const HANDLE processId = reinterpret_cast<decltype(&hkNtUserQueryWindow)>(
+                    FindHookEntry(FNV("NtUserQueryWindow"))->Original)(resultHwnd, WindowProcess);
                 if (rules::IsProtectedProcess(processId))
                 {
                     return 0;
@@ -2761,7 +2644,8 @@ void FilterHwndList(HWND *phwndFirst, PULONG pcHwndNeeded)
     {
         // Spoof result if trying to query protected process
         //
-        HANDLE processId = oNtUserQueryWindow(phwndFirst[i], WindowProcess);
+        HANDLE processId = reinterpret_cast<decltype(&hkNtUserQueryWindow)>(
+            FindHookEntry(FNV("NtUserQueryWindow"))->Original)(phwndFirst[i], WindowProcess);
 
         if (phwndFirst[i] != nullptr && rules::IsProtectedProcess(processId))
         {
@@ -2770,7 +2654,8 @@ void FilterHwndList(HWND *phwndFirst, PULONG pcHwndNeeded)
                 // Find the first HWND that belongs to a different process (i + 1, i + 2... may still be ours)
                 for (UINT j = i + 1; j < *pcHwndNeeded; j++)
                 {
-                    processId = oNtUserQueryWindow(phwndFirst[j], WindowProcess);
+                    processId = reinterpret_cast<decltype(&hkNtUserQueryWindow)>(
+                        FindHookEntry(FNV("NtUserQueryWindow"))->Original)(phwndFirst[j], WindowProcess);
 
                     if (phwndFirst[j] != nullptr && !rules::IsProtectedProcess(processId))
                     {
@@ -2792,14 +2677,11 @@ NTSTATUS NTAPI hkNtUserBuildHwndList_Win7(HDESK hdesk, HWND hwndNext, ULONG fEnu
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtUserBuildHwndList"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
-    const NTSTATUS status =
-        oNtUserBuildHwndList_Win7(hdesk, hwndNext, fEnumChildren, idThread, cHwndMax, phwndFirst, pcHwndNeeded);
+    const NTSTATUS status = reinterpret_cast<decltype(&hkNtUserBuildHwndList_Win7)>(hookEntry->Original)(
+        hdesk, hwndNext, fEnumChildren, idThread, cHwndMax, phwndFirst, pcHwndNeeded);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
@@ -2837,14 +2719,11 @@ NTSTATUS NTAPI hkNtUserBuildHwndList(HDESK hDesktop, HWND hwndParent, BOOLEAN bC
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtUserBuildHwndList"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
-    const NTSTATUS status =
-        oNtUserBuildHwndList(hDesktop, hwndParent, bChildren, bUnknownFlag, dwThreadId, lParam, pWnd, pBufSize);
+    const NTSTATUS status = reinterpret_cast<decltype(&hkNtUserBuildHwndList)>(hookEntry->Original)(
+        hDesktop, hwndParent, bChildren, bUnknownFlag, dwThreadId, lParam, pWnd, pBufSize);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
@@ -2881,13 +2760,10 @@ HWND NTAPI hkNtUserGetForegroundWindow(VOID)
 {
     PAGED_CODE();
 
-    InterlockedIncrement(&g_refCount);
-    SCOPE_EXIT
-    {
-        InterlockedDecrement(&g_refCount);
-    };
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtUserGetForegroundWindow"));
+    const AutoRefCount lock(&hookEntry->RefCount);
 
-    const HWND resultHwnd = oNtUserGetForegroundWindow();
+    const HWND resultHwnd = reinterpret_cast<decltype(&hkNtUserGetForegroundWindow)>(hookEntry->Original)();
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
@@ -2912,7 +2788,8 @@ HWND NTAPI hkNtUserGetForegroundWindow(VOID)
             {
                 // Spoof result if trying to query protected process
                 //
-                const HANDLE processId = oNtUserQueryWindow(resultHwnd, WindowProcess);
+                const HANDLE processId = reinterpret_cast<decltype(&hkNtUserQueryWindow)>(
+                    FindHookEntry(FNV("NtUserQueryWindow"))->Original)(resultHwnd, WindowProcess);
                 if (rules::IsProtectedProcess(processId))
                 {
                     return NtUserGetThreadState(THREADSTATE_ACTIVEWINDOW);

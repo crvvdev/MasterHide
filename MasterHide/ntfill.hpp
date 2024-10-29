@@ -2168,4 +2168,14 @@ ZwTraceControl(_In_ ULONG FunctionCode, _In_reads_bytes_opt_(InBufferLen) PVOID 
                _Out_writes_bytes_opt_(OutBufferLen) PVOID OutBuffer, _In_ ULONG OutBufferLen,
                _Out_ PULONG ReturnLength);
 
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
+RtlImageNtHeaderEx(ULONG Flags, PVOID Base, ULONG64 Size, OUT PIMAGE_NT_HEADERS *OutHeaders);
+
+NTSYSCALLAPI
+PVOID
+NTAPI
+RtlImageDirectoryEntryToData(PVOID BaseAddress, BOOLEAN MappedAsImage, USHORT Directory, PULONG Size);
+
 EXTERN_C_END

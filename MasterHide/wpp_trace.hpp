@@ -3,7 +3,7 @@
 #include <evntrace.h>
 
 #ifndef DBG
-#define WPP_PRINT(...)
+#define WppTracePrint(...)
 #define WPP_INIT_TRACING(...)
 #define WPP_CLEANUP(...)
 

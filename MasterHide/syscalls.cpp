@@ -48,47 +48,46 @@ static NTSTATUS FillSyscallTable(_In_ PUNICODE_STRING fileName)
 
     __try
     {
-        PIMAGE_NT_HEADERS nth = RtlImageNtHeader(mappedBase);
-        if (!nth)
+        PIMAGE_NT_HEADERS nth = nullptr;
+
+        status = RtlImageNtHeaderEx(0, mappedBase, mappedSize, &nth);
+        if (!NT_SUCCESS(status))
         {
-            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Invalid image NT headers!");
+            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "RtlImageNtHeaderEx returned %!STATUS!", status);
             return STATUS_UNSUCCESSFUL;
         }
 
-        const PIMAGE_DATA_DIRECTORY exportDataDirectory =
-            &nth->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
-        if (!exportDataDirectory->VirtualAddress || !exportDataDirectory->Size)
+        ULONG exportDirSize = 0;
+
+        const auto exportDirectory = reinterpret_cast<PIMAGE_EXPORT_DIRECTORY>(
+            RtlImageDirectoryEntryToData(mappedBase, TRUE, IMAGE_DIRECTORY_ENTRY_EXPORT, &exportDirSize));
+        if (!exportDirectory)
         {
             WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Invalid image export directory!");
             return STATUS_UNSUCCESSFUL;
         }
 
-        PUCHAR moduleBase = reinterpret_cast<PUCHAR>(mappedBase);
+        auto moduleBase = reinterpret_cast<PUCHAR>(mappedBase);
 
-        const PIMAGE_EXPORT_DIRECTORY exportDirectory =
-            tools::RVAtoRawAddress<PIMAGE_EXPORT_DIRECTORY>(nth, exportDataDirectory->VirtualAddress, moduleBase);
-
-        const PULONG AddressOfNames = tools::RVAtoRawAddress<PULONG>(nth, exportDirectory->AddressOfNames, moduleBase);
-        const PUSHORT AddressOfNameOrdinals =
-            tools::RVAtoRawAddress<PUSHORT>(nth, exportDirectory->AddressOfNameOrdinals, moduleBase);
-        const PULONG AddressOfFunctions =
-            tools::RVAtoRawAddress<PULONG>(nth, exportDirectory->AddressOfFunctions, moduleBase);
+        const PULONG addressOfNames = reinterpret_cast<PULONG>(moduleBase + exportDirectory->AddressOfNames);
+        const PUSHORT addressOfNameOrdinals =
+            reinterpret_cast<PUSHORT>(moduleBase + exportDirectory->AddressOfNameOrdinals);
+        const PULONG addressOfFunctions = reinterpret_cast<PULONG>(moduleBase + exportDirectory->AddressOfFunctions);
 
         for (auto i = 0ul; i < exportDirectory->NumberOfNames; i++)
         {
-            auto routineName = tools::RVAtoRawAddress<LPCSTR>(nth, AddressOfNames[i], moduleBase);
-            auto routineAddress =
-                tools::RVAtoRawAddress<PUCHAR>(nth, AddressOfFunctions[AddressOfNameOrdinals[i]], moduleBase);
+            auto exportName = reinterpret_cast<LPCSTR>(moduleBase + addressOfNames[i]);
+            auto procedureAddress = reinterpret_cast<PUCHAR>(moduleBase + addressOfFunctions[addressOfNameOrdinals[i]]);
 
             auto IsSyscall = [&]() -> BOOLEAN {
-                return (routineAddress[0] == 0x4C && routineAddress[1] == 0x8B && routineAddress[2] == 0xD1 &&
-                        routineAddress[3] == 0xB8);
+                return (procedureAddress[0] == 0x4C && procedureAddress[1] == 0x8B && procedureAddress[2] == 0xD1 &&
+                        procedureAddress[3] == 0xB8);
             };
 
             // Check if the export is possibly a syscall
             if (IsSyscall())
             {
-                ULONG64 functionData = *(ULONG64 *)routineAddress;
+                ULONG64 functionData = *(ULONG64 *)procedureAddress;
                 ULONG syscallNum = (functionData >> 8 * 4);
                 syscallNum = syscallNum & 0xfff;
 
@@ -97,11 +96,11 @@ static NTSTATUS FillSyscallTable(_In_ PUNICODE_STRING fileName)
                                                                            tags::TAG_HASH_TABLE_ENTRY);
                 if (entry)
                 {
-                    const FNV1A_t serviceHash = FNV1A::Hash(routineName);
+                    const FNV1A_t serviceHash = FNV1A::Hash(exportName);
                     entry->serviceIndex = static_cast<USHORT>(syscallNum);
 
                     WppTracePrint(TRACE_LEVEL_VERBOSE, SYSCALLS, "serviceName: %s serviceIndex: %d serviceHash: %lld",
-                                  routineName, syscallNum, serviceHash);
+                                  exportName, syscallNum, serviceHash);
 
                     InitializeListHead(&entry->hashTableEntry.Linkage);
                     RtlInsertEntryHashTable(g_hashTable, &entry->hashTableEntry, ULONG_PTR(serviceHash),
@@ -147,10 +146,7 @@ NTSTATUS Initialize()
 
     RtlInitHashTableContext(&g_hashTableContext);
 
-    UNICODE_STRING ntdll = RTL_CONSTANT_STRING(L"\\SystemRoot\\System32\\ntdll.dll");
-    UNICODE_STRING win32u = RTL_CONSTANT_STRING(L"\\SystemRoot\\System32\\win32u.dll");
-
-    NTSTATUS status = FillSyscallTable(&ntdll);
+    NTSTATUS status = FillSyscallTable(&g_NtdllPath);
     if (!NT_SUCCESS(status))
     {
         ExFreePool(g_hashTable);
@@ -158,7 +154,7 @@ NTSTATUS Initialize()
         return STATUS_UNSUCCESSFUL;
     }
 
-    status = FillSyscallTable(&win32u);
+    status = FillSyscallTable(&g_Win32UPath);
     if (!NT_SUCCESS(status))
     {
         ExFreePool(g_hashTable);

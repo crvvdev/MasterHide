@@ -44,6 +44,12 @@ extern "C"
 
 #define MASTERHIDE_MODE_KASPERSKYHOOK 0
 #define MASTERHIDE_MODE_INFINITYHOOK 1
+#define MASTERHIDE_MODE_SSDTHOOK 2
+
+#ifndef MASTERHIDE_MODE
+#define MASTERHIDE_MODE MASTERHIDE_MODE_SSDTHOOK
+#error "SSDT hook mode is not implemented yet!"
+#endif
 
 #if (MASTERHIDE_MODE == MASTERHIDE_MODE_KASPERSKYHOOK)
 #include "kaspersky.hpp"

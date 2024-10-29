@@ -65,6 +65,29 @@ class EResource
 };
 } // namespace mutex
 
+class AutoRefCount
+{
+  public:
+    explicit AutoRefCount(LONG *refCount) : _refCount(refCount)
+    {
+        InterlockedIncrement(_refCount);
+    }
+
+    ~AutoRefCount()
+    {
+        InterlockedDecrement(_refCount);
+    }
+
+    AutoRefCount(const AutoRefCount &) = delete;
+    AutoRefCount &operator=(const AutoRefCount &) = delete;
+
+    AutoRefCount(AutoRefCount &&) = delete;
+    AutoRefCount &operator=(AutoRefCount &&) = delete;
+
+  private:
+    LONG *_refCount;
+};
+
 namespace tools
 {
 template <class T = void *> FORCEINLINE T RipToAbsolute(_In_ ULONG_PTR rip, _In_ INT offset, _In_ INT len)

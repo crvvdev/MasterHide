@@ -240,6 +240,9 @@
     <Inf>
       <SpecifyArchitecture>false</SpecifyArchitecture>
     </Inf>
+    <DriverSign>
+      <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
+    </DriverSign>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release - infinityhook|x64'">
     <Link>
@@ -260,6 +263,9 @@
     <Inf>
       <SpecifyArchitecture>false</SpecifyArchitecture>
     </Inf>
+    <DriverSign>
+      <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
+    </DriverSign>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release - KasperskyHook|x64'">
     <Link>
@@ -272,7 +278,7 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <PreprocessorDefinitions>PHNT_VERSION=PHNT_WIN11;PHNT_MODE=PHNT_KERNEL;TMH_FILE=%(FileName)%(Extension).tmh;_NO_CRT_STDIO_INLINE;__STDC_WANT_SECURE_LIB__=0;SCOPE_GUARD_NO_THROW_ACTION;MASTERHIDE_MODE=MASTERHIDE_MODE_KASPERSKYHOOK;_WIN64;_AMD64_;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ControlFlowGuard>false</ControlFlowGuard>
-      <WppEnabled>true</WppEnabled>
+      <WppEnabled>false</WppEnabled>
       <WppTraceFunction>WppTracePrint(LEVEL,EVENT,MSG,...)</WppTraceFunction>
       <WppFileExtensions>.c.cpp.h.hpp</WppFileExtensions>
       <WppPreserveExtensions>.c.cpp.h.hpp</WppPreserveExtensions>
@@ -280,6 +286,9 @@
     <Inf>
       <SpecifyArchitecture>false</SpecifyArchitecture>
     </Inf>
+    <DriverSign>
+      <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
+    </DriverSign>
   </ItemDefinitionGroup>
   <ItemGroup>
     <FilesToPackage Include="$(TargetPath)" />
