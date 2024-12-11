@@ -115,16 +115,22 @@ void CleanupInfinityHook()
         InterlockedExchangePointer(g_HvlGetQpcBias, g_HvlGetQpcBiasOriginal);
     }
 
+    // Restart trace session
+    //
     NTSTATUS Status = ModifyTraceSettings(CKCL_TRACE_END);
     if (NT_SUCCESS(Status))
     {
         ModifyTraceSettings(CKCL_TRACE_START);
     }
+
+    DBGPRINT("Cleaned up infinityhook");
 }
 
 VOID WatchdogThread(_In_ PVOID StartContext)
 {
     UNREFERENCED_PARAMETER(StartContext);
+
+    DBGPRINT("Created watchdog thread for infinityhook");
 
     while (!g_WatchdogSignal)
     {
@@ -134,6 +140,8 @@ VOID WatchdogThread(_In_ PVOID StartContext)
         {
             if (g_GetCpuClock && MmIsAddressValid(g_GetCpuClock))
             {
+                // GetCpuClock is a pointer before build 2004
+                //
                 PVOID oldValue =
                     InterlockedCompareExchangePointer(g_GetCpuClock, &SyscallHookHandler, g_GetCpuClockOriginal);
                 if (oldValue == g_GetCpuClockOriginal)
@@ -146,6 +154,9 @@ VOID WatchdogThread(_In_ PVOID StartContext)
         {
             if (g_GetCpuClock && MmIsAddressValid(g_GetCpuClock))
             {
+                // GetCpuClock is a variable starting build 2004, by changing GetCpuClock to 2 we're telling to use
+                // HvlGetQpcBias internally
+                //
                 PVOID oldValue = InterlockedCompareExchangePointer(g_GetCpuClock, ULongToPtr(2), g_GetCpuClockOriginal);
                 if (oldValue == g_GetCpuClockOriginal)
                 {
@@ -164,8 +175,10 @@ VOID WatchdogThread(_In_ PVOID StartContext)
             }
         }
 
-        // tools::DelayThread(512);
+        tools::DelayThread(512);
     }
+
+    DBGPRINT("Exiting watchdog thread for infinityhook");
 
     PsTerminateSystemThread(STATUS_SUCCESS);
 }
@@ -306,37 +319,39 @@ PVOID GetSyscallEntry()
 
     // This is KiSystemCall64Shadow.
     //
-    hde64s HDE;
-    for (PUCHAR KiSystemServiceUser = reinterpret_cast<PUCHAR>(syscallEntry); /* */; KiSystemServiceUser += HDE.len)
+    hde64s hde{};
+    int totalBytesRead = 0;
+
+    for (PUCHAR KiSystemServiceUser = reinterpret_cast<PUCHAR>(syscallEntry); /* */;
+         KiSystemServiceUser, totalBytesRead += hde.len)
     {
-        // Disassemble every instruction till the first near jmp (E9).
+        // Note: This jump should not be very far in theory so lets just try the next 512 bytes
         //
-        if (!hde64_disasm(KiSystemServiceUser, &HDE))
+        if (totalBytesRead >= 512 || !hde64_disasm(KiSystemServiceUser, &hde))
         {
             break;
         }
 
-        if (HDE.opcode != 0xE9)
+        // Disassemble every instruction till the first near jmp (E9).
+        //
+        if (hde.opcode != 0xE9)
         {
             continue;
         }
 
         // Ignore jmps within the KVA shadow region.
         //
-        PVOID possibleSyscallEntry = KiSystemServiceUser + (int)HDE.len + (int)HDE.imm.imm32;
-        if (possibleSyscallEntry >= sectionBase &&
-            possibleSyscallEntry < reinterpret_cast<PUCHAR>(sectionBase) + sectionSize)
+        syscallEntry = KiSystemServiceUser + static_cast<INT32>(hde.len) + static_cast<INT32>(hde.imm.imm32);
+        if (syscallEntry >= sectionBase && syscallEntry < reinterpret_cast<PUCHAR>(sectionBase) + sectionSize)
         {
             continue;
         }
 
         // Found KiSystemServiceUser.
         //
-        syscallEntry = possibleSyscallEntry;
-        break;
+        return syscallEntry;
     }
-
-    return syscallEntry;
+    return nullptr;
 }
 
 ULONG64

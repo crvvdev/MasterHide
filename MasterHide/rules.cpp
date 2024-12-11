@@ -270,7 +270,7 @@ PPROCESS_ENTRY GetProcessEntry(_In_ PEPROCESS process)
     return GetProcessEntry(PsGetProcessId(process));
 }
 
-bool IsProtectedProcess(_In_ HANDLE processId)
+bool IsHijackedProcess(_In_ HANDLE processId)
 {
     PAGED_CODE();
     NT_ASSERT(g_initialized);
@@ -281,7 +281,7 @@ bool IsProtectedProcess(_In_ HANDLE processId)
     {
         result = EnumProcessesUnsafe([&](PPROCESS_ENTRY processEntry) -> bool {
             return (processEntry->ProcessId == processId &&
-                    BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagProtected));
+                    BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHijack));
         });
 
         g_processResource.Unlock();
@@ -290,16 +290,16 @@ bool IsProtectedProcess(_In_ HANDLE processId)
     return result;
 }
 
-bool IsProtectedProcess(_In_ PEPROCESS process)
+bool IsHijackedProcess(_In_ PEPROCESS process)
 {
     PAGED_CODE();
     NT_ASSERT(g_initialized);
     NT_ASSERT(process);
 
-    return IsProtectedProcess(PsGetProcessId(process));
+    return IsHijackedProcess(PsGetProcessId(process));
 }
 
-bool IsProtectedProcess(_In_ PUNICODE_STRING imageFileName)
+bool IsHijackedProcess(_In_ PUNICODE_STRING imageFileName)
 {
     PAGED_CODE();
     NT_ASSERT(g_initialized);
@@ -311,7 +311,7 @@ bool IsProtectedProcess(_In_ PUNICODE_STRING imageFileName)
     {
         result = EnumProcessesUnsafe([&](PPROCESS_ENTRY processEntry) -> bool {
             return (!RtlCompareUnicodeString(&processEntry->ImageFileName, imageFileName, TRUE) &&
-                    BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagProtected));
+                    BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHijack));
         });
 
         g_processResource.Unlock();
@@ -331,7 +331,7 @@ bool IsMonitoredProcess(_In_ HANDLE processId)
     {
         result = EnumProcessesUnsafe([&](PPROCESS_ENTRY processEntry) -> bool {
             return (processEntry->ProcessId == processId &&
-                    BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagMonitored));
+                    BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagMonitor));
         });
 
         g_processResource.Unlock();
@@ -361,7 +361,7 @@ bool IsHiddenFromDebugProcess(_In_ HANDLE processId)
     {
         result = EnumProcessesUnsafe([&](PPROCESS_ENTRY processEntry) -> bool {
             return (processEntry->ProcessId == processId &&
-                    BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHiddenFromDebugger));
+                    BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger));
         });
 
         g_processResource.Unlock();
@@ -370,7 +370,7 @@ bool IsHiddenFromDebugProcess(_In_ HANDLE processId)
     return result;
 }
 
-bool IsHideDebugProcess(_In_ PEPROCESS process)
+bool IsHiddenFromDebugProcess(_In_ PEPROCESS process)
 {
     PAGED_CODE();
     NT_ASSERT(g_initialized);

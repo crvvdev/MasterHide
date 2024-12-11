@@ -37,7 +37,7 @@ void Test()
     {
         UNICODE_STRING imageFileName = RTL_CONSTANT_STRING(L"\\??\\C:\\Users\\Jonathan\\Desktop\\al-khaser.exe");
 
-        if (!NT_SUCCESS(rules::AddProcessRuleEntry(&imageFileName, PROCESS_POLICY_HIDE_FROM_DEBUGGER_FULL)))
+        if (!NT_SUCCESS(rules::AddProcessRuleEntry(&imageFileName, PROCESS_POLICY_HIDE_FROM_DEBUGGER)))
         {
             return;
         }
@@ -46,9 +46,9 @@ void Test()
     }
     {
         UNICODE_STRING imageFileName =
-            RTL_CONSTANT_STRING(L"\\??\\C:\\Users\\Jonathan\\Desktop\\x64dbg_clean\\x64\\x64dbg.exe");
+            RTL_CONSTANT_STRING(L"\\??\\C:\\Users\\LAPTOP\\Desktop\\History Reborn 3.0\\Ragnarok.exe");
 
-        if (!NT_SUCCESS(rules::AddProcessRuleEntry(&imageFileName, PROCESS_POLICY_PROTECTED_FULL)))
+        if (!NT_SUCCESS(rules::AddProcessRuleEntry(&imageFileName, PROCESS_POLICY_ALL)))
         {
             return;
         }

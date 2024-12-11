@@ -380,9 +380,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="klhk.cpp" />
+    <ClCompile Include="loader.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="service.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="includes.hpp" />
     <ClInclude Include="klhk.hpp" />
     <ClInclude Include="loader.hpp" />
     <ClInclude Include="service.hpp" />

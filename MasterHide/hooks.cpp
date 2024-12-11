@@ -4,6 +4,7 @@ namespace masterhide
 {
 namespace hooks
 {
+KMUTEX g_NtCloseMutex{};
 CONST PKUSER_SHARED_DATA KuserSharedData = (PKUSER_SHARED_DATA)KUSER_SHARED_DATA_USERMODE;
 
 #define BACKUP_RETURNLENGTH()                                                                                          \
@@ -18,6 +19,55 @@ CONST PKUSER_SHARED_DATA KuserSharedData = (PKUSER_SHARED_DATA)KUSER_SHARED_DATA
     if (ARGUMENT_PRESENT(ReturnLength))                                                                                \
     (*ReturnLength) = TempReturnLength
 
+HOOK_ENTRY g_HookList[] = {
+    // NT
+    //
+    {FALSE, "NtQuerySystemInformation", nullptr, &hkNtQuerySystemInformation, MAXUSHORT, 0L},
+    {FALSE, "NtOpenProcess", nullptr, &hkNtOpenProcess, MAXUSHORT, 0L},
+    {FALSE, "NtAllocateVirtualMemory", nullptr, &hkNtAllocateVirtualMemory, MAXUSHORT, 0L},
+    {FALSE, "NtWriteVirtualMemory", nullptr, &hkNtWriteVirtualMemory, MAXUSHORT, 0L},
+    {FALSE, "NtDeviceIoControlFile", nullptr, &hkNtDeviceIoControlFile, MAXUSHORT, 0L},
+    {FALSE, "NtLoadDriver", nullptr, &hkNtLoadDriver, MAXUSHORT, 0L},
+    {FALSE, "NtSetInformationThread", nullptr, &hkNtSetInformationThread, MAXUSHORT, 0L},
+    {FALSE, "NtQueryInformationThread", nullptr, &hkNtQueryInformationThread, MAXUSHORT, 0L},
+    {FALSE, "NtSetInformationProcess", nullptr, &hkNtSetInformationProcess, MAXUSHORT, 0L},
+    {FALSE, "NtQueryInformationProcess", nullptr, &hkNtQueryInformationProcess, MAXUSHORT, 0L},
+    {FALSE, "NtQueryObject", nullptr, &hkNtQueryObject, MAXUSHORT, 0L},
+    {FALSE, "NtCreateThreadEx", nullptr, &hkNtCreateThreadEx, MAXUSHORT, 0L},
+    {FALSE, "NtGetContextThread", nullptr, &hkNtGetContextThread, MAXUSHORT, 0L},
+    {FALSE, "NtSetContextThread", nullptr, &hkNtSetContextThread, MAXUSHORT, 0L},
+    {FALSE, "NtContinue", nullptr, &hkNtContinue, MAXUSHORT, 0L},
+    {FALSE, "NtOpenThread", nullptr, &hkNtOpenThread, MAXUSHORT, 0L},
+    {FALSE, "NtYieldExecution", nullptr, &hkNtYieldExecution, MAXUSHORT, 0L},
+    {FALSE, "NtClose", nullptr, &hkNtClose, MAXUSHORT, 0L},
+    {FALSE, "NtSystemDebugControl", nullptr, &hkNtSystemDebugControl, MAXUSHORT, 0L},
+    {FALSE, "NtQuerySystemTime", nullptr, &hkNtQuerySystemTime, MAXUSHORT, 0L},
+    {FALSE, "NtQueryPerformanceCounter", nullptr, &hkNtQueryPerformanceCounter, MAXUSHORT, 0L},
+    // Win32K
+    //
+    {TRUE, "NtUserWindowFromPoint", nullptr, &hkNtUserWindowFromPoint, MAXUSHORT, 0L},
+    {TRUE, "NtUserQueryWindow", nullptr, &hkNtUserQueryWindow, MAXUSHORT, 0L},
+    {TRUE, "NtUserFindWindowEx", nullptr, &hkNtUserFindWindowEx, MAXUSHORT, 0L},
+    {TRUE, "NtUserBuildHwndList", nullptr, &hkNtUserBuildHwndList, MAXUSHORT, 0L},
+    {TRUE, "NtUserGetForegroundWindow", nullptr, &hkNtUserGetForegroundWindow, MAXUSHORT, 0L}};
+
+FORCEINLINE PHOOK_ENTRY FindHookEntry(_In_ FNV1A_t serviceNameHash)
+{
+    for (auto &entry : g_HookList)
+    {
+        if (serviceNameHash == FNV1A::Hash(entry.ServiceName))
+        {
+            return &entry;
+        }
+    }
+
+#if !DBG
+    __fastfail(FAST_FAIL_INVALID_ARG);
+#endif
+
+    return nullptr;
+}
+
 #if (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
 void __fastcall SsdtCallback(ULONG ServiceIndex, PVOID *ServiceAddress)
 {
@@ -25,7 +75,9 @@ void __fastcall SsdtCallback(ULONG ServiceIndex, PVOID *ServiceAddress)
     {
         if (ServiceIndex == entry.ServiceIndex)
         {
-            entry.Original = InterlockedExchangePointer(ServiceAddress, entry.New);
+            PVOID expected = nullptr;
+            InterlockedCompareExchangePointer(&entry.Original, *ServiceAddress, expected);
+            InterlockedExchangePointer(ServiceAddress, entry.New);
             return;
         }
     }
@@ -38,6 +90,10 @@ void __fastcall SsdtCallback(ULONG ServiceIndex, PVOID *ServiceAddress)
 
     for (HOOK_ENTRY &entry : g_HookList)
     {
+        USHORT serviceIndex = MAXUSHORT;
+
+        // Some actions has to be done based on Windows builds
+        //
         if (KERNEL_BUILD >= WINDOWS_10_VERSION_20H1)
         {
             if (!strcmp(entry.ServiceName, "NtContinue"))
@@ -53,7 +109,24 @@ void __fastcall SsdtCallback(ULONG ServiceIndex, PVOID *ServiceAddress)
             }
         }
 
-        const USHORT serviceIndex = syscalls::GetSyscallIndexByName(entry.ServiceName);
+        // NtQuerySystemTime is not exported by ntdll.dll so we have to obtain the index that way
+        //
+        if (!strcmp(entry.ServiceName, "NtQuerySystemTime"))
+        {
+            serviceIndex = syscalls::GetSyscallIndexByName("NtAccessCheckByTypeAndAuditAlarm");
+            if (serviceIndex == MAXUSHORT)
+            {
+                WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Could not find index for service NtQuerySystemTime");
+                return STATUS_PROCEDURE_NOT_FOUND;
+            }
+
+            serviceIndex += 1;
+        }
+        else
+        {
+            serviceIndex = syscalls::GetSyscallIndexByName(entry.ServiceName);
+        }
+
         if (serviceIndex == MAXUSHORT)
         {
             WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Could not find index for service %s", entry.ServiceName);
@@ -81,6 +154,8 @@ void __fastcall SsdtCallback(ULONG ServiceIndex, PVOID *ServiceAddress)
         }
 #elif (MASTERHIDE_MODE == MASTERHIDE_MODE_SSDTHOOK)
         // TODO: implement
+#elif (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
+        // Relevant action is already done at SsdtCallback
 #endif
     }
     return STATUS_SUCCESS;
@@ -89,6 +164,10 @@ void __fastcall SsdtCallback(ULONG ServiceIndex, PVOID *ServiceAddress)
 static NTSTATUS UninstallHooks()
 {
     PAGED_CODE();
+
+#if (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
+    CleanupInfinityHook();
+#endif
 
     for (HOOK_ENTRY &entry : g_HookList)
     {
@@ -107,9 +186,7 @@ static NTSTATUS UninstallHooks()
                 return STATUS_UNSUCCESSFUL;
             }
         }
-#elif (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
-        // Nothing has to be done here
-#else
+#elif (MASTERHIDE_MODE == MASTERHIDE_MODE_SSDTHOOK)
         // TODO: implement
 #endif
 
@@ -180,6 +257,10 @@ NTSTATUS Initialize()
     status = CreateHooks();
     if (!NT_SUCCESS(status))
     {
+#if (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
+        CleanupInfinityHook();
+#endif
+
         WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "CreateHooks returned %!STATUS!", status);
         return STATUS_UNSUCCESSFUL;
     }
@@ -363,7 +444,7 @@ NTSTATUS NTAPI hkNtSystemDebugControl(SYSDBG_COMMAND Command, PVOID InputBuffer,
         //
         if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtSystemDebugControl))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
             {
                 if (Command != SysDbgGetTriageDump && Command != SysDbgGetLiveKernelDump)
                 {
@@ -405,7 +486,7 @@ NTSTATUS NTAPI hkNtClose(HANDLE Handle)
         //
         if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtClose))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
             {
                 // If two or more threads were to simultaneously check and act on this information without
                 // synchronization, it might lead to inconsistent states where a handle that is meant to be
@@ -482,7 +563,7 @@ NTSTATUS NTAPI hkNtYieldExecution()
         //
         if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtYieldExecution))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
             {
                 WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS, "Spoofed NtYieldExecution anti-debug query!");
 
@@ -520,7 +601,7 @@ NTSTATUS NTAPI hkNtContinue(PCONTEXT Context, ULONG64 TestAlert)
         //
         if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtContinue))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
             {
                 __try
                 {
@@ -588,7 +669,7 @@ NTSTATUS NTAPI hkNtOpenThread(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess, 
                 //
                 if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtOpenThread))
                 {
-                    if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+                    if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
                     {
                         PETHREAD thread = nullptr;
                         NTSTATUS status = PsLookupThreadByThreadId(ClientId->UniqueThread, &thread);
@@ -603,7 +684,7 @@ NTSTATUS NTAPI hkNtOpenThread(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess, 
 
                             // Block access to any protected process.
                             //
-                            if (rules::IsProtectedProcess(threadProcessId))
+                            if (rules::IsHijackedProcess(threadProcessId))
                             {
                                 WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS, "Denying access from pid:%d to pid:%d\n",
                                               HandleToUlong(PsGetCurrentProcessId()), HandleToUlong(threadProcessId));
@@ -651,15 +732,15 @@ NTSTATUS NTAPI hkNtOpenProcess(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess,
         {
             ProbeForRead(ClientId, sizeof(*ClientId), __alignof(CLIENT_ID));
 
-            // If (1) it's a blacklisted process and (2) current hook is meant to be intercepted
+            // If (1) process has a rule and (2) current hook is meant to be intercepted
             //
             if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtOpenProcess))
             {
-                if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+                if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
                 {
-                    // Block access to any protected process.
+                    // Block access to any hijacked process.
                     //
-                    if (rules::IsProtectedProcess(ClientId->UniqueProcess))
+                    if (rules::IsHijackedProcess(ClientId->UniqueProcess))
                     {
                         WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS, "Denying access from pid:%d to pid:%d\n",
                                       HandleToUlong(PsGetCurrentProcessId()), HandleToUlong(ClientId->UniqueProcess));
@@ -707,7 +788,7 @@ NTSTATUS NTAPI hkNtSetInformationThread(HANDLE ThreadHandle, THREADINFOCLASS Thr
         //
         if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtSetInformationThread))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger) &&
+            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger) &&
                 (ThreadInformationClass == ThreadHideFromDebugger || ThreadInformationClass == ThreadWow64Context ||
                  ThreadInformationClass == ThreadBreakOnTermination))
             {
@@ -871,7 +952,7 @@ NTSTATUS NTAPI hkNtQueryInformationThread(HANDLE ThreadHandle, THREADINFOCLASS T
         //
         if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtQueryInformationThread))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
             {
                 if (ThreadInformation && (ThreadInformationClass == ThreadHideFromDebugger ||
                                           ThreadInformationClass == ThreadBreakOnTermination ||
@@ -917,7 +998,7 @@ NTSTATUS NTAPI hkNtQueryInformationThread(HANDLE ThreadHandle, THREADINFOCLASS T
                                                                     rules::ProcessPolicyFlagNtQueryInformationThread))
                             {
                                 if (BooleanFlagOn(threadProcessEntry->PolicyFlags,
-                                                  rules::ProcessPolicyFlagHiddenFromDebugger))
+                                                  rules::ProcessPolicyFlagHideFromDebugger))
                                 {
                                     rules::PTHREAD_ENTRY threadEntry = threadProcessEntry->AppendThreadList(thread);
                                     if (threadEntry)
@@ -1043,7 +1124,7 @@ NTSTATUS NTAPI hkNtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLAS
         //
         if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtQueryInformationProcess))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger) &&
+            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger) &&
                 (ProcessInformationClass == ProcessDebugObjectHandle || ProcessInformationClass == ProcessDebugPort ||
                  ProcessInformationClass == ProcessDebugFlags || ProcessInformationClass == ProcessBreakOnTermination ||
                  ProcessInformationClass == ProcessBasicInformation || ProcessInformationClass == ProcessIoCounters ||
@@ -1096,6 +1177,15 @@ NTSTATUS NTAPI hkNtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLAS
                                               HandleToUlong(threadProcessEntry->ProcessId));
 
                                 return STATUS_PORT_NOT_SET;
+                            }
+                            else if (ProcessInformationClass == ProcessInstrumentationCallback)
+                            {
+                                WppTracePrint(
+                                    TRACE_LEVEL_VERBOSE, HOOKS,
+                                    "Spoofed NtQueryInformationProcess(ProcessInstrumentationCallback) tid:%d",
+                                    HandleToUlong(threadProcessEntry->ProcessId));
+
+                                return STATUS_INVALID_INFO_CLASS;
                             }
                             else if (ProcessInformationClass == ProcessDebugPort)
                             {
@@ -1252,7 +1342,7 @@ NTSTATUS NTAPI hkNtSetInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS 
         //
         if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtSetInformationProcess))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger) &&
+            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger) &&
                 (ProcessInformationClass == ProcessBreakOnTermination || ProcessInformationClass == ProcessDebugFlags ||
                  ProcessInformationClass == ProcessHandleTracing))
             {
@@ -1306,6 +1396,14 @@ NTSTATUS NTAPI hkNtSetInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS 
 
                                 WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
                                               "Spoofed NtSetInformationProcess(ProcessBreakOnTermination) tid:%d",
+                                              HandleToUlong(threadProcessEntry->ProcessId));
+
+                                return STATUS_SUCCESS;
+                            }
+                            else if (ProcessInformationClass == ProcessInstrumentationCallback)
+                            {
+                                WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                                              "Spoofed NtSetInformationProcess(ProcessInstrumentationCallback) tid:%d",
                                               HandleToUlong(threadProcessEntry->ProcessId));
 
                                 return STATUS_SUCCESS;
@@ -1435,7 +1533,7 @@ NTSTATUS NTAPI hkNtQueryObject(HANDLE Handle, OBJECT_INFORMATION_CLASS ObjectInf
         //
         if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtQueryObject))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
             {
                 __try
                 {
@@ -1562,7 +1660,7 @@ NTSTATUS NTAPI hkNtCreateThreadEx(PHANDLE ThreadHandle, ACCESS_MASK DesiredAcces
                         if (processEntry2 &&
                             BooleanFlagOn(processEntry2->PolicyFlags, rules::ProcessPolicyFlagNtCreateThreadEx))
                         {
-                            if (BooleanFlagOn(processEntry2->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+                            if (BooleanFlagOn(processEntry2->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
                             {
                                 rules::PTHREAD_ENTRY threadEntry = processEntry2->AppendThreadList(thread);
                                 if (threadEntry)
@@ -1612,7 +1710,7 @@ NTSTATUS NTAPI hkNtGetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext)
         //
         if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtGetContextThread))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
             {
                 __try
                 {
@@ -1708,7 +1806,7 @@ NTSTATUS NTAPI hkNtSetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext)
         //
         if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtSetContextThread))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
             {
                 __try
                 {
@@ -1850,7 +1948,7 @@ NTSTATUS NTAPI hkNtDeviceIoControlFile(HANDLE FileHandle, HANDLE Event, PIO_APC_
         //
         if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtDeviceIoControlFile))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
             {
                 [[maybe_unused]] const LPWSTR moduleName = wcsrchr(processEntry->ImageFileName.Buffer, '\\') + 1;
 
@@ -2106,7 +2204,7 @@ void FilterHandleInfo(PSYSTEM_HANDLE_INFORMATION pHandleInfo, PULONG pReturnLeng
     const ULONG TrueCount = pHandleInfo->NumberOfHandles;
     for (ULONG i = 0; i < TrueCount; ++i)
     {
-        if (rules::IsProtectedProcess((HANDLE)pHandleInfo->Handles[i].UniqueProcessId))
+        if (rules::IsHijackedProcess((HANDLE)pHandleInfo->Handles[i].UniqueProcessId))
         {
             pHandleInfo->NumberOfHandles--;
             *pReturnLengthAdjust += sizeof(SYSTEM_HANDLE_TABLE_ENTRY_INFO);
@@ -2126,7 +2224,7 @@ void FilterHandleInfoEx(PSYSTEM_HANDLE_INFORMATION_EX pHandleInfoEx, PULONG pRet
     const ULONG TrueCount = (ULONG)pHandleInfoEx->NumberOfHandles;
     for (ULONG i = 0; i < TrueCount; ++i)
     {
-        if (rules::IsProtectedProcess((HANDLE)pHandleInfoEx->Handles[i].UniqueProcessId))
+        if (rules::IsHijackedProcess((HANDLE)pHandleInfoEx->Handles[i].UniqueProcessId))
         {
             pHandleInfoEx->NumberOfHandles--;
             *pReturnLengthAdjust += sizeof(SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX);
@@ -2166,7 +2264,7 @@ void FilterProcess(PSYSTEM_PROCESS_INFORMATION pInfo)
 
     while (TRUE)
     {
-        if (rules::IsProtectedProcess(pInfo->UniqueProcessId))
+        if (rules::IsHijackedProcess(pInfo->UniqueProcessId))
         {
             if (pInfo->ImageName.Buffer)
             {
@@ -2229,7 +2327,7 @@ NTSTATUS NTAPI hkNtQuerySystemInformation(SYSTEM_INFORMATION_CLASS SystemInforma
         if (NT_SUCCESS(status) && (processEntry && BooleanFlagOn(processEntry->PolicyFlags,
                                                                  rules::ProcessPolicyFlagNtQuerySystemInformation)))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
             {
                 __try
                 {
@@ -2461,7 +2559,7 @@ NTSTATUS NTAPI hkNtLoadDriver(PUNICODE_STRING DriverServiceName)
         //
         if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtLoadDriver))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
             {
                 // (3) Block loading of driver
                 //
@@ -2526,11 +2624,11 @@ HWND NTAPI hkNtUserWindowFromPoint(LONG x, LONG y)
         //
         if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtUserWindowFromPoint))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
             {
                 const HANDLE processId = reinterpret_cast<decltype(&hkNtUserQueryWindow)>(
                     FindHookEntry(FNV("NtUserQueryWindow"))->Original)(resultHwnd, WindowProcess);
-                if (rules::IsProtectedProcess(processId))
+                if (rules::IsHijackedProcess(processId))
                 {
                     return NtUserGetThreadState(THREADSTATE_ACTIVEWINDOW);
                 }
@@ -2566,13 +2664,13 @@ HANDLE NTAPI hkNtUserQueryWindow(HWND WindowHandle, WINDOWINFOCLASS WindowInfo)
         //
         if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtUserQueryWindow))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
             {
                 // Spoof result if trying to query protected process
                 //
                 const HANDLE processId =
                     reinterpret_cast<decltype(&hkNtUserQueryWindow)>(hookEntry->Original)(WindowHandle, WindowProcess);
-                if (rules::IsProtectedProcess(processId))
+                if (rules::IsHijackedProcess(processId))
                 {
                     switch (WindowInfo)
                     {
@@ -2622,13 +2720,13 @@ HWND NTAPI hkNtUserFindWindowEx(HWND hWndParent, HWND hWndChildAfter, PUNICODE_S
         if (resultHwnd &&
             (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtUserFindWindowEx)))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
             {
                 // Spoof result if trying to query protected process
                 //
                 const HANDLE processId = reinterpret_cast<decltype(&hkNtUserQueryWindow)>(
                     FindHookEntry(FNV("NtUserQueryWindow"))->Original)(resultHwnd, WindowProcess);
-                if (rules::IsProtectedProcess(processId))
+                if (rules::IsHijackedProcess(processId))
                 {
                     return 0;
                 }
@@ -2647,7 +2745,7 @@ void FilterHwndList(HWND *phwndFirst, PULONG pcHwndNeeded)
         HANDLE processId = reinterpret_cast<decltype(&hkNtUserQueryWindow)>(
             FindHookEntry(FNV("NtUserQueryWindow"))->Original)(phwndFirst[i], WindowProcess);
 
-        if (phwndFirst[i] != nullptr && rules::IsProtectedProcess(processId))
+        if (phwndFirst[i] != nullptr && rules::IsHijackedProcess(processId))
         {
             if (i == 0)
             {
@@ -2657,7 +2755,7 @@ void FilterHwndList(HWND *phwndFirst, PULONG pcHwndNeeded)
                     processId = reinterpret_cast<decltype(&hkNtUserQueryWindow)>(
                         FindHookEntry(FNV("NtUserQueryWindow"))->Original)(phwndFirst[j], WindowProcess);
 
-                    if (phwndFirst[j] != nullptr && !rules::IsProtectedProcess(processId))
+                    if (phwndFirst[j] != nullptr && !rules::IsHijackedProcess(processId))
                     {
                         phwndFirst[i] = phwndFirst[j];
                         break;
@@ -2704,7 +2802,7 @@ NTSTATUS NTAPI hkNtUserBuildHwndList_Win7(HDESK hdesk, HWND hwndNext, ULONG fEnu
             //
             if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtUserBuildHwndList))
             {
-                if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+                if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
                 {
                     FilterHwndList(phwndFirst, pcHwndNeeded);
                 }
@@ -2746,7 +2844,7 @@ NTSTATUS NTAPI hkNtUserBuildHwndList(HDESK hDesktop, HWND hwndParent, BOOLEAN bC
             //
             if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtUserBuildHwndList))
             {
-                if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+                if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
                 {
                     FilterHwndList(pWnd, pBufSize);
                 }
@@ -2784,13 +2882,13 @@ HWND NTAPI hkNtUserGetForegroundWindow(VOID)
         //
         if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtUserGetForegroundWindow))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHiddenFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
             {
                 // Spoof result if trying to query protected process
                 //
                 const HANDLE processId = reinterpret_cast<decltype(&hkNtUserQueryWindow)>(
                     FindHookEntry(FNV("NtUserQueryWindow"))->Original)(resultHwnd, WindowProcess);
-                if (rules::IsProtectedProcess(processId))
+                if (rules::IsHijackedProcess(processId))
                 {
                     return NtUserGetThreadState(THREADSTATE_ACTIVEWINDOW);
                 }

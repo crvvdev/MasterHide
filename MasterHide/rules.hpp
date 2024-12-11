@@ -13,9 +13,9 @@ enum EProcessPolicyFlags : ProcessPolicyFlag_t
     ProcessPolicyFlagNone = 0,
 
     // General rules
-    ProcessPolicyFlagMonitored = BIT(0),
-    ProcessPolicyFlagProtected = BIT(1),
-    ProcessPolicyFlagHiddenFromDebugger = BIT(2),
+    ProcessPolicyFlagMonitor = BIT(0),
+    ProcessPolicyFlagHijack = BIT(1),
+    ProcessPolicyFlagHideFromDebugger = BIT(2),
 
     // Hooks
     ProcessPolicyFlagNtQuerySystemInformation = BIT(3),
@@ -62,45 +62,35 @@ enum EProcessPolicyFlags : ProcessPolicyFlag_t
     ProcessPolicyFlagHideChildFromDebugger = BIT(42),
 };
 
-#define PROCESS_POLICY_PROTECTED_FULL                                                                                  \
-    (rules::ProcessPolicyFlagProtected | rules::ProcessPolicyFlagNtQuerySystemInformation |                            \
-     rules::ProcessPolicyFlagNtOpenProcess | rules::ProcessPolicyFlagNtLoadDriver |                                    \
-     rules::ProcessPolicyFlagNtSetInformationThread | rules::ProcessPolicyFlagNtQueryInformationProcess |              \
-     rules::ProcessPolicyFlagNtQueryObject | rules::ProcessPolicyFlagNtGetContextThread |                              \
-     rules::ProcessPolicyFlagNtSetContextThread | rules::ProcessPolicyFlagNtUserWindowFromPoint |                      \
-     rules::ProcessPolicyFlagNtUserQueryWindow | rules::ProcessPolicyFlagNtUserFindWindowEx |                          \
-     rules::ProcessPolicyFlagNtUserBuildHwndList | rules::ProcessPolicyFlagNtUserGetForegroundWindow |                 \
-     rules::ProcessPolicyFlagNtContinue | rules::ProcessPolicyFlagNtYieldExecution |                                   \
-     rules::ProcessPolicyFlagNtQueryInformationThread | rules::ProcessPolicyFlagNtQueryInformationJobObject |          \
-     rules::ProcessPolicyFlagNtQuerySystemTime | rules::ProcessPolicyFlagNtQueryPerformanceCounter |                   \
-     rules::ProcessPolicyFlagNtSystemDebugControl | rules::ProcessPolicyFlagNtClose |                                  \
-     rules::ProcessPolicyFlagNtCreateThreadEx | rules::ProcessPolicyFlagHideKUserSharedData |                          \
-     rules::ProcessPolicyFlagClearThreadHideFromDebuggerFlag | rules::ProcessPolicyFlagClearBypassProcessFreeze |      \
-     rules::ProcessPolicyFlagClearPebBeingDebugged | rules::ProcessPolicyFlagClearPebNtGlobalFlag |                    \
-     rules::ProcessPolicyFlagClearHeapFlags | rules::ProcessPolicyFlagClearKUserSharedData |                           \
-     rules::ProcessPolicyFlagClearProcessBreakOnTerminationFlag |                                                      \
+#define PROCESS_POLICY_FLAG_HIJACK rules::ProcessPolicyFlagHijack
+#define PROCESS_POLICY_FLAG_MONITOR rules::ProcessPolicyFlagMonitor
+#define PROCESS_POLICY_FLAG_HIDE_FROM_DEBUGGER rules::ProcessPolicyFlagHideFromDebugger
+#define PROCESS_POLICY_FLAG_ALL                                                                                        \
+    (rules::ProcessPolicyFlagNtQuerySystemInformation | rules::ProcessPolicyFlagNtOpenProcess |                        \
+     rules::ProcessPolicyFlagNtLoadDriver | rules::ProcessPolicyFlagNtSetInformationThread |                           \
+     rules::ProcessPolicyFlagNtQueryInformationProcess | rules::ProcessPolicyFlagNtQueryObject |                       \
+     rules::ProcessPolicyFlagNtGetContextThread | rules::ProcessPolicyFlagNtSetContextThread |                         \
+     rules::ProcessPolicyFlagNtUserWindowFromPoint | rules::ProcessPolicyFlagNtUserQueryWindow |                       \
+     rules::ProcessPolicyFlagNtUserFindWindowEx | rules::ProcessPolicyFlagNtUserBuildHwndList |                        \
+     rules::ProcessPolicyFlagNtUserGetForegroundWindow | rules::ProcessPolicyFlagNtContinue |                          \
+     rules::ProcessPolicyFlagNtYieldExecution | rules::ProcessPolicyFlagNtQueryInformationThread |                     \
+     rules::ProcessPolicyFlagNtQueryInformationJobObject | rules::ProcessPolicyFlagNtQuerySystemTime |                 \
+     rules::ProcessPolicyFlagNtQueryPerformanceCounter | rules::ProcessPolicyFlagNtSystemDebugControl |                \
+     rules::ProcessPolicyFlagNtClose | rules::ProcessPolicyFlagNtCreateThreadEx |                                      \
+     rules::ProcessPolicyFlagHideKUserSharedData | rules::ProcessPolicyFlagClearThreadHideFromDebuggerFlag |           \
+     rules::ProcessPolicyFlagClearBypassProcessFreeze | rules::ProcessPolicyFlagClearPebBeingDebugged |                \
+     rules::ProcessPolicyFlagClearPebNtGlobalFlag | rules::ProcessPolicyFlagClearHeapFlags |                           \
+     rules::ProcessPolicyFlagClearKUserSharedData | rules::ProcessPolicyFlagClearProcessBreakOnTerminationFlag |       \
      rules::ProcessPolicyFlagClearThreadBreakOnTerminationFlag | rules::ProcessPolicyFlagSaveProcessDebugFlags |       \
      rules::ProcessPolicyFlagSaveProcessHandleTracing | rules::ProcessPolicyFlagHideChildFromDebugger)
 
-#define PROCESS_POLICY_HIDE_FROM_DEBUGGER_FULL                                                                         \
-    (rules::ProcessPolicyFlagHiddenFromDebugger | rules::ProcessPolicyFlagNtQuerySystemInformation |                   \
-     rules::ProcessPolicyFlagNtOpenProcess | rules::ProcessPolicyFlagNtLoadDriver |                                    \
-     rules::ProcessPolicyFlagNtSetInformationThread | rules::ProcessPolicyFlagNtQueryInformationProcess |              \
-     rules::ProcessPolicyFlagNtQueryObject | rules::ProcessPolicyFlagNtGetContextThread |                              \
-     rules::ProcessPolicyFlagNtSetContextThread | rules::ProcessPolicyFlagNtUserWindowFromPoint |                      \
-     rules::ProcessPolicyFlagNtUserQueryWindow | rules::ProcessPolicyFlagNtUserFindWindowEx |                          \
-     rules::ProcessPolicyFlagNtUserBuildHwndList | rules::ProcessPolicyFlagNtUserGetForegroundWindow |                 \
-     rules::ProcessPolicyFlagNtContinue | rules::ProcessPolicyFlagNtYieldExecution |                                   \
-     rules::ProcessPolicyFlagNtQueryInformationThread | rules::ProcessPolicyFlagNtQueryInformationJobObject |          \
-     rules::ProcessPolicyFlagNtQuerySystemTime | rules::ProcessPolicyFlagNtQueryPerformanceCounter |                   \
-     rules::ProcessPolicyFlagNtSystemDebugControl | rules::ProcessPolicyFlagNtClose |                                  \
-     rules::ProcessPolicyFlagNtCreateThreadEx | rules::ProcessPolicyFlagHideKUserSharedData |                          \
-     rules::ProcessPolicyFlagClearThreadHideFromDebuggerFlag | rules::ProcessPolicyFlagClearBypassProcessFreeze |      \
-     rules::ProcessPolicyFlagClearPebBeingDebugged | rules::ProcessPolicyFlagClearPebNtGlobalFlag |                    \
-     rules::ProcessPolicyFlagClearHeapFlags | rules::ProcessPolicyFlagClearKUserSharedData |                           \
-     rules::ProcessPolicyFlagClearProcessBreakOnTerminationFlag |                                                      \
-     rules::ProcessPolicyFlagClearThreadBreakOnTerminationFlag | rules::ProcessPolicyFlagSaveProcessDebugFlags |       \
-     rules::ProcessPolicyFlagSaveProcessHandleTracing | rules::ProcessPolicyFlagHideChildFromDebugger)
+#define PROCESS_POLICY_HIDE_FROM_DEBUGGER (PROCESS_POLICY_FLAG_HIDE_FROM_DEBUGGER | PROCESS_POLICY_FLAG_ALL)
+
+#define PROCESS_POLICY_HIJACK (PROCESS_POLICY_FLAG_HIJACK | PROCESS_POLICY_FLAG_ALL)
+
+#define PROCESS_POLICY_ALL                                                                                             \
+    (PROCESS_POLICY_FLAG_HIJACK | PROCESS_POLICY_FLAG_MONITOR | PROCESS_POLICY_FLAG_HIDE_FROM_DEBUGGER |               \
+     PROCESS_POLICY_FLAG_ALL)
 
 enum EObjectType : INT
 {
@@ -111,16 +101,6 @@ enum EObjectType : INT
 
 // Structs
 //
-// typedef struct _OBJ_HEADER
-//{
-//    struct
-//    {
-//        INT Type;
-//        LONG RefCount;
-//    } Header;
-//
-//} OBJ_HEADER, *POBJ_HEADER;
-
 typedef struct _DEBUG_CONTEXT
 {
     ULONG64 Dr0;
@@ -316,9 +296,9 @@ bool IsWhitelistedDriver(_In_ LPCSTR driverName);
 [[nodiscard]] PPROCESS_ENTRY GetProcessEntry(_In_ HANDLE processId);
 [[nodiscard]] PPROCESS_ENTRY GetProcessEntry(_In_ PEPROCESS process);
 
-bool IsProtectedProcess(_In_ HANDLE processId);
-bool IsProtectedProcess(_In_ PEPROCESS process);
-bool IsProtectedProcess(_In_ PUNICODE_STRING processFullPath);
+bool IsHijackedProcess(_In_ HANDLE processId);
+bool IsHijackedProcess(_In_ PEPROCESS process);
+bool IsHijackedProcess(_In_ PUNICODE_STRING processFullPath);
 
 bool IsMonitoredProcess(_In_ HANDLE processId);
 bool IsMonitoredProcess(_In_ PEPROCESS process);

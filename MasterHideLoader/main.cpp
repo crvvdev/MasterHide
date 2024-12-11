@@ -1,14 +1,4 @@
-#include <Windows.h>
-#include <cstdio>
-#include <cstdlib>
-#include <stdexcept>
-#include <string>
-
-#include "service.hpp"
-#include "loader.hpp"
-#include "klhk.hpp"
-
-using namespace masterhide;
+#include "includes.hpp"
 
 int main()
 {
@@ -31,16 +21,16 @@ int main()
             Sleep(10);
         }
 
-        loader::Cleanup();
+        loader::Unload();
 
 #if (MASTERHIDE_MODE == MASTERHIDE_MODE_KASPERSKYHOOK)
-        kaspersky::Cleanup(false);
+        kaspersky::Unload();
 #endif
     }
     catch (const std::exception &e)
     {
 #if (MASTERHIDE_MODE == MASTERHIDE_MODE_KASPERSKYHOOK)
-        kaspersky::Cleanup(false);
+        kaspersky::Unload();
 #endif
 
         printf("Exception: %s\n", e.what());

@@ -159,6 +159,15 @@ bool HasDebugPrivilege()
     return true;
 }
 
+void DelayThread(_In_ LONG64 milliseconds, _In_ BOOLEAN alertable)
+{
+    PAGED_CODE();
+
+    LARGE_INTEGER Delay;
+    Delay.QuadPart = -milliseconds * 10000;
+    KeDelayExecutionThread(KernelMode, alertable, &Delay);
+}
+
 bool GetProcessFileName(_In_ PEPROCESS process, _Out_ PUNICODE_STRING processImageName)
 {
     PAGED_CODE();
@@ -612,6 +621,37 @@ bool GetModuleInformation(_In_ const char *moduleName, _Out_ PVOID *moduleBase, 
     return false;
 }
 
+bool GetNtoskrnl(_Out_ PVOID *moduleBase, _Out_opt_ PULONG moduleSize)
+{
+    PAGED_CODE();
+    NT_ASSERT(moduleBase);
+
+    PRTL_PROCESS_MODULES systemModules = nullptr;
+
+    NTSTATUS status = QuerySystemInformation(SystemModuleInformation, reinterpret_cast<PVOID *>(&systemModules));
+    if (NT_SUCCESS(status))
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "ZwQuerySystemInformation returned %!STATUS!", status);
+        return false;
+    }
+
+    SCOPE_EXIT
+    {
+        ExFreePool(systemModules);
+    };
+
+    const RTL_PROCESS_MODULE_INFORMATION *systemModule = &systemModules->Modules[0];
+
+    *moduleBase = systemModule->ImageBase;
+
+    if (moduleSize)
+    {
+        *moduleSize = systemModule->ImageSize;
+    }
+
+    return true;
+}
+
 NTSTATUS MapFileInSystemSpace(_In_ PUNICODE_STRING FileName, _Out_ PVOID *MappedBase, _Out_opt_ SIZE_T *MappedSize)
 {
     NT_ASSERT(FileName);
@@ -630,8 +670,6 @@ NTSTATUS MapFileInSystemSpace(_In_ PUNICODE_STRING FileName, _Out_ PVOID *Mapped
 
     OBJECT_ATTRIBUTES oa{};
     InitializeObjectAttributes(&oa, FileName, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, nullptr, nullptr);
-    OBJECT_ATTRIBUTES oa2{};
-    InitializeObjectAttributes(&oa2, nullptr, OBJ_KERNEL_HANDLE, nullptr, nullptr);
 
     NTSTATUS status =
         ZwCreateFile(&fileHandle, FILE_READ_DATA, &oa, &iosb, NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_OPEN,
@@ -647,7 +685,10 @@ NTSTATUS MapFileInSystemSpace(_In_ PUNICODE_STRING FileName, _Out_ PVOID *Mapped
         ZwClose(fileHandle);
     };
 
-    status = ZwCreateSection(&sectionHandle, SECTION_MAP_READ, &oa2, nullptr, PAGE_READONLY, SEC_COMMIT, fileHandle);
+    OBJECT_ATTRIBUTES oa2{};
+    InitializeObjectAttributes(&oa2, nullptr, OBJ_KERNEL_HANDLE, nullptr, nullptr);
+
+    status = ZwCreateSection(&sectionHandle, SECTION_MAP_READ, &oa2, nullptr, PAGE_READONLY, SEC_IMAGE, fileHandle);
     if (!NT_SUCCESS(status))
     {
         WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "ZwCreateSection returned %!STATUS!", status);

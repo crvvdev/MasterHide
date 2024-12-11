@@ -4,11 +4,13 @@ namespace masterhide
 {
 namespace dyn
 {
+DynamicContext_t DynCtx{};
+
 static NTSTATUS GetOffsets()
 {
     NTSTATUS status = STATUS_SUCCESS;
 
-    if (KERNEL_BUILD >= WINDOWS_11)
+    if (KERNEL_BUILD >= WINDOWS_11_VERSION_21H2)
     {
         DynCtx.Offsets.BypassProcessFreezeFlagOffset = 0x74;
         DynCtx.Offsets.ThreadHideFromDebuggerFlagOffset = 0x560;
@@ -155,6 +157,19 @@ NTSTATUS Initialize()
         return status;
     }
 
+    PVOID ntoskrnlBase = nullptr;
+    ULONG ntoskrnlSize = 0;
+
+    if (!tools::GetNtoskrnl(&ntoskrnlBase, &ntoskrnlSize))
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to obtain kernel NT headers!");
+
+        return STATUS_NOT_SUPPORTED;
+    }
+
+    DynCtx.Kernel.Base = ntoskrnlBase;
+    DynCtx.Kernel.Size = ntoskrnlSize;
+
     const ULONG majorVersion = os.dwMajorVersion;
     const ULONG minorVersion = os.dwMinorVersion;
 
@@ -166,7 +181,7 @@ NTSTATUS Initialize()
           (majorVersion == 6 && minorVersion == 2) ||  // Windows 8
           (majorVersion == 6 && minorVersion == 1)))   // Windows 7
     {
-        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Unsupported Windows version major:%d minor:%d", majorVersion,
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Unsupported Windows version! major:%d minor:%d", majorVersion,
                       minorVersion);
 
         return STATUS_NOT_SUPPORTED;
@@ -176,43 +191,104 @@ NTSTATUS Initialize()
     DynCtx.Kernel.MinorVersion = minorVersion;
     DynCtx.Kernel.BuildVersion = os.dwBuildNumber;
 
-     auto InitializeDebuggerBlock = []() -> bool {
-        CONTEXT context = {0};
-        context.ContextFlags = CONTEXT_FULL;
-        RtlCaptureContext(&context);
+#if (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
+    if (KERNEL_BUILD >= WINDOWS_11_VERSION_21H2)
+    {
+        DynCtx.Offsets.GetCpuClock = 0x18;
+    }
+    else
+    {
+        DynCtx.Offsets.GetCpuClock = 0x28;
+    }
 
-        auto dumpHeader = tools::AllocatePoolZero<PDUMP_HEADER>(NonPagedPool, DUMP_BLOCK_SIZE, tags::TAG_DEFAULT);
-        if (!dumpHeader)
+    PUCHAR EtwpDebuggerData = tools::FindPattern(KERNEL_BASE, ".data", "2C 08 04 38 0C");
+    if (!EtwpDebuggerData)
+    {
+        EtwpDebuggerData = tools::FindPattern(KERNEL_BASE, ".rdata", "2C 08 04 38 0C");
+        if (!EtwpDebuggerData)
         {
-            return false;
+            EtwpDebuggerData = tools::FindPattern(KERNEL_BASE, ".text", "2C 08 04 38 0C");
+            if (!EtwpDebuggerData)
+            {
+                WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "EtwpDebuggerData not found!");
+                return STATUS_PROCEDURE_NOT_FOUND;
+            }
+        }
+    }
+
+    EtwpDebuggerData -= 2;
+
+    if (!MmIsAddressValid(EtwpDebuggerData))
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Invalid EtwpDebuggerData at 0x%p", EtwpDebuggerData);
+        return STATUS_PROCEDURE_NOT_FOUND;
+    }
+
+    DBGPRINT("EtwpDebuggerData = 0x%p", EtwpDebuggerData);
+    DynCtx.Kernel.EtwpDebuggerData = reinterpret_cast<ULONG_PTR>(EtwpDebuggerData);
+
+    // Starting Win10 1909 a new method to achieve infinityhook is necessary
+    //
+    if (KERNEL_BUILD > WINDOWS_10_VERSION_19H2)
+    {
+        const PUCHAR HvlpReferenceTscPage =
+            tools::FindPattern(KERNEL_BASE, ".text", "48 8B 05 ?? ?? ?? ?? 48 8B 40 08 48 8B 0D");
+        if (!HvlpReferenceTscPage)
+        {
+            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "HvlpReferenceTscPage not found!");
+            return STATUS_PROCEDURE_NOT_FOUND;
         }
 
-        KeCapturePersistentThreadState(&context, NULL, 0, 0, 0, 0, 0, dumpHeader);
-        RtlCopyMemory(&DynCtx.Kernel.KdBlock, reinterpret_cast<PUCHAR>(dumpHeader) + KDDEBUGGER_DATA_OFFSET,
-                      sizeof(DynCtx.Kernel.KdBlock));
+        DBGPRINT("HvlpReferenceTscPageRef = 0x%p", HvlpReferenceTscPage);
+        DynCtx.Kernel.HvlpReferenceTscPage = reinterpret_cast<ULONG_PTR>(HvlpReferenceTscPage);
 
-        ExFreePool(dumpHeader);
-        return true;
-    };
+        PUCHAR HvlGetQpcBias = tools::FindPattern(KERNEL_BASE, ".text",
+                                                  "48 89 5C 24 08 57 48 83 EC 20 48 8B 05 ?? ?? ?? ?? 48 8B F9 48 85");
+        if (!HvlGetQpcBias)
+        {
+            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "HvlGetQpcBias not found!");
+            return STATUS_PROCEDURE_NOT_FOUND;
+        }
 
-    if (!InitializeDebuggerBlock())
-    {
-        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to read debugger block!");
+        HvlGetQpcBias += 0x22;
 
-        return status;
+        DBGPRINT("HvlGetQpcBiasRef = 0x%p", HvlGetQpcBias);
+        DynCtx.Kernel.HvlGetQpcBias = reinterpret_cast<ULONG_PTR>(HvlGetQpcBias);
     }
+#endif
 
     if (KERNEL_BUILD > WINDOWS_10_VERSION_THRESHOLD2)
     {
+        WppTracePrint(TRACE_LEVEL_INFORMATION, GENERAL, "Windows 10 Threshold 2+ detect, initializing debugger block");
+
+        auto InitializeDebuggerBlock = []() -> bool {
+            CONTEXT context = {0};
+            context.ContextFlags = CONTEXT_FULL;
+            RtlCaptureContext(&context);
+
+            auto dumpHeader = tools::AllocatePoolZero<PDUMP_HEADER>(NonPagedPool, DUMP_BLOCK_SIZE, tags::TAG_DEFAULT);
+            if (!dumpHeader)
+            {
+                return false;
+            }
+
+            KeCapturePersistentThreadState(&context, NULL, 0, 0, 0, 0, 0, dumpHeader);
+            RtlCopyMemory(&DynCtx.Kernel.KdBlock, reinterpret_cast<PUCHAR>(dumpHeader) + KDDEBUGGER_DATA_OFFSET,
+                          sizeof(DynCtx.Kernel.KdBlock));
+
+            ExFreePool(dumpHeader);
+            return true;
+        };
+
+        if (!InitializeDebuggerBlock())
+        {
+            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to read debugger block!");
+
+            return STATUS_NOT_SUPPORTED;
+        }
+
         PteInitialize(DynCtx.Kernel.KdBlock.PteBase, *(PMMPFN *)DynCtx.Kernel.KdBlock.MmPfnDatabase);
     }
-
-    auto kernelBase = reinterpret_cast<PUCHAR>(DynCtx.Kernel.KdBlock.KernBase);
-
-    PIMAGE_NT_HEADERS nth = RtlImageNtHeader(kernelBase);
-
-    DynCtx.Kernel.Base = kernelBase;
-    DynCtx.Kernel.Size = nth->OptionalHeader.SizeOfImage;
 
     status = GetOffsets();
     if (!NT_SUCCESS(status))

@@ -31,7 +31,7 @@
     <ClCompile Include="drivermain.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="misc.cpp">
+    <ClCompile Include="tools.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\KasperskyHook\KasperskyHookDrv\hooks.cpp">
@@ -84,7 +84,7 @@
     <ClInclude Include="includes.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="misc.hpp">
+    <ClInclude Include="tools.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\kernel_modules.hpp">

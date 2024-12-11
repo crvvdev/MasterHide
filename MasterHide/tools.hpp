@@ -107,6 +107,7 @@ UCHAR *FindCodeCave(UCHAR *const startAddress, ULONG searchSize, ULONG sizeNeede
 HANDLE GetProcessIdFromProcessHandle(_In_ HANDLE processHandle);
 HANDLE GetProcessIdFromThreadHandle(_In_ HANDLE threadHandle);
 bool HasDebugPrivilege();
+void DelayThread(_In_ LONG64 milliseconds, _In_ BOOLEAN alertable = FALSE);
 
 /// <summary>
 /// Obtains full file name for PEPROCESS, on success the processImageName has to be free'd using RtlFreeUnicodeString
@@ -119,7 +120,7 @@ _Success_(return != false) bool GetProcessFileName(_In_ PEPROCESS process, _Out_
 
 bool GetProcessFileName(_In_ HANDLE processId, _Out_ PUNICODE_STRING processImageName);
 PEPROCESS GetProcessByName(_In_ LPCWSTR processName);
-PVOID GetKernelBase();
+bool GetNtoskrnl(_Out_ PVOID *moduleBase, _Out_opt_ PULONG moduleSize);
 
 inline void SwapEndianness(PCHAR ptr, size_t size)
 {

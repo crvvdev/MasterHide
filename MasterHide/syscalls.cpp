@@ -50,7 +50,7 @@ static NTSTATUS FillSyscallTable(_In_ PUNICODE_STRING fileName)
     {
         PIMAGE_NT_HEADERS nth = nullptr;
 
-        status = RtlImageNtHeaderEx(0, mappedBase, mappedSize, &nth);
+        status = RtlImageNtHeaderEx(NULL, mappedBase, mappedSize, &nth);
         if (!NT_SUCCESS(status))
         {
             WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "RtlImageNtHeaderEx returned %!STATUS!", status);
@@ -66,6 +66,8 @@ static NTSTATUS FillSyscallTable(_In_ PUNICODE_STRING fileName)
             WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Invalid image export directory!");
             return STATUS_UNSUCCESSFUL;
         }
+
+        
 
         auto moduleBase = reinterpret_cast<PUCHAR>(mappedBase);
 

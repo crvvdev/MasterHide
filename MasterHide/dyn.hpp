@@ -22,7 +22,7 @@ namespace dyn
 
 // Structs
 //
-struct
+struct DynamicContext_t
 {
     struct
     {
@@ -43,14 +43,14 @@ struct
     struct
     {
 #if (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
-        ULONG GetCpuClock;
+        ULONG GetCpuClock; // struct _WMI_LOGGER_CONTEXT
 #endif
-        ULONG SeAuditProcessCreationInfoOffset;
-        ULONG BypassProcessFreezeFlagOffset;
-        ULONG ThreadHideFromDebuggerFlagOffset;
-        ULONG ThreadBreakOnTerminationFlagOffset;
-        ULONG PicoContextOffset;
-        ULONG RestrictSetThreadContextOffset;
+        ULONG SeAuditProcessCreationInfoOffset; // struct _EPROCESS
+        ULONG BypassProcessFreezeFlagOffset; // struct _KTHREAD
+        ULONG ThreadHideFromDebuggerFlagOffset; // struct _ETHREAD
+        ULONG ThreadBreakOnTerminationFlagOffset; // struct _ETHREAD
+        ULONG PicoContextOffset; // struct _ETHREAD
+        ULONG RestrictSetThreadContextOffset; // struct _EPROCESS
 
     } Offsets;
 
@@ -63,7 +63,9 @@ struct
     DEFINE_DYN_CONTEXT_PROC(PVOID *, GetCpuClock, ULONG_PTR)
 #endif
 
-} inline DynCtx{};
+};
+
+extern DynamicContext_t DynCtx;
 
 // Globals
 //

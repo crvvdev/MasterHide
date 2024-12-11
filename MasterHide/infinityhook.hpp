@@ -1,5 +1,6 @@
 #pragma once
 
+#if (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
 #include <evntrace.h>
 #include <wmistr.h>
 #include "hde\hde64.h"
@@ -84,3 +85,4 @@ ModifyTraceSettings(_In_ const CKCL_TRACE_OPERATION &TraceOperation);
 
 NTSTATUS InitializeInfinityHook(_In_ SSDT_CALLBACK ssdtCallback);
 void CleanupInfinityHook();
+#endif

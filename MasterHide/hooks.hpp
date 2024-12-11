@@ -4,24 +4,9 @@ namespace masterhide
 {
 namespace hooks
 {
-typedef struct _HOOK_ENTRY
-{
-    BOOLEAN Shadow;
-    CHAR ServiceName[64];
-    PVOID Original;
-    PVOID New;
-    USHORT ServiceIndex;
-    LONG RefCount;
-#if (MASTERHIDE_MODE == MASTERHIDE_MODE_SSDTHOOK)
-    LONG OldSsdt;
-    LONG NewSsdt;
-    UCHAR OriginalBytes[12];
-#endif
-} HOOK_ENTRY, *PHOOK_ENTRY;
-
 // Globals
 //
-inline KMUTEX g_NtCloseMutex{};
+extern KMUTEX g_NtCloseMutex;
 inline bool g_initialized = false;
 
 // Functions
@@ -140,53 +125,21 @@ NTSTATUS NTAPI hkNtUserBuildHwndList(HDESK hDesktop, HWND hwndParent, BOOLEAN bC
 HWND NTAPI hkNtUserGetForegroundWindow(VOID);
 // inline decltype(&hkNtUserGetForegroundWindow) oNtUserGetForegroundWindow = nullptr;
 
-inline HOOK_ENTRY g_HookList[] = {
-    // NT
-    //
-    {FALSE, "NtQuerySystemInformation", nullptr, &hkNtQuerySystemInformation, MAXUSHORT, 0L},
-    {FALSE, "NtOpenProcess", nullptr, &hkNtOpenProcess, MAXUSHORT, 0L},
-    {FALSE, "NtAllocateVirtualMemory", nullptr, &hkNtAllocateVirtualMemory, MAXUSHORT, 0L},
-    {FALSE, "NtWriteVirtualMemory", nullptr, &hkNtWriteVirtualMemory, MAXUSHORT, 0L},
-    {FALSE, "NtDeviceIoControlFile", nullptr, &hkNtDeviceIoControlFile, MAXUSHORT, 0L},
-    {FALSE, "NtLoadDriver", nullptr, &hkNtLoadDriver, MAXUSHORT, 0L},
-    {FALSE, "NtSetInformationThread", nullptr, &hkNtSetInformationThread, MAXUSHORT, 0L},
-    {FALSE, "NtQueryInformationThread", nullptr, &hkNtQueryInformationThread, MAXUSHORT, 0L},
-    {FALSE, "NtSetInformationProcess", nullptr, &hkNtSetInformationProcess, MAXUSHORT, 0L},
-    {FALSE, "NtQueryInformationProcess", nullptr, &hkNtQueryInformationProcess, MAXUSHORT, 0L},
-    {FALSE, "NtQueryObject", nullptr, &hkNtQueryObject, MAXUSHORT, 0L},
-    {FALSE, "NtCreateThreadEx", nullptr, &hkNtCreateThreadEx, MAXUSHORT, 0L},
-    {FALSE, "NtGetContextThread", nullptr, &hkNtGetContextThread, MAXUSHORT, 0L},
-    {FALSE, "NtSetContextThread", nullptr, &hkNtSetContextThread, MAXUSHORT, 0L},
-    {FALSE, "NtContinue", nullptr, &hkNtContinue, MAXUSHORT, 0L},
-    {FALSE, "NtOpenThread", nullptr, &hkNtOpenThread, MAXUSHORT, 0L},
-    {FALSE, "NtYieldExecution", nullptr, &hkNtYieldExecution, MAXUSHORT, 0L},
-    {FALSE, "NtClose", nullptr, &hkNtClose, MAXUSHORT, 0L},
-    {FALSE, "NtSystemDebugControl", nullptr, &hkNtSystemDebugControl, MAXUSHORT, 0L},
-    {FALSE, "NtQuerySystemTime", nullptr, &hkNtQuerySystemTime, MAXUSHORT, 0L},
-    {FALSE, "NtQueryPerformanceCounter", nullptr, &hkNtQueryPerformanceCounter, MAXUSHORT, 0L},
-    // Win32K
-    //
-    {TRUE, "NtUserWindowFromPoint", nullptr, &hkNtUserWindowFromPoint, MAXUSHORT, 0L},
-    {TRUE, "NtUserQueryWindow", nullptr, &hkNtUserQueryWindow, MAXUSHORT, 0L},
-    {TRUE, "NtUserFindWindowEx", nullptr, &hkNtUserFindWindowEx, MAXUSHORT, 0L},
-    {TRUE, "NtUserBuildHwndList", nullptr, &hkNtUserBuildHwndList, MAXUSHORT, 0L},
-    {TRUE, "NtUserGetForegroundWindow", nullptr, &hkNtUserGetForegroundWindow, MAXUSHORT, 0L}};
-
-FORCEINLINE PHOOK_ENTRY FindHookEntry(_In_ FNV1A_t serviceNameHash)
+typedef struct _HOOK_ENTRY
 {
-    for (auto &entry : g_HookList)
-    {
-        if (serviceNameHash == FNV1A::Hash(entry.ServiceName))
-        {
-            return &entry;
-        }
-    }
-
-#if !DBG
-    __fastfail(FAST_FAIL_INVALID_ARG);
+    BOOLEAN Shadow;
+    CHAR ServiceName[64];
+    PVOID Original;
+    PVOID New;
+    USHORT ServiceIndex;
+    LONG RefCount;
+#if (MASTERHIDE_MODE == MASTERHIDE_MODE_SSDTHOOK)
+    LONG OldSsdt;
+    LONG NewSsdt;
+    UCHAR OriginalBytes[12];
 #endif
+} HOOK_ENTRY, *PHOOK_ENTRY;
 
-    return nullptr;
-}
+extern HOOK_ENTRY g_HookList[];
 } // namespace hooks
 } // namespace masterhide
