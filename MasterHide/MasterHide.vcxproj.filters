@@ -55,7 +55,7 @@
     <ClCompile Include="..\KasperskyHook\KasperskyHookDrv\driver.cpp">
       <Filter>Header Files\KasperskyHook</Filter>
     </ClCompile>
-    <ClCompile Include="rules.cpp">
+    <ClCompile Include="process.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="syscalls.cpp">
@@ -75,6 +75,9 @@
     </ClCompile>
     <ClCompile Include="hde\hde64.cpp">
       <Filter>Header Files\infinityhook\hde</Filter>
+    </ClCompile>
+    <ClCompile Include="ntfill.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -108,7 +111,7 @@
     <ClInclude Include="fnv1a.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="rules.hpp">
+    <ClInclude Include="process.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="wpp_trace.hpp">

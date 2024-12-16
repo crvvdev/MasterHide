@@ -6,54 +6,45 @@ static UNICODE_STRING g_deviceName = RTL_CONSTANT_STRING(L"\\Device\\" MASTERHID
 static UNICODE_STRING g_symbolicLinkName = RTL_CONSTANT_STRING(L"\\DosDevices\\" MASTERHIDE_GUID);
 static PDEVICE_OBJECT g_deviceObject = nullptr;
 
-#if 0
-enum EProcessRuleType : int
-{
-    ProcessRuleTypeInvalid = 0,
-    ProcessRuleTypeProcessId = 1,
-    ProcessRuleTypeProcessImageName = 2
-};
-
-typedef struct _RULE_ENTRY
-{
-    EProcessRuleType ProcessRuleType;
-    ULONG ProcessPolicyFlags;
-    UCHAR Opaque[MAX_PATH];
-
-} RULE_ENTRY, *PRULE_ENTRY;
-
-void CreateProcessRuleByProcessName(_In_ PUNICODE_STRING imageFileName)
-{
-    const NTSTATUS status = rules::AddProcessRuleEntry(imageFileName, PROCESS_POLICY_HIDE_FROM_DEBUGGER_FULL);
-    if (!NT_SUCCESS(status))
-    {
-        return;
-    }
-}
-#endif
+#define IOCTL_MASTERHIDE_ADD_RULE CTL_CODE(FILE_DEVICE_UNKNOWN, 0, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
+#define IOCTL_MASTERHIDE_REMOVE_RULE CTL_CODE(FILE_DEVICE_UNKNOWN, 1, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
+#define IOCTL_MASTERHIDE_UPDATE_RULE CTL_CODE(FILE_DEVICE_UNKNOWN, 2, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
 
 void Test()
 {
     {
-        UNICODE_STRING imageFileName = RTL_CONSTANT_STRING(L"\\??\\C:\\Users\\Jonathan\\Desktop\\al-khaser.exe");
+        UNICODE_STRING imageFileName =
+            RTL_CONSTANT_STRING(L"\\??\\C:\\Users\\LAPTOP\\Desktop\\x64dbg\\release\\x64\\x64dbg.exe");
 
-        if (!NT_SUCCESS(rules::AddProcessRuleEntry(&imageFileName, PROCESS_POLICY_HIDE_FROM_DEBUGGER)))
+        if (!NT_SUCCESS(process::rules::AddProcessRuleEntry(&imageFileName, PROCESS_POLICY_PROTECTED)))
         {
             return;
         }
 
-        WppTracePrint(TRACE_LEVEL_VERBOSE, DEBUG, "Added %wZ to hidden from debugger list!", &imageFileName);
+        WppTracePrint(TRACE_LEVEL_VERBOSE, DEBUG, "Created protected policy rule %wZ", &imageFileName);
     }
+    /*{
+        UNICODE_STRING imageFileName =
+            RTL_CONSTANT_STRING(L"\\??\\C:\\Program Files\\Cheat Engine 7.5\\cheatengine-x86_64.exe");
+
+        if (!NT_SUCCESS(process::rules::AddProcessRuleEntry(&imageFileName, PROCESS_POLICY_HIDE_FROM_DEBUGGER)))
+        {
+            return;
+        }
+
+        WppTracePrint(TRACE_LEVEL_VERBOSE, DEBUG, "Created hidden from debugger rule for %wZ", &imageFileName);
+    }*/
     {
         UNICODE_STRING imageFileName =
             RTL_CONSTANT_STRING(L"\\??\\C:\\Users\\LAPTOP\\Desktop\\History Reborn 3.0\\Ragnarok.exe");
 
-        if (!NT_SUCCESS(rules::AddProcessRuleEntry(&imageFileName, PROCESS_POLICY_ALL)))
+        if (!NT_SUCCESS(process::rules::AddProcessRuleEntry(&imageFileName, PROCESS_POLICY_HIDE_FROM_DEBUGGER |
+                                                                                PROCESS_POLICY_FLAG_MONITORED)))
         {
             return;
         }
 
-        WppTracePrint(TRACE_LEVEL_VERBOSE, DEBUG, "Added %wZ to protected list!", &imageFileName);
+        WppTracePrint(TRACE_LEVEL_VERBOSE, DEBUG, "Created hidden from debugger rule for %wZ", &imageFileName);
     }
     //
 }
@@ -68,7 +59,8 @@ static void OnDriverUnload()
     //
     syscalls::Deinitialize();
     callbacks::Deinitialize();
-    rules::Deinitialize();
+    process::rules::Deinitialize();
+    process::Deinitialize();
 
     // (3) Delete driver device
     //
@@ -109,18 +101,49 @@ static NTSTATUS DispatchDeviceControl(_In_ PDEVICE_OBJECT deviceObject, _Inout_ 
 
     NTSTATUS status = STATUS_NOT_IMPLEMENTED;
 
-    // TODO: implement
-#if 0
     PIO_STACK_LOCATION irpStack = IoGetCurrentIrpStackLocation(irp);
     ULONG controlCode = irpStack->Parameters.DeviceIoControl.IoControlCode;
 
     switch (controlCode)
     {
+    case IOCTL_MASTERHIDE_ADD_RULE: {
+        ULONG *Pid = (ULONG *)Irp->AssociatedIrp.SystemBuffer;
+        if (Hider::CreateEntry(IoGetCurrentProcess(), PidToProcess(*Pid)) == FALSE)
+            Status = STATUS_UNSUCCESSFUL;
+        else
+            g_HyperHide.NumberOfActiveDebuggers++;
+        break;
+    }
+
+    case IOCTL_MASTERHIDE_REMOVE_RULE: {
+        ULONG *Pid = (ULONG *)Irp->AssociatedIrp.SystemBuffer;
+        if (Hider::RemoveEntry(PidToProcess(*Pid)) == FALSE)
+            Status = STATUS_UNSUCCESSFUL;
+        else
+            g_HyperHide.NumberOfActiveDebuggers--;
+        break;
+    }
+
+    case IOCTL_PROCESS_RESUMED: {
+        ULONG *Pid = (ULONG *)Irp->AssociatedIrp.SystemBuffer;
+        UpdateDelta(PidToProcess(*Pid));
+        if (Hider::ResumeCounterForProcess(PidToProcess(*Pid)) == FALSE)
+            Status = STATUS_UNSUCCESSFUL;
+        break;
+    }
+
+    case IOCTL_PROCESS_STOPPED: {
+        ULONG *Pid = (ULONG *)Irp->AssociatedIrp.SystemBuffer;
+        GetBegin(PidToProcess(*Pid));
+
+        if (Hider::StopCounterForProcess(PidToProcess(*Pid)) == FALSE)
+            Status = STATUS_UNSUCCESSFUL;
+        break;
+    }
     default:
         status = STATUS_INVALID_DEVICE_REQUEST;
         break;
     }
-#endif
 
     irp->IoStatus.Status = status;
     irp->IoStatus.Information = 0;
@@ -183,7 +206,8 @@ extern "C" NTSTATUS NTAPI DriverEntry(PDRIVER_OBJECT driverObject, PUNICODE_STRI
     // (3) Initialize all interfaces
     //
     INITIALIZE_INTERFACE(dyn);
-    INITIALIZE_INTERFACE(rules);
+    INITIALIZE_INTERFACE(process);
+    INITIALIZE_INTERFACE(process::rules);
     INITIALIZE_INTERFACE(callbacks);
     INITIALIZE_INTERFACE(syscalls);
     INITIALIZE_INTERFACE(hooks);

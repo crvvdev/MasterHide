@@ -4,6 +4,11 @@ namespace masterhide
 {
 namespace syscalls
 {
+UNICODE_STRING g_NtdllPath = RTL_CONSTANT_STRING(L"\\SystemRoot\\System32\\ntdll.dll");
+UNICODE_STRING g_Win32UPath = RTL_CONSTANT_STRING(L"\\SystemRoot\\System32\\win32u.dll");
+
+bool g_initialized = false;
+
 /// <summary>
 /// Dynamic hash table pointer
 /// </summary>
@@ -14,12 +19,10 @@ PRTL_DYNAMIC_HASH_TABLE g_hashTable = nullptr;
 /// </summary>
 RTL_DYNAMIC_HASH_TABLE_CONTEXT g_hashTableContext{};
 
-inline bool g_initialized = false;
-
 typedef struct _SYSCALL_TABLE_ENTRY
 {
-    USHORT serviceIndex;
     RTL_DYNAMIC_HASH_TABLE_ENTRY hashTableEntry;
+    USHORT serviceIndex;
 
 } SYSCALL_TABLE_ENTRY, *PSYSCALL_TABLE_ENTRY;
 
@@ -58,7 +61,6 @@ static NTSTATUS FillSyscallTable(_In_ PUNICODE_STRING fileName)
         }
 
         ULONG exportDirSize = 0;
-
         const auto exportDirectory = reinterpret_cast<PIMAGE_EXPORT_DIRECTORY>(
             RtlImageDirectoryEntryToData(mappedBase, TRUE, IMAGE_DIRECTORY_ENTRY_EXPORT, &exportDirSize));
         if (!exportDirectory)
@@ -67,14 +69,12 @@ static NTSTATUS FillSyscallTable(_In_ PUNICODE_STRING fileName)
             return STATUS_UNSUCCESSFUL;
         }
 
-        
-
         auto moduleBase = reinterpret_cast<PUCHAR>(mappedBase);
 
-        const PULONG addressOfNames = reinterpret_cast<PULONG>(moduleBase + exportDirectory->AddressOfNames);
-        const PUSHORT addressOfNameOrdinals =
+        const auto addressOfNames = reinterpret_cast<PULONG>(moduleBase + exportDirectory->AddressOfNames);
+        const auto addressOfNameOrdinals =
             reinterpret_cast<PUSHORT>(moduleBase + exportDirectory->AddressOfNameOrdinals);
-        const PULONG addressOfFunctions = reinterpret_cast<PULONG>(moduleBase + exportDirectory->AddressOfFunctions);
+        const auto addressOfFunctions = reinterpret_cast<PULONG>(moduleBase + exportDirectory->AddressOfFunctions);
 
         for (auto i = 0ul; i < exportDirectory->NumberOfNames; i++)
         {
@@ -87,7 +87,7 @@ static NTSTATUS FillSyscallTable(_In_ PUNICODE_STRING fileName)
             };
 
             // Check if the export is possibly a syscall
-            if (IsSyscall())
+            if (strlen(exportName) > 2 && (exportName[0] == 'N' && exportName[1] == 't') && IsSyscall())
             {
                 ULONG64 functionData = *(ULONG64 *)procedureAddress;
                 ULONG syscallNum = (functionData >> 8 * 4);
@@ -101,12 +101,8 @@ static NTSTATUS FillSyscallTable(_In_ PUNICODE_STRING fileName)
                     const FNV1A_t serviceHash = FNV1A::Hash(exportName);
                     entry->serviceIndex = static_cast<USHORT>(syscallNum);
 
-                    WppTracePrint(TRACE_LEVEL_VERBOSE, SYSCALLS, "serviceName: %s serviceIndex: %d serviceHash: %lld",
-                                  exportName, syscallNum, serviceHash);
-
                     InitializeListHead(&entry->hashTableEntry.Linkage);
-                    RtlInsertEntryHashTable(g_hashTable, &entry->hashTableEntry, ULONG_PTR(serviceHash),
-                                            &g_hashTableContext);
+                    RtlInsertEntryHashTable(g_hashTable, &entry->hashTableEntry, serviceHash, &g_hashTableContext);
                 }
             }
         }
@@ -114,8 +110,7 @@ static NTSTATUS FillSyscallTable(_In_ PUNICODE_STRING fileName)
     __except (EXCEPTION_EXECUTE_HANDLER)
     {
         status = GetExceptionCode();
-
-        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Exception trying to parse PE %!STATUS!", status);
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Exception on FillSyscallTable %!STATUS!", status);
     }
 
     return status;
@@ -142,7 +137,7 @@ NTSTATUS Initialize()
     if (!RtlCreateHashTable(&g_hashTable, 0, 0))
     {
         ExFreePool(g_hashTable);
-        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to create dynamic hash table!");
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to create hash table!");
         return STATUS_UNSUCCESSFUL;
     }
 
@@ -242,9 +237,36 @@ USHORT GetSyscallIndexByName(_In_ LPCSTR serviceName)
     if (serviceIndex == MAXUSHORT)
     {
         WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Service %s not found in hash table list!", serviceName);
+        NT_ASSERT(FALSE);
     }
 
     return serviceIndex;
+}
+
+PVOID GetSyscallRoutineByName(_In_ LPCSTR serviceName, _In_ bool win32k)
+{
+    PAGED_CODE();
+    NT_ASSERT(serviceName);
+
+    const USHORT serviceIndex = GetSyscallIndexByName(serviceName);
+    if (serviceIndex == MAXUSHORT)
+    {
+        return nullptr;
+    }
+
+    auto serviceDescriptorTable =
+        reinterpret_cast<PSERVICE_DESCRIPTOR_TABLE>(dyn::DynCtx.Kernel.KeServiceDescriptorTableShadow);
+
+    ULONG_PTR SsdtBase = reinterpret_cast<ULONG_PTR>(serviceDescriptorTable->NtosTable.ServiceTableBase);
+    ULONG Offset = serviceDescriptorTable->NtosTable.ServiceTableBase[serviceIndex] >> 4;
+
+    if (win32k)
+    {
+        SsdtBase = reinterpret_cast<ULONG_PTR>(serviceDescriptorTable->Win32kTable.ServiceTableBase);
+        Offset = serviceDescriptorTable->Win32kTable.ServiceTableBase[serviceIndex] >> 4;
+    }
+
+    return reinterpret_cast<PVOID>(SsdtBase + Offset);
 }
 } // namespace syscalls
 } // namespace masterhide

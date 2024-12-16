@@ -14,6 +14,9 @@ NTSTATUS EResource::Initialize()
         return STATUS_ALREADY_INITIALIZED;
     }
 
+    KeInitializeEvent(&_event, NotificationEvent, TRUE);
+    _refCount.SetEvent(&_event);
+
     _eresource = tools::AllocatePoolZero<PERESOURCE>(NonPagedPool, sizeof(ERESOURCE), tags::TAG_ERESOURCE);
     if (!_eresource)
     {
@@ -49,10 +52,7 @@ NTSTATUS EResource::Deinitialize()
 
     // Wait until there are no references left to the resource
     //
-    while (InterlockedCompareExchange(&_refCount, 0, 0) != 0)
-    {
-        YieldProcessor();
-    }
+    _refCount.Wait();
 
     _initialized = false;
 
@@ -65,13 +65,9 @@ NTSTATUS EResource::Deinitialize()
 BOOLEAN EResource::LockExclusive(_In_ BOOLEAN wait)
 {
     PAGED_CODE();
+    NT_ASSERT(_initialized && "Possible bug, resource is not initialized but LockExclusive was called.");
 
-    if (!_initialized)
-    {
-        return FALSE;
-    }
-
-    InterlockedIncrement(&_refCount);
+    _refCount.IncRef();
     KeEnterCriticalRegion();
     return ExAcquireResourceExclusiveLite(_eresource, wait);
 }
@@ -79,13 +75,9 @@ BOOLEAN EResource::LockExclusive(_In_ BOOLEAN wait)
 BOOLEAN EResource::LockShared(_In_ BOOLEAN wait)
 {
     PAGED_CODE();
+    NT_ASSERT(_initialized && "Possible bug, resource is not initialized but LockShared was called.");
 
-    if (!_initialized)
-    {
-        return FALSE;
-    }
-
-    InterlockedIncrement(&_refCount);
+    _refCount.IncRef();
     KeEnterCriticalRegion();
     return ExAcquireResourceSharedLite(_eresource, wait);
 }
@@ -96,7 +88,7 @@ void EResource::Unlock()
     NT_ASSERT(_initialized && "Possible bug, resource is not initialized but Unlock was called.");
 
     ExReleaseResourceAndLeaveCriticalRegion(_eresource);
-    InterlockedDecrement(&_refCount);
+    _refCount.DecRef();
 }
 
 } // namespace mutex
@@ -557,7 +549,6 @@ QuerySystemInformation(_In_ SYSTEM_INFORMATION_CLASS systemInfoClass,
         }
 
         status = ZwQuerySystemInformation(systemInfoClass, buffer, bufferSize, &bufferSize);
-
         if (NT_SUCCESS(status))
         {
             *systemInfo = buffer;
@@ -590,7 +581,7 @@ bool GetModuleInformation(_In_ const char *moduleName, _Out_ PVOID *moduleBase, 
     PRTL_PROCESS_MODULES systemModules = nullptr;
 
     NTSTATUS status = QuerySystemInformation(SystemModuleInformation, reinterpret_cast<PVOID *>(&systemModules));
-    if (NT_SUCCESS(status))
+    if (!NT_SUCCESS(status))
     {
         WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "ZwQuerySystemInformation returned %!STATUS!", status);
         return false;
@@ -629,7 +620,7 @@ bool GetNtoskrnl(_Out_ PVOID *moduleBase, _Out_opt_ PULONG moduleSize)
     PRTL_PROCESS_MODULES systemModules = nullptr;
 
     NTSTATUS status = QuerySystemInformation(SystemModuleInformation, reinterpret_cast<PVOID *>(&systemModules));
-    if (NT_SUCCESS(status))
+    if (!NT_SUCCESS(status))
     {
         WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "ZwQuerySystemInformation returned %!STATUS!", status);
         return false;

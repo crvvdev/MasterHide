@@ -138,11 +138,36 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 11,
+          "SelectedChildIndex": 0,
           "Children": [
             {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "dyn.cpp",
+              "DocumentMoniker": "A:\\work\\MasterHide\\MasterHide\\dyn.cpp",
+              "RelativeDocumentMoniker": "MasterHide\\dyn.cpp",
+              "ToolTip": "A:\\work\\MasterHide\\MasterHide\\dyn.cpp",
+              "RelativeToolTip": "MasterHide\\dyn.cpp",
+              "ViewState": "AgIAAIsAAAAAAAAAAAAIwJkAAAAFAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2024-08-30T01:17:32.053Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 31,
+              "Title": "ntwow64.h",
+              "DocumentMoniker": "A:\\work\\MasterHide\\MasterHide\\thirdparty\\phnt\\ntwow64.h",
+              "RelativeDocumentMoniker": "MasterHide\\thirdparty\\phnt\\ntwow64.h",
+              "ToolTip": "A:\\work\\MasterHide\\MasterHide\\thirdparty\\phnt\\ntwow64.h",
+              "RelativeToolTip": "MasterHide\\thirdparty\\phnt\\ntwow64.h",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABUAAAAyAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2024-09-09T19:12:37.182Z"
+            },
+            {
               "$type": "Bookmark",
-              "Name": "ST:128:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
+              "Name": "ST:0:0:{cce594b6-0c39-4442-ba28-10c64ac7e89f}"
             },
             {
               "$type": "Document",
@@ -154,8 +179,7 @@
               "RelativeToolTip": "MasterHide\\includes.hpp",
               "ViewState": "AgIAABgAAAAAAAAAAAAAACgAAAALAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2024-12-10T23:18:02.179Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-12-10T23:18:02.179Z"
             },
             {
               "$type": "Document",
@@ -167,8 +191,7 @@
               "RelativeToolTip": "MasterHide\\tools.cpp",
               "ViewState": "AgIAAGYCAAAAAAAAAAAIwG8CAAAQAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2024-12-10T23:15:23.498Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-12-10T23:15:23.498Z"
             },
             {
               "$type": "Document",
@@ -180,8 +203,7 @@
               "RelativeToolTip": "MasterHideLoader\\klhk.cpp",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABUAAAA8AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2024-12-10T23:10:19.035Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-12-10T23:10:19.035Z"
             },
             {
               "$type": "Document",
@@ -193,8 +215,7 @@
               "RelativeToolTip": "MasterHideLoader\\service.cpp",
               "ViewState": "AgIAAAYAAAAAAAAAAAAIwA4AAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2024-12-10T23:08:22.818Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-12-10T23:08:22.818Z"
             },
             {
               "$type": "Document",
@@ -206,8 +227,7 @@
               "RelativeToolTip": "MasterHideLoader\\includes.hpp",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAoAAAASAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2024-12-10T23:07:36.964Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-12-10T23:07:36.964Z"
             },
             {
               "$type": "Document",
@@ -219,8 +239,7 @@
               "RelativeToolTip": "MasterHideLoader\\loader.cpp",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAgAAAALAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2024-12-10T23:06:49.822Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-12-10T23:06:49.822Z"
             },
             {
               "$type": "Document",
@@ -232,8 +251,7 @@
               "RelativeToolTip": "MasterHide\\drivermain.cpp",
               "ViewState": "AgIAABMAAAAAAAAAAAAIwC8AAAAmAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2024-08-23T18:20:14.613Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-08-23T18:20:14.613Z"
             },
             {
               "$type": "Document",
@@ -245,8 +263,7 @@
               "RelativeToolTip": "MasterHideLoader\\main.cpp",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABQAAAAWAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2024-08-23T02:42:22.298Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-08-23T02:42:22.298Z"
             },
             {
               "$type": "Document",
@@ -258,8 +275,7 @@
               "RelativeToolTip": "MasterHideLoader\\loader.hpp",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAYAAAAMAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2024-08-23T04:14:42.168Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-08-23T04:14:42.168Z"
             },
             {
               "$type": "Document",
@@ -271,21 +287,7 @@
               "RelativeToolTip": "MasterHide\\tools.hpp",
               "ViewState": "AgIAAFUAAAAAAAAAAAAIwHoAAAAQAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2024-12-06T18:47:30.067Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "dyn.cpp",
-              "DocumentMoniker": "A:\\work\\MasterHide\\MasterHide\\dyn.cpp",
-              "RelativeDocumentMoniker": "MasterHide\\dyn.cpp",
-              "ToolTip": "A:\\work\\MasterHide\\MasterHide\\dyn.cpp",
-              "RelativeToolTip": "MasterHide\\dyn.cpp",
-              "ViewState": "AgIAAIsAAAAAAAAAAAAIwKwAAAAxAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2024-08-30T01:17:32.053Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-12-06T18:47:30.067Z"
             },
             {
               "$type": "Document",
@@ -297,8 +299,7 @@
               "RelativeToolTip": "MasterHide\\dyn.hpp",
               "ViewState": "AgIAAB4AAAAAAAAAAAAnwDIAAABEAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2024-10-24T03:39:18.349Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-10-24T03:39:18.349Z"
             },
             {
               "$type": "Document",
@@ -310,8 +311,7 @@
               "RelativeToolTip": "MasterHideLoader\\klhk.hpp",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAcAAAAmAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2024-08-24T03:11:58.364Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-08-24T03:11:58.364Z"
             },
             {
               "$type": "Document",
@@ -323,8 +323,7 @@
               "RelativeToolTip": "MasterHideLoader\\service.hpp",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAgAAABDAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2024-12-10T23:07:11.26Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-12-10T23:07:11.26Z"
             },
             {
               "$type": "Document",
@@ -336,8 +335,7 @@
               "RelativeToolTip": "MasterHide\\rules.cpp",
               "ViewState": "AgIAAAYBAAAAAAAAAAAIwA0BAAA0AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2024-09-10T02:49:17.205Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-09-10T02:49:17.205Z"
             },
             {
               "$type": "Document",
@@ -349,8 +347,7 @@
               "RelativeToolTip": "MasterHide\\rules.hpp",
               "ViewState": "AgIAAEwAAAAAAAAAAAAIwFcAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2024-12-10T17:39:31.406Z",
-              "EditorCaption": ""
+              "WhenOpened": "2024-12-10T17:39:31.406Z"
             },
             {
               "$type": "Document",
@@ -483,18 +480,6 @@
               "ViewState": "AgIAAAIAAAAAAAAAAADgvxgAAAAtAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2024-09-02T17:13:40.189Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 31,
-              "Title": "ntwow64.h",
-              "DocumentMoniker": "A:\\work\\MasterHide\\MasterHide\\thirdparty\\phnt\\ntwow64.h",
-              "RelativeDocumentMoniker": "MasterHide\\thirdparty\\phnt\\ntwow64.h",
-              "ToolTip": "A:\\work\\MasterHide\\MasterHide\\thirdparty\\phnt\\ntwow64.h",
-              "RelativeToolTip": "MasterHide\\thirdparty\\phnt\\ntwow64.h",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABUAAAAyAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2024-09-09T19:12:37.182Z"
             },
             {
               "$type": "Document",

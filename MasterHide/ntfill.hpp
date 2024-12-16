@@ -26,6 +26,30 @@
 #define PTR_OFFSET_ADD(p, o) ((ULONG_PTR)(p) + (ULONG_PTR)(o))
 #define PTR_OFFSET_SUB(p, o) ((ULONG_PTR)(p) - (ULONG_PTR)(o))
 
+#ifndef ABSOLUTE
+#define ABSOLUTE(wait) (wait)
+#endif
+
+#ifndef RELATIVE
+#define RELATIVE(wait) (-(wait))
+#endif
+
+#ifndef NANOSECONDS
+#define NANOSECONDS(nanos) (((signed __int64)(nanos)) / 100L)
+#endif
+
+#ifndef MICROSECONDS
+#define MICROSECONDS(micros) (((signed __int64)(micros)) * NANOSECONDS(1000L))
+#endif
+
+#ifndef MILLISECONDS
+#define MILLISECONDS(milli) (((signed __int64)(milli)) * MICROSECONDS(1000L))
+#endif
+
+#ifndef SECONDS
+#define SECONDS(seconds) (((signed __int64)(seconds)) * MILLISECONDS(1000L))
+#endif
+
 #pragma warning(push)
 #pragma warning(disable : 4201)
 
@@ -37,6 +61,13 @@
 
 #define HEAP_SKIP_VALIDATION_CHECKS 0x10000000
 #define HEAP_VALIDATE_PARAMETERS_ENABLED 0x40000000
+
+#define FLG_HEAP_ENABLE_TAIL_CHECK 0x10
+#define FLG_HEAP_ENABLE_FREE_CHECK 0x20
+#define FLG_HEAP_VALIDATE_PARAMETERS 0x40
+#define NT_GLOBAL_FLAG_DEBUGGED (FLG_HEAP_ENABLE_TAIL_CHECK | FLG_HEAP_ENABLE_FREE_CHECK | FLG_HEAP_VALIDATE_PARAMETERS)
+
+#define ObjectDataInformation 4
 
 FORCEINLINE
 SSIZE_T InterlockedIncrementSSizeT(_Inout_ _Interlocked_operand_ volatile SSIZE_T *Target)
@@ -116,6 +147,44 @@ enum ThreadStateRoutines
     THREADSTATE_UNKNOWN_0x10,
     THREADSTATE_CHECKCONIME,
     THREADSTATE_GETTHREADINFO,
+};
+
+enum JOBOBJECTINFOCLASS
+{
+    JobObjectBasicAccountingInformation = 1,
+    JobObjectBasicLimitInformation = 2,
+    JobObjectBasicProcessIdList = 3,
+    JobObjectBasicUIRestrictions = 4,
+    JobObjectSecurityLimitInformation = 5,
+    JobObjectEndOfJobTimeInformation = 6,
+    JobObjectAssociateCompletionPortInformation = 7,
+    JobObjectBasicAndIoAccountingInformation = 8,
+    JobObjectExtendedLimitInformation = 9,
+    JobObjectJobSetInformation = 10,
+    JobObjectGroupInformation = 11,
+    JobObjectNotificationLimitInformation = 12,
+    JobObjectLimitViolationInformation = 13,
+    JobObjectGroupInformationEx = 14,
+    JobObjectCpuRateControlInformation = 15,
+    JobObjectCompletionFilter = 16,
+    JobObjectCompletionCounter = 17,
+    JobObjectFreezeInformation = 18,
+    JobObjectExtendedAccountingInformation = 19,
+    JobObjectWakeInformation = 20,
+    JobObjectBackgroundInformation = 21,
+    JobObjectSchedulingRankBiasInformation = 22,
+    JobObjectTimerVirtualizationInformation = 23,
+    JobObjectCycleTimeNotification = 24,
+    JobObjectClearEvent = 25,
+    JobObjectReserved1Information = 18,
+    JobObjectReserved2Information = 19,
+    JobObjectReserved3Information = 20,
+    JobObjectReserved4Information = 21,
+    JobObjectReserved5Information = 22,
+    JobObjectReserved6Information = 23,
+    JobObjectReserved7Information = 24,
+    JobObjectReserved8Information = 25,
+    MaxJobObjectInfoClass = 26
 };
 
 typedef enum _SYSDBG_COMMAND
@@ -244,6 +313,13 @@ typedef struct _OBJECT_HANDLE_ATTRIBUTE_INFORMATION
     BOOLEAN Inherit;
     BOOLEAN ProtectFromClose;
 } OBJECT_HANDLE_ATTRIBUTE_INFORMATION, *POBJECT_HANDLE_ATTRIBUTE_INFORMATION;
+
+typedef struct _JOBOBJECT_BASIC_PROCESS_ID_LIST
+{
+    ULONG NumberOfAssignedProcesses;
+    ULONG NumberOfProcessIdsInList;
+    ULONG_PTR ProcessIdList[1];
+} JOBOBJECT_BASIC_PROCESS_ID_LIST, *PJOBOBJECT_BASIC_PROCESS_ID_LIST;
 
 typedef struct _PEB32
 {
@@ -2044,6 +2120,21 @@ typedef struct _DUMP_HEADER
 #define KDDEBUGGER_DATA_OFFSET 0x2080
 #endif
 
+typedef struct _SERVICE_DESCRIPTOR
+{
+    PULONG ServiceTableBase;
+    PULONG ServiceCounterTableBase;
+    ULONG NumberOfService;
+    PVOID ParamTableBase;
+} SERVICE_DESCRIPTOR, *PSERVICE_DESCRIPTOR;
+
+typedef struct _SERVICE_DESCRIPTOR_TABLE
+{
+    SERVICE_DESCRIPTOR NtosTable;
+    SERVICE_DESCRIPTOR Win32kTable;
+
+} SERVICE_DESCRIPTOR_TABLE, *PSERVICE_DESCRIPTOR_TABLE;
+
 __forceinline __int64 KeFlushCurrentTbImmediately()
 {
     unsigned __int64 v0; // rcx
@@ -2064,12 +2155,12 @@ __forceinline __int64 KeFlushCurrentTbImmediately()
     return result;
 }
 
-inline PMMPFN MmPfnDatabase = (PMMPFN)0xFFFFFA8000000000;
-inline auto MmPteBase = 0xFFFFF68000000000U;
-inline auto MmPdeBase = 0xFFFFF6FB40000000U;
-inline auto MmPpeBase = 0xFFFFF6FB7DA00000U;
-inline auto MmPxeBase = 0xFFFFF6FB7DBED000U;
-inline auto MmPxeSelf = 0xFFFFF6FB7DBEDF68U;
+extern PMMPFN MmPfnDatabase;
+extern ULONG_PTR MmPteBase;
+extern ULONG_PTR MmPdeBase;
+extern ULONG_PTR MmPpeBase;
+extern ULONG_PTR MmPxeBase;
+extern ULONG_PTR MmPxeSelf;
 
 __forceinline void PteInitialize(ULONG_PTR PteBase, PMMPFN PfnDatabase)
 {
@@ -2109,7 +2200,8 @@ __forceinline PVOID MiGetVirtualAddressMappedByPte(IN PMMPTE PteAddress)
 #define KUSER_SHARED_DATA_USERMODE 0x7FFE0000
 #define KUSER_SHARED_DATA_KERNELMODE 0xFFFFF78000000000
 
-static PKUSER_SHARED_DATA KernelKuserSharedData = (PKUSER_SHARED_DATA)(KUSER_SHARED_DATA_KERNELMODE);
+extern PKUSER_SHARED_DATA KernelKuserSharedData;
+extern const PKUSER_SHARED_DATA KuserSharedData;
 
 EXTERN_C_START
 

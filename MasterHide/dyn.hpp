@@ -18,7 +18,9 @@ namespace dyn
 {
 #define KERNEL_BASE dyn::DynCtx.Kernel.Base
 #define KERNEL_SIZE dyn::DynCtx.Kernel.Size
-#define KERNEL_BUILD dyn::DynCtx.Kernel.BuildVersion
+#define KERNEL_BUILD_VERSION dyn::DynCtx.Kernel.BuildVersion
+#define KERNEL_BUILD_MAJOR dyn::DynCtx.Kernel.MajorVersion
+#define KERNEL_BUILD_MINOR dyn::DynCtx.Kernel.MinorVersion
 
 // Structs
 //
@@ -37,7 +39,8 @@ struct DynamicContext_t
         ULONG_PTR HvlpReferenceTscPage;
         ULONG_PTR HvlGetQpcBias;
 #endif
-
+        PULONG_PTR KeServiceDescriptorTable;
+        PULONG_PTR KeServiceDescriptorTableShadow;
     } Kernel;
 
     struct
@@ -45,12 +48,12 @@ struct DynamicContext_t
 #if (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
         ULONG GetCpuClock; // struct _WMI_LOGGER_CONTEXT
 #endif
-        ULONG SeAuditProcessCreationInfoOffset; // struct _EPROCESS
-        ULONG BypassProcessFreezeFlagOffset; // struct _KTHREAD
-        ULONG ThreadHideFromDebuggerFlagOffset; // struct _ETHREAD
+        ULONG SeAuditProcessCreationInfoOffset;   // struct _EPROCESS
+        ULONG BypassProcessFreezeFlagOffset;      // struct _KTHREAD
+        ULONG ThreadHideFromDebuggerFlagOffset;   // struct _ETHREAD
         ULONG ThreadBreakOnTerminationFlagOffset; // struct _ETHREAD
-        ULONG PicoContextOffset; // struct _ETHREAD
-        ULONG RestrictSetThreadContextOffset; // struct _EPROCESS
+        ULONG PicoContextOffset;                  // struct _ETHREAD
+        ULONG RestrictSetThreadContextOffset;     // struct _EPROCESS
 
     } Offsets;
 
@@ -62,7 +65,6 @@ struct DynamicContext_t
 #if (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
     DEFINE_DYN_CONTEXT_PROC(PVOID *, GetCpuClock, ULONG_PTR)
 #endif
-
 };
 
 extern DynamicContext_t DynCtx;
@@ -71,8 +73,10 @@ extern DynamicContext_t DynCtx;
 //
 inline bool g_initialized = false;
 
-// Functions
-//
+/// <summary>
+/// Initialize dynamic context.
+/// </summary>
+/// <returns>STATUS_SUCCESS on success, otherwise any NTSTATUS value</returns>
 NTSTATUS Initialize();
 } // namespace dyn
 } // namespace masterhide

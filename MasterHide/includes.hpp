@@ -65,7 +65,7 @@ extern "C"
 #include "syscalls.hpp"
 #include "utils.hpp"
 #include "object.hpp"
-#include "rules.hpp"
+#include "process.hpp"
 #include "hooks.hpp"
 
 using namespace masterhide;

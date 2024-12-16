@@ -59,6 +59,7 @@
     <Platform Condition="'$(Platform)' == ''">Win32</Platform>
     <RootNamespace>MasterHide</RootNamespace>
     <ProjectName>MasterHide</ProjectName>
+    <WindowsTargetPlatformVersion>10.0.19041.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -66,9 +67,9 @@
     <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
     <ConfigurationType>Driver</ConfigurationType>
     <DriverType>WDM</DriverType>
-    <TargetVersion>Windows10</TargetVersion>
+    <TargetVersion>Windows7</TargetVersion>
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
-    <_NT_TARGET_VERSION>0x0A00</_NT_TARGET_VERSION>
+    <_NT_TARGET_VERSION>0x0601</_NT_TARGET_VERSION>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <UseDebugLibraries>true</UseDebugLibraries>
@@ -84,9 +85,9 @@
     <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
     <ConfigurationType>Driver</ConfigurationType>
     <DriverType>WDM</DriverType>
-    <TargetVersion>Windows10</TargetVersion>
+    <TargetVersion>Windows7</TargetVersion>
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
-    <_NT_TARGET_VERSION>0x0A00</_NT_TARGET_VERSION>
+    <_NT_TARGET_VERSION>0x0601</_NT_TARGET_VERSION>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug - infinityhook|Win32'" Label="Configuration">
     <UseDebugLibraries>true</UseDebugLibraries>
@@ -116,12 +117,12 @@
     <_NT_TARGET_VERSION>0x0A00</_NT_TARGET_VERSION>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <TargetVersion>Windows10</TargetVersion>
+    <TargetVersion>Windows7</TargetVersion>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
     <ConfigurationType>Driver</ConfigurationType>
     <DriverType>WDM</DriverType>
-    <_NT_TARGET_VERSION>0x0A00</_NT_TARGET_VERSION>
+    <_NT_TARGET_VERSION>0x0601</_NT_TARGET_VERSION>
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
@@ -134,12 +135,12 @@
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release - infinityhook|x64'" Label="Configuration">
-    <TargetVersion>Windows10</TargetVersion>
+    <TargetVersion>Windows7</TargetVersion>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
     <ConfigurationType>Driver</ConfigurationType>
     <DriverType>WDM</DriverType>
-    <_NT_TARGET_VERSION>0x0A00</_NT_TARGET_VERSION>
+    <_NT_TARGET_VERSION>0x0601</_NT_TARGET_VERSION>
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release - infinityhook|Win32'" Label="Configuration">
@@ -152,12 +153,12 @@
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release - KasperskyHook|x64'" Label="Configuration">
-    <TargetVersion>Windows10</TargetVersion>
+    <TargetVersion>Windows7</TargetVersion>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
     <ConfigurationType>Driver</ConfigurationType>
     <DriverType>WDM</DriverType>
-    <_NT_TARGET_VERSION>0x0A00</_NT_TARGET_VERSION>
+    <_NT_TARGET_VERSION>0x0601</_NT_TARGET_VERSION>
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release - KasperskyHook|Win32'" Label="Configuration">
@@ -258,7 +259,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\BufferOverflowK.lib;$(DDK_LIB_PATH)ntoskrnl.lib;$(DDK_LIB_PATH)hal.lib;$(DDK_LIB_PATH)wmilib.lib</AdditionalDependencies>
-      <TreatLinkerWarningAsErrors>false</TreatLinkerWarningAsErrors>
+      <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
     </Link>
     <ClCompile>
       <AdditionalIncludeDirectories>$(VC_IncludePath);$(KM_IncludePath);$(KIT_SHARED_IncludePath);$(ProjectDir)thirdparty\phnt;$(SolutionDir)KasperskyHook\KasperskyHookDrv;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -311,7 +312,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug - infinityhook|x64'">
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\BufferOverflowK.lib;$(DDK_LIB_PATH)ntoskrnl.lib;$(DDK_LIB_PATH)hal.lib;$(DDK_LIB_PATH)wmilib.lib</AdditionalDependencies>
-      <TreatLinkerWarningAsErrors>false</TreatLinkerWarningAsErrors>
+      <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
     </Link>
     <ClCompile>
       <AdditionalIncludeDirectories>$(VC_IncludePath);$(KM_IncludePath);$(KIT_SHARED_IncludePath);$(ProjectDir)thirdparty\phnt;$(SolutionDir)KasperskyHook\KasperskyHookDrv;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -365,7 +366,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug - KasperskyHook|x64'">
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\BufferOverflowK.lib;$(DDK_LIB_PATH)ntoskrnl.lib;$(DDK_LIB_PATH)hal.lib;$(DDK_LIB_PATH)wmilib.lib</AdditionalDependencies>
-      <TreatLinkerWarningAsErrors>false</TreatLinkerWarningAsErrors>
+      <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
     </Link>
     <ClCompile>
       <AdditionalIncludeDirectories>$(VC_IncludePath);$(KM_IncludePath);$(KIT_SHARED_IncludePath);$(ProjectDir)thirdparty\phnt;$(SolutionDir)KasperskyHook\KasperskyHookDrv;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -419,7 +420,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\BufferOverflowK.lib;$(DDK_LIB_PATH)ntoskrnl.lib;$(DDK_LIB_PATH)hal.lib;$(DDK_LIB_PATH)wmilib.lib</AdditionalDependencies>
-      <TreatLinkerWarningAsErrors>false</TreatLinkerWarningAsErrors>
+      <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
     </Link>
     <ClCompile>
       <AdditionalIncludeDirectories>$(VC_IncludePath);$(KM_IncludePath);$(KIT_SHARED_IncludePath);$(ProjectDir)thirdparty\phnt;$(SolutionDir)KasperskyHook\KasperskyHookDrv;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -465,7 +466,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release - infinityhook|x64'">
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\BufferOverflowK.lib;$(DDK_LIB_PATH)ntoskrnl.lib;$(DDK_LIB_PATH)hal.lib;$(DDK_LIB_PATH)wmilib.lib</AdditionalDependencies>
-      <TreatLinkerWarningAsErrors>false</TreatLinkerWarningAsErrors>
+      <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
     </Link>
     <ClCompile>
       <AdditionalIncludeDirectories>$(VC_IncludePath);$(KM_IncludePath);$(KIT_SHARED_IncludePath);$(ProjectDir)thirdparty\phnt;$(SolutionDir)KasperskyHook\KasperskyHookDrv;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -511,7 +512,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release - KasperskyHook|x64'">
     <Link>
       <AdditionalDependencies>$(DDK_LIB_PATH)\BufferOverflowK.lib;$(DDK_LIB_PATH)ntoskrnl.lib;$(DDK_LIB_PATH)hal.lib;$(DDK_LIB_PATH)wmilib.lib</AdditionalDependencies>
-      <TreatLinkerWarningAsErrors>false</TreatLinkerWarningAsErrors>
+      <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
     </Link>
     <ClCompile>
       <AdditionalIncludeDirectories>$(VC_IncludePath);$(KM_IncludePath);$(KIT_SHARED_IncludePath);$(ProjectDir)thirdparty\phnt;$(SolutionDir)KasperskyHook\KasperskyHookDrv;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -596,8 +597,9 @@
     <ClCompile Include="hooks.cpp" />
     <ClCompile Include="drivermain.cpp" />
     <ClCompile Include="infinityhook.cpp" />
+    <ClCompile Include="ntfill.cpp" />
     <ClCompile Include="object.cpp" />
-    <ClCompile Include="rules.cpp" />
+    <ClCompile Include="process.cpp" />
     <ClCompile Include="tools.cpp" />
     <ClCompile Include="syscalls.cpp" />
   </ItemGroup>
@@ -629,7 +631,7 @@
     <ClInclude Include="hooks.hpp" />
     <ClInclude Include="infinityhook.hpp" />
     <ClInclude Include="object.hpp" />
-    <ClInclude Include="rules.hpp" />
+    <ClInclude Include="process.hpp" />
     <ClInclude Include="includes.hpp" />
     <ClInclude Include="tools.hpp" />
     <ClInclude Include="ntfill.hpp" />

@@ -2,10 +2,12 @@
 
 namespace masterhide
 {
+using namespace process;
+
 namespace hooks
 {
 KMUTEX g_NtCloseMutex{};
-CONST PKUSER_SHARED_DATA KuserSharedData = (PKUSER_SHARED_DATA)KUSER_SHARED_DATA_USERMODE;
+bool g_initialized = false;
 
 #define BACKUP_RETURNLENGTH()                                                                                          \
     ULONG TempReturnLength = 0;                                                                                        \
@@ -19,37 +21,43 @@ CONST PKUSER_SHARED_DATA KuserSharedData = (PKUSER_SHARED_DATA)KUSER_SHARED_DATA
     if (ARGUMENT_PRESENT(ReturnLength))                                                                                \
     (*ReturnLength) = TempReturnLength
 
+HWND(NTAPI *NtUserGetThreadState)(ThreadStateRoutines Routine) = nullptr;
+
 HOOK_ENTRY g_HookList[] = {
     // NT
     //
-    {FALSE, "NtQuerySystemInformation", nullptr, &hkNtQuerySystemInformation, MAXUSHORT, 0L},
-    {FALSE, "NtOpenProcess", nullptr, &hkNtOpenProcess, MAXUSHORT, 0L},
-    {FALSE, "NtAllocateVirtualMemory", nullptr, &hkNtAllocateVirtualMemory, MAXUSHORT, 0L},
-    {FALSE, "NtWriteVirtualMemory", nullptr, &hkNtWriteVirtualMemory, MAXUSHORT, 0L},
-    {FALSE, "NtDeviceIoControlFile", nullptr, &hkNtDeviceIoControlFile, MAXUSHORT, 0L},
-    {FALSE, "NtLoadDriver", nullptr, &hkNtLoadDriver, MAXUSHORT, 0L},
-    {FALSE, "NtSetInformationThread", nullptr, &hkNtSetInformationThread, MAXUSHORT, 0L},
-    {FALSE, "NtQueryInformationThread", nullptr, &hkNtQueryInformationThread, MAXUSHORT, 0L},
-    {FALSE, "NtSetInformationProcess", nullptr, &hkNtSetInformationProcess, MAXUSHORT, 0L},
-    {FALSE, "NtQueryInformationProcess", nullptr, &hkNtQueryInformationProcess, MAXUSHORT, 0L},
-    {FALSE, "NtQueryObject", nullptr, &hkNtQueryObject, MAXUSHORT, 0L},
-    {FALSE, "NtCreateThreadEx", nullptr, &hkNtCreateThreadEx, MAXUSHORT, 0L},
-    {FALSE, "NtGetContextThread", nullptr, &hkNtGetContextThread, MAXUSHORT, 0L},
-    {FALSE, "NtSetContextThread", nullptr, &hkNtSetContextThread, MAXUSHORT, 0L},
-    {FALSE, "NtContinue", nullptr, &hkNtContinue, MAXUSHORT, 0L},
-    {FALSE, "NtOpenThread", nullptr, &hkNtOpenThread, MAXUSHORT, 0L},
-    {FALSE, "NtYieldExecution", nullptr, &hkNtYieldExecution, MAXUSHORT, 0L},
-    {FALSE, "NtClose", nullptr, &hkNtClose, MAXUSHORT, 0L},
-    {FALSE, "NtSystemDebugControl", nullptr, &hkNtSystemDebugControl, MAXUSHORT, 0L},
-    {FALSE, "NtQuerySystemTime", nullptr, &hkNtQuerySystemTime, MAXUSHORT, 0L},
-    {FALSE, "NtQueryPerformanceCounter", nullptr, &hkNtQueryPerformanceCounter, MAXUSHORT, 0L},
+    {FALSE, "NtQuerySystemInformation", nullptr, &hkNtQuerySystemInformation, MAXUSHORT},
+    //{FALSE, "NtOpenProcess", nullptr, &hkNtOpenProcess, MAXUSHORT},
+    {FALSE, "NtAllocateVirtualMemory", nullptr, &hkNtAllocateVirtualMemory, MAXUSHORT},
+    {FALSE, "NtWriteVirtualMemory", nullptr, &hkNtWriteVirtualMemory, MAXUSHORT},
+    {FALSE, "NtDeviceIoControlFile", nullptr, &hkNtDeviceIoControlFile, MAXUSHORT},
+    {FALSE, "NtLoadDriver", nullptr, &hkNtLoadDriver, MAXUSHORT},
+    {FALSE, "NtSetInformationThread", nullptr, &hkNtSetInformationThread, MAXUSHORT},
+    {FALSE, "NtQueryInformationThread", nullptr, &hkNtQueryInformationThread, MAXUSHORT},
+    {FALSE, "NtSetInformationProcess", nullptr, &hkNtSetInformationProcess, MAXUSHORT},
+    {FALSE, "NtQueryInformationProcess", nullptr, &hkNtQueryInformationProcess, MAXUSHORT},
+    {FALSE, "NtQueryObject", nullptr, &hkNtQueryObject, MAXUSHORT},
+    {FALSE, "NtCreateThreadEx", nullptr, &hkNtCreateThreadEx, MAXUSHORT},
+    {FALSE, "NtGetContextThread", nullptr, &hkNtGetContextThread, MAXUSHORT},
+    {FALSE, "NtSetContextThread", nullptr, &hkNtSetContextThread, MAXUSHORT},
+    {FALSE, "NtContinue", nullptr, &hkNtContinue, MAXUSHORT},
+    {FALSE, "NtOpenThread", nullptr, &hkNtOpenThread, MAXUSHORT},
+    {FALSE, "NtYieldExecution", nullptr, &hkNtYieldExecution, MAXUSHORT},
+    {FALSE, "NtClose", nullptr, &hkNtClose, MAXUSHORT},
+    {FALSE, "NtSystemDebugControl", nullptr, &hkNtSystemDebugControl, MAXUSHORT},
+    {FALSE, "NtQuerySystemTime", nullptr, &hkNtQuerySystemTime, MAXUSHORT},
+    {FALSE, "NtQueryPerformanceCounter", nullptr, &hkNtQueryPerformanceCounter, MAXUSHORT},
+    {FALSE, "NtQueryInformationJobObject", nullptr, &hkNtQueryInformationJobObject, MAXUSHORT},
+    //{FALSE, "NtGetNextProcess", nullptr, &hkNtGetNextProcess, MAXUSHORT, 0L},
+    //{FALSE, "NtCreateUserProcess", nullptr, &hkNtCreateUserProcess, MAXUSHORT, 0L},
+    //{FALSE, "NtCreateFile", nullptr, &hkNtCreateFile, MAXUSHORT, 0L},
     // Win32K
     //
-    {TRUE, "NtUserWindowFromPoint", nullptr, &hkNtUserWindowFromPoint, MAXUSHORT, 0L},
-    {TRUE, "NtUserQueryWindow", nullptr, &hkNtUserQueryWindow, MAXUSHORT, 0L},
-    {TRUE, "NtUserFindWindowEx", nullptr, &hkNtUserFindWindowEx, MAXUSHORT, 0L},
-    {TRUE, "NtUserBuildHwndList", nullptr, &hkNtUserBuildHwndList, MAXUSHORT, 0L},
-    {TRUE, "NtUserGetForegroundWindow", nullptr, &hkNtUserGetForegroundWindow, MAXUSHORT, 0L}};
+    {TRUE, "NtUserWindowFromPoint", nullptr, &hkNtUserWindowFromPoint, MAXUSHORT},
+    {TRUE, "NtUserQueryWindow", nullptr, &hkNtUserQueryWindow, MAXUSHORT},
+    {TRUE, "NtUserFindWindowEx", nullptr, &hkNtUserFindWindowEx, MAXUSHORT},
+    {TRUE, "NtUserBuildHwndList", nullptr, &hkNtUserBuildHwndList, MAXUSHORT},
+    {TRUE, "NtUserGetForegroundWindow", nullptr, &hkNtUserGetForegroundWindow, MAXUSHORT}};
 
 FORCEINLINE PHOOK_ENTRY FindHookEntry(_In_ FNV1A_t serviceNameHash)
 {
@@ -75,9 +83,12 @@ void __fastcall SsdtCallback(ULONG ServiceIndex, PVOID *ServiceAddress)
     {
         if (ServiceIndex == entry.ServiceIndex)
         {
+            // This will effectively only update the Original pointer if it was previously nullptr to avoid recursion.
             PVOID expected = nullptr;
             InterlockedCompareExchangePointer(&entry.Original, *ServiceAddress, expected);
-            InterlockedExchangePointer(ServiceAddress, entry.New);
+
+            *ServiceAddress = entry.New;
+
             return;
         }
     }
@@ -88,20 +99,34 @@ void __fastcall SsdtCallback(ULONG ServiceIndex, PVOID *ServiceAddress)
 {
     PAGED_CODE();
 
+    NtUserGetThreadState = reinterpret_cast<decltype(NtUserGetThreadState)>(
+        syscalls::GetSyscallRoutineByName("NtUserGetThreadState", true));
+    if (!NtUserGetThreadState)
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Could not find routine address for service NtUserGetThreadState");
+        return STATUS_PROCEDURE_NOT_FOUND;
+    }
+
+    DBGPRINT("NtUserGetThreadState = 0x%p", NtUserGetThreadState);
+
     for (HOOK_ENTRY &entry : g_HookList)
     {
-        USHORT serviceIndex = MAXUSHORT;
+        KeInitializeEvent(&entry.Event, NotificationEvent, TRUE);
+        entry.RefCount.SetEvent(&entry.Event);
 
         // Some actions has to be done based on Windows builds
         //
-        if (KERNEL_BUILD >= WINDOWS_10_VERSION_20H1)
+        USHORT serviceIndex = MAXUSHORT;
+
+        if (KERNEL_BUILD_VERSION >= WINDOWS_10_VERSION_20H1)
         {
             if (!strcmp(entry.ServiceName, "NtContinue"))
             {
-                strncpy(entry.ServiceName, "NtContinueEx", ARRAYSIZE(entry.ServiceName) - 1);
+                serviceIndex = syscalls::GetSyscallIndexByName("NtContinueEx");
+                goto validateIndex;
             }
         }
-        else if (KERNEL_BUILD <= WINDOWS_7_SP1)
+        else if (KERNEL_BUILD_VERSION <= WINDOWS_7_SP1)
         {
             if (!strcmp(entry.ServiceName, "NtUserBuildHwndList"))
             {
@@ -119,7 +144,6 @@ void __fastcall SsdtCallback(ULONG ServiceIndex, PVOID *ServiceAddress)
                 WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Could not find index for service NtQuerySystemTime");
                 return STATUS_PROCEDURE_NOT_FOUND;
             }
-
             serviceIndex += 1;
         }
         else
@@ -127,16 +151,17 @@ void __fastcall SsdtCallback(ULONG ServiceIndex, PVOID *ServiceAddress)
             serviceIndex = syscalls::GetSyscallIndexByName(entry.ServiceName);
         }
 
+    validateIndex:
         if (serviceIndex == MAXUSHORT)
         {
             WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Could not find index for service %s", entry.ServiceName);
             return STATUS_PROCEDURE_NOT_FOUND;
         }
 
-        entry.ServiceIndex = entry.Shadow ? serviceIndex + 0x1000 : serviceIndex;
+        entry.ServiceIndex = entry.Win32k ? serviceIndex + 0x1000 : serviceIndex;
 
 #if (MASTERHIDE_MODE == MASTERHIDE_MODE_KASPERSKYHOOK)
-        if (entry.Shadow)
+        if (entry.Win32k)
         {
             if (!kaspersky::hook_shadow_ssdt_routine(entry.ServiceIndex, entry.New,
                                                      reinterpret_cast<PVOID *>(&entry.Original)))
@@ -172,7 +197,7 @@ static NTSTATUS UninstallHooks()
     for (HOOK_ENTRY &entry : g_HookList)
     {
 #if (MASTERHIDE_MODE == MASTERHIDE_MODE_KASPERSKYHOOK)
-        if (entry.Shadow)
+        if (entry.Win32k)
         {
             if (!kaspersky::unhook_shadow_ssdt_routine(entry.ServiceIndex, entry.Original))
             {
@@ -192,9 +217,11 @@ static NTSTATUS UninstallHooks()
 
         DBGPRINT("Waiting for references in %s", entry.ServiceName);
 
-        while (InterlockedCompareExchange(&entry.RefCount, 0, 0) != 0)
+        const NTSTATUS status = entry.RefCount.Wait();
+        if (!NT_SUCCESS(status))
         {
-            YieldProcessor();
+            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Could not wait for reference count %!STATUS!", status);
+            return status;
         }
 
         entry.Original = nullptr;
@@ -298,13 +325,13 @@ NTSTATUS NTAPI hkNtQuerySystemTime(PLARGE_INTEGER SystemTime)
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtQuerySystemTime"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -317,33 +344,54 @@ NTSTATUS NTAPI hkNtQuerySystemTime(PLARGE_INTEGER SystemTime)
 
         // If (1) it's a ruled process and (2) current hook is meant to be intercepted
         //
-        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtQuerySystemTime))
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtQuerySystemTime))
         {
-            __try
-            {
-                ProbeForWrite(SystemTime, sizeof(ULONG64), 4);
+            NTSTATUS status = STATUS_SUCCESS;
+            bool handled = false;
 
-                if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideKUserSharedData))
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
+            {
+                __try
                 {
-                    SystemTime->QuadPart = *(ULONG64 *)&processEntry->Kusd.KuserSharedData->SystemTime;
-                }
-                else
-                {
-                    if (processEntry->FakeSystemTime.QuadPart == NULL)
+                    ProbeForWrite(SystemTime, sizeof(ULONG64), 4);
+
+                    if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideKUserSharedData))
                     {
-                        KeQuerySystemTime(&processEntry->FakeSystemTime);
+                        SystemTime->QuadPart = *(ULONG64 *)&processEntry->Kusd.KuserSharedData->SystemTime;
+                    }
+                    else
+                    {
+                        if (processEntry->FakeSystemTime.QuadPart == NULL)
+                        {
+                            KeQuerySystemTime(&processEntry->FakeSystemTime);
+                        }
+
+                        SystemTime->QuadPart = processEntry->FakeSystemTime.QuadPart;
+                        processEntry->FakeSystemTime.QuadPart += 1;
                     }
 
-                    SystemTime->QuadPart = processEntry->FakeSystemTime.QuadPart;
-                    processEntry->FakeSystemTime.QuadPart += 1;
+                    status = STATUS_SUCCESS;
+                }
+                __except (EXCEPTION_EXECUTE_HANDLER)
+                {
+                    status = GetExceptionCode();
                 }
 
-                return STATUS_SUCCESS;
+                handled = true;
             }
-            __except (EXCEPTION_EXECUTE_HANDLER)
+
+            if (!handled)
             {
-                return GetExceptionCode();
+                status = reinterpret_cast<decltype(&hkNtQuerySystemTime)>(hookEntry->Original)(SystemTime);
             }
+
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagMonitored))
+            {
+                WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS, "NtQuerySystemTime from pid %u returned %!STATUS!\n",
+                              HandleToUlong(PsGetCurrentProcessId()), status);
+            }
+
+            return status;
         }
     }
     return reinterpret_cast<decltype(&hkNtQuerySystemTime)>(hookEntry->Original)(SystemTime);
@@ -354,13 +402,13 @@ NTSTATUS NTAPI hkNtQueryPerformanceCounter(PLARGE_INTEGER PerformanceCounter, PL
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtQueryPerformanceCounter"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -373,44 +421,65 @@ NTSTATUS NTAPI hkNtQueryPerformanceCounter(PLARGE_INTEGER PerformanceCounter, PL
 
         // If (1) it's a ruled process and (2) current hook is meant to be intercepted
         //
-        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtQueryPerformanceCounter))
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtQueryPerformanceCounter))
         {
-            __try
+            NTSTATUS status = STATUS_SUCCESS;
+            bool handled = false;
+
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
             {
-                ProbeForWrite(PerformanceCounter, sizeof(ULONG64), 4);
+                __try
+                {
+                    ProbeForWrite(PerformanceCounter, sizeof(ULONG64), 4);
 
-                if (PerformanceFrequency != NULL)
-                {
-                    ProbeForWrite(PerformanceFrequency, sizeof(ULONG64), 4);
-                }
-
-                if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideKUserSharedData))
-                {
-                    PerformanceCounter->QuadPart = processEntry->Kusd.KuserSharedData->BaselineSystemTimeQpc;
-                }
-                else
-                {
-                    if (processEntry->FakePerformanceCounter.QuadPart == NULL)
+                    if (PerformanceFrequency != NULL)
                     {
-                        processEntry->FakePerformanceCounter = KeQueryPerformanceCounter(NULL);
+                        ProbeForWrite(PerformanceFrequency, sizeof(ULONG64), 4);
                     }
 
-                    PerformanceCounter->QuadPart = processEntry->FakePerformanceCounter.QuadPart;
-                    processEntry->FakePerformanceCounter.QuadPart += 1;
-                }
+                    if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideKUserSharedData))
+                    {
+                        PerformanceCounter->QuadPart = processEntry->Kusd.KuserSharedData->BaselineSystemTimeQpc;
+                    }
+                    else
+                    {
+                        if (processEntry->FakePerformanceCounter.QuadPart == NULL)
+                        {
+                            processEntry->FakePerformanceCounter = KeQueryPerformanceCounter(NULL);
+                        }
 
-                if (PerformanceFrequency != NULL)
+                        PerformanceCounter->QuadPart = processEntry->FakePerformanceCounter.QuadPart;
+                        processEntry->FakePerformanceCounter.QuadPart += 1;
+                    }
+
+                    if (PerformanceFrequency != NULL)
+                    {
+                        PerformanceFrequency->QuadPart = KuserSharedData->QpcFrequency;
+                    }
+
+                    status = STATUS_SUCCESS;
+                }
+                __except (EXCEPTION_EXECUTE_HANDLER)
                 {
-                    PerformanceFrequency->QuadPart = KuserSharedData->QpcFrequency;
+                    status = GetExceptionCode();
                 }
 
-                return STATUS_SUCCESS;
+                handled = true;
             }
 
-            __except (EXCEPTION_EXECUTE_HANDLER)
+            if (!handled)
             {
-                return GetExceptionCode();
+                status = reinterpret_cast<decltype(&hkNtQueryPerformanceCounter)>(hookEntry->Original)(
+                    PerformanceCounter, PerformanceFrequency);
             }
+
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagMonitored))
+            {
+                WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS, "NtQueryPerformanceCounter from pid %u returned %!STATUS!\n",
+                              HandleToUlong(PsGetCurrentProcessId()), status);
+            }
+
+            return status;
         }
     }
     return reinterpret_cast<decltype(&hkNtQueryPerformanceCounter)>(hookEntry->Original)(PerformanceCounter,
@@ -423,13 +492,13 @@ NTSTATUS NTAPI hkNtSystemDebugControl(SYSDBG_COMMAND Command, PVOID InputBuffer,
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtSystemDebugControl"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -442,18 +511,37 @@ NTSTATUS NTAPI hkNtSystemDebugControl(SYSDBG_COMMAND Command, PVOID InputBuffer,
 
         // If (1) it's a ruled process and (2) current hook is meant to be intercepted
         //
-        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtSystemDebugControl))
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtSystemDebugControl))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
+            NTSTATUS status = STATUS_SUCCESS;
+            bool handled = false;
+
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
             {
                 if (Command != SysDbgGetTriageDump && Command != SysDbgGetLiveKernelDump)
                 {
                     WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
                                   "Spoofed NtSystemDebugControl(commad:%d) anti-debug query!", Command);
 
-                    return STATUS_DEBUGGER_INACTIVE;
+                    status = STATUS_DEBUGGER_INACTIVE;
+                    handled = true;
                 }
             }
+
+            if (!handled)
+            {
+                status = reinterpret_cast<decltype(&hkNtSystemDebugControl)>(hookEntry->Original)(
+                    Command, InputBuffer, InputBufferLength, OutputBuffer, OutputBufferLength, ReturnLength);
+            }
+
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagMonitored))
+            {
+                WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                              "NtSystemDebugControl from pid %u Command %u returned %!STATUS!\n",
+                              HandleToUlong(PsGetCurrentProcessId()), Command, status);
+            }
+
+            return status;
         }
     }
     return reinterpret_cast<decltype(&hkNtSystemDebugControl)>(hookEntry->Original)(
@@ -465,13 +553,13 @@ NTSTATUS NTAPI hkNtClose(HANDLE Handle)
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtClose"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -484,9 +572,12 @@ NTSTATUS NTAPI hkNtClose(HANDLE Handle)
 
         // If (1) it's a ruled process and (2) current hook is meant to be intercepted
         //
-        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtClose))
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtClose))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
+            NTSTATUS status = STATUS_SUCCESS;
+            bool handled = false;
+
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
             {
                 // If two or more threads were to simultaneously check and act on this information without
                 // synchronization, it might lead to inconsistent states where a handle that is meant to be
@@ -495,8 +586,8 @@ NTSTATUS NTAPI hkNtClose(HANDLE Handle)
 
                 OBJECT_HANDLE_ATTRIBUTE_INFORMATION handleAttribInfo{};
 
-                const NTSTATUS status = reinterpret_cast<decltype(&hkNtQueryObject)>(hookEntry->Original)(
-                    Handle, OBJECT_INFORMATION_CLASS(4) /*ObjectDataInformation*/, &handleAttribInfo,
+                status = reinterpret_cast<decltype(&hkNtQueryObject)>(FindHookEntry(FNV("NtQueryObject"))->Original)(
+                    Handle, static_cast<OBJECT_INFORMATION_CLASS>(ObjectDataInformation), &handleAttribInfo,
                     sizeof(OBJECT_HANDLE_ATTRIBUTE_INFORMATION), nullptr);
 
                 if (status == STATUS_INVALID_HANDLE)
@@ -509,7 +600,9 @@ NTSTATUS NTAPI hkNtClose(HANDLE Handle)
                     {
                         return KeRaiseUserException(STATUS_INVALID_HANDLE);
                     }
-                    return STATUS_INVALID_HANDLE;
+
+                    status = STATUS_INVALID_HANDLE;
+                    handled = true;
                 }
 
                 if (NT_SUCCESS(status))
@@ -526,12 +619,26 @@ NTSTATUS NTAPI hkNtClose(HANDLE Handle)
                             return KeRaiseUserException(STATUS_HANDLE_NOT_CLOSABLE);
                         }
 
-                        return STATUS_HANDLE_NOT_CLOSABLE;
+                        status = STATUS_HANDLE_NOT_CLOSABLE;
+                        handled = true;
                     }
                 }
 
                 KeReleaseMutex(&g_NtCloseMutex, FALSE);
             }
+
+            if (!handled)
+            {
+                status = reinterpret_cast<decltype(&hkNtClose)>(hookEntry->Original)(Handle);
+            }
+
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagMonitored))
+            {
+                WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS, "NtClose from pid %ureturned %!STATUS!\n",
+                              HandleToUlong(PsGetCurrentProcessId()), status);
+            }
+
+            return status;
         }
     }
     return reinterpret_cast<decltype(&hkNtClose)>(hookEntry->Original)(Handle);
@@ -542,13 +649,13 @@ NTSTATUS NTAPI hkNtYieldExecution()
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtYieldExecution"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -561,14 +668,29 @@ NTSTATUS NTAPI hkNtYieldExecution()
 
         // If (1) it's a ruled process and (2) current hook is meant to be intercepted
         //
-        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtYieldExecution))
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtYieldExecution))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
+            NTSTATUS status = STATUS_SUCCESS;
+            bool handled = false;
+
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
             {
                 WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS, "Spoofed NtYieldExecution anti-debug query!");
 
                 reinterpret_cast<decltype(&hkNtYieldExecution)>(hookEntry->Original)();
-                return STATUS_SUCCESS;
+                status = STATUS_SUCCESS;
+                handled = true;
+            }
+
+            if (!handled)
+            {
+                status = reinterpret_cast<decltype(&hkNtYieldExecution)>(hookEntry->Original)();
+            }
+
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagMonitored))
+            {
+                WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS, "NtYieldExecution from pid %ureturned %!STATUS!\n",
+                              HandleToUlong(PsGetCurrentProcessId()), status);
             }
         }
     }
@@ -580,13 +702,13 @@ NTSTATUS NTAPI hkNtContinue(PCONTEXT Context, ULONG64 TestAlert)
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtContinue"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -599,15 +721,18 @@ NTSTATUS NTAPI hkNtContinue(PCONTEXT Context, ULONG64 TestAlert)
 
         // If (1) it's a ruled process and (2) current hook is meant to be intercepted
         //
-        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtContinue))
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtContinue))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
+            NTSTATUS status = STATUS_SUCCESS;
+            bool handled = false;
+
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
             {
                 __try
                 {
                     ProbeForRead(Context, sizeof(*Context), __alignof(_CONTEXT));
 
-                    rules::PTHREAD_ENTRY threadEntry = processEntry->AppendThreadList(PsGetCurrentThread());
+                    PTHREAD_ENTRY threadEntry = processEntry->AppendThreadList(PsGetCurrentThread());
 
                     if ((Context->Dr0 != __readdr(0) && Context->Dr1 != __readdr(1) && Context->Dr2 != __readdr(2) &&
                          Context->Dr3 != __readdr(3) && Context->ContextFlags & 0x10 && threadEntry))
@@ -621,13 +746,28 @@ NTSTATUS NTAPI hkNtContinue(PCONTEXT Context, ULONG64 TestAlert)
 
                     WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS, "Spoofed NtContinue anti-debug query!");
 
-                    return reinterpret_cast<decltype(&hkNtContinue)>(hookEntry->Original)(Context, TestAlert);
+                    status = reinterpret_cast<decltype(&hkNtContinue)>(hookEntry->Original)(Context, TestAlert);
                 }
                 __except (EXCEPTION_EXECUTE_HANDLER)
                 {
-                    return GetExceptionCode();
+                    status = GetExceptionCode();
                 }
+
+                handled = true;
             }
+
+            if (!handled)
+            {
+                status = reinterpret_cast<decltype(&hkNtContinue)>(hookEntry->Original)(Context, TestAlert);
+            }
+
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagMonitored))
+            {
+                WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS, "NtContinue from pid %ureturned %!STATUS!\n",
+                              HandleToUlong(PsGetCurrentProcessId()), status);
+            }
+
+            return status;
         }
     }
     return reinterpret_cast<decltype(&hkNtContinue)>(hookEntry->Original)(Context, TestAlert);
@@ -639,13 +779,13 @@ NTSTATUS NTAPI hkNtOpenThread(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess, 
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtOpenThread"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode && ProcessHandle != ZwCurrentProcess())
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -658,43 +798,83 @@ NTSTATUS NTAPI hkNtOpenThread(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess, 
 
         __try
         {
-            ProbeForWrite(ProcessHandle, sizeof(*ProcessHandle), 1);
-            ProbeForWrite(ObjectAttributes, sizeof(*ObjectAttributes), 1);
+            ProbeForRead(ClientId, sizeof(*ClientId), TYPE_ALIGNMENT(CLIENT_ID));
+            ProbeForWrite(ProcessHandle, sizeof(*ProcessHandle), TYPE_ALIGNMENT(HANDLE));
+            ProbeForWrite(ObjectAttributes, sizeof(*ObjectAttributes), TYPE_ALIGNMENT(OBJECT_ATTRIBUTES));
 
-            if (ClientId != NULL)
+            bool handled = false;
+
+            // First check the requested process
+            //
+            PETHREAD thread = nullptr;
+            NTSTATUS status = PsLookupThreadByThreadId(ClientId->UniqueThread, &thread);
+            if (NT_SUCCESS(status))
             {
-                ProbeForRead(ClientId, sizeof(*ClientId), __alignof(CLIENT_ID));
+                const HANDLE threadProcessId = PsGetThreadProcessId(thread);
+                PPROCESS_ENTRY processEntry2 = GetProcessEntry(threadProcessId);
 
-                // If (1) it's a blacklisted process and (2) current hook is meant to be intercepted
-                //
-                if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtOpenThread))
+                SCOPE_EXIT
                 {
-                    if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
+                    ObDereferenceObject(thread);
+
+                    if (processEntry2)
                     {
-                        PETHREAD thread = nullptr;
-                        NTSTATUS status = PsLookupThreadByThreadId(ClientId->UniqueThread, &thread);
-                        if (NT_SUCCESS(status))
-                        {
-                            SCOPE_EXIT
-                            {
-                                ObDereferenceObject(thread);
-                            };
+                        object::DereferenceObject(processEntry2);
+                        processEntry2 = nullptr;
+                    }
+                };
 
-                            const HANDLE threadProcessId = PsGetThreadProcessId(thread);
+                if (processEntry2 && BooleanFlagOn(processEntry2->PolicyFlags, ProcessPolicyFlagNtOpenThread))
+                {
+                    if (BooleanFlagOn(processEntry2->PolicyFlags, ProcessPolicyFlagProtected))
+                    {
+                        WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS, "NtOpenThread deny access from pid %u to pid %u\n",
+                                      HandleToUlong(PsGetCurrentProcessId()), HandleToUlong(threadProcessId));
 
-                            // Block access to any protected process.
-                            //
-                            if (rules::IsHijackedProcess(threadProcessId))
-                            {
-                                WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS, "Denying access from pid:%d to pid:%d\n",
-                                              HandleToUlong(PsGetCurrentProcessId()), HandleToUlong(threadProcessId));
+                        status = STATUS_INVALID_CID;
+                        handled = true;
+                    }
 
-                                return STATUS_INVALID_CID;
-                            }
-                        }
+                    if (!handled)
+                    {
+                        status = reinterpret_cast<decltype(&hkNtOpenThread)>(hookEntry->Original)(
+                            ProcessHandle, DesiredAccess, ObjectAttributes, ClientId);
+                    }
+
+                    if (BooleanFlagOn(processEntry2->PolicyFlags, ProcessPolicyFlagMonitored))
+                    {
+                        WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                                      "NtOpenThread from pid %u DesiredAccess 0x%08X UniqueProcess %u UniqueThread %d "
+                                      "returned %!STATUS!\n",
+                                      status, HandleToUlong(PsGetCurrentProcessId()),
+                                      HandleToUlong(ClientId->UniqueProcess), HandleToUlong(ClientId->UniqueThread),
+                                      status);
                     }
                 }
             }
+
+            if (!handled)
+            {
+                status = reinterpret_cast<decltype(&hkNtOpenThread)>(hookEntry->Original)(ProcessHandle, DesiredAccess,
+                                                                                          ObjectAttributes, ClientId);
+            }
+
+            // Then check the requestor process
+            //
+            if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtOpenThread))
+            {
+                if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagMonitored))
+                {
+                    WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                                  "NtOpenThread from pid %u DesiredAccess 0x%08X UniqueProcess %u UniqueThread %d "
+                                  "returned %!STATUS!\n",
+                                  status, HandleToUlong(PsGetCurrentProcessId()),
+                                  HandleToUlong(ClientId->UniqueProcess), HandleToUlong(ClientId->UniqueThread),
+                                  status);
+                }
+            }
+
+            return status;
         }
         __except (EXCEPTION_EXECUTE_HANDLER)
         {
@@ -711,13 +891,13 @@ NTSTATUS NTAPI hkNtOpenProcess(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess,
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtOpenProcess"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
-    if (previousMode == UserMode && ProcessHandle != ZwCurrentProcess())
+    if (previousMode == UserMode)
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -730,25 +910,59 @@ NTSTATUS NTAPI hkNtOpenProcess(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess,
 
         __try
         {
-            ProbeForRead(ClientId, sizeof(*ClientId), __alignof(CLIENT_ID));
+            ProbeForRead(ClientId, sizeof(*ClientId), TYPE_ALIGNMENT(CLIENT_ID));
+            ProbeForWrite(ProcessHandle, sizeof(*ProcessHandle), TYPE_ALIGNMENT(HANDLE));
+            ProbeForWrite(ObjectAttributes, sizeof(*ObjectAttributes), TYPE_ALIGNMENT(OBJECT_ATTRIBUTES));
 
-            // If (1) process has a rule and (2) current hook is meant to be intercepted
-            //
-            if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtOpenProcess))
+            PPROCESS_ENTRY processEntry2 = GetProcessEntry(ClientId->UniqueProcess);
+
+            SCOPE_EXIT
             {
-                if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
+                if (processEntry2)
                 {
-                    // Block access to any hijacked process.
-                    //
-                    if (rules::IsHijackedProcess(ClientId->UniqueProcess))
-                    {
-                        WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS, "Denying access from pid:%d to pid:%d\n",
-                                      HandleToUlong(PsGetCurrentProcessId()), HandleToUlong(ClientId->UniqueProcess));
+                    object::DereferenceObject(processEntry2);
+                    processEntry2 = nullptr;
+                }
+            };
 
-                        return STATUS_INVALID_CID;
-                    }
+            NTSTATUS status = STATUS_SUCCESS;
+            bool handled = false;
+
+            //
+            //
+            if (processEntry2 && BooleanFlagOn(processEntry2->PolicyFlags, ProcessPolicyFlagNtOpenProcess))
+            {
+                if (BooleanFlagOn(processEntry2->PolicyFlags, ProcessPolicyFlagProtected) &&
+                    ClientId->UniqueProcess != currentProcessId)
+                {
+                    WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS, "NtOpenProcess deny access from pid %u to pid %u\n",
+                                  HandleToUlong(PsGetCurrentProcessId()), HandleToUlong(ClientId->UniqueProcess));
+
+                    status = STATUS_INVALID_CID;
+                    handled = true;
                 }
             }
+
+            if (!handled)
+            {
+                status = reinterpret_cast<decltype(&hkNtOpenProcess)>(hookEntry->Original)(ProcessHandle, DesiredAccess,
+                                                                                           ObjectAttributes, ClientId);
+            }
+
+            //
+            //
+            if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtOpenProcess))
+            {
+                if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagMonitored))
+                {
+                    WppTracePrint(
+                        TRACE_LEVEL_VERBOSE, HOOKS,
+                        "NtOpenProcess from pid %u DesiredAccess 0x%08X UniqueProcess %u returned %!STATUS!\n",
+                        HandleToUlong(PsGetCurrentProcessId()), DesiredAccess, HandleToUlong(ClientId->UniqueProcess),
+                        status);
+                }
+            }
+            return status;
         }
         __except (EXCEPTION_EXECUTE_HANDLER)
         {
@@ -765,15 +979,13 @@ NTSTATUS NTAPI hkNtSetInformationThread(HANDLE ThreadHandle, THREADINFOCLASS Thr
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtSetInformationThread"));
-    const AutoRefCount lock(&hookEntry->RefCount);
-
-    NTSTATUS status;
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -786,9 +998,12 @@ NTSTATUS NTAPI hkNtSetInformationThread(HANDLE ThreadHandle, THREADINFOCLASS Thr
 
         // If (1) it's a blacklisted process and (2) current hook is meant to be intercepted
         //
-        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtSetInformationThread))
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtSetInformationThread))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger) &&
+            NTSTATUS status = STATUS_SUCCESS;
+            bool handled = false;
+
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger) &&
                 (ThreadInformationClass == ThreadHideFromDebugger || ThreadInformationClass == ThreadWow64Context ||
                  ThreadInformationClass == ThreadBreakOnTermination))
             {
@@ -796,38 +1011,55 @@ NTSTATUS NTAPI hkNtSetInformationThread(HANDLE ThreadHandle, THREADINFOCLASS Thr
                 {
                     if (ThreadInformationLength != 0)
                     {
-                        ProbeForRead(ThreadInformation, ThreadInformationLength, sizeof(ULONG));
+                        ProbeForRead(ThreadInformation, ThreadInformationLength, TYPE_ALIGNMENT(ULONG));
                     }
 
                     PETHREAD thread = nullptr;
-                    status = ObReferenceObjectByHandle(ThreadHandle, THREAD_QUERY_INFORMATION, *PsThreadType,
-                                                       previousMode, reinterpret_cast<PVOID *>(&thread), nullptr);
-                    if (NT_SUCCESS(status))
+
+                    if (ThreadHandle == ZwCurrentThread())
                     {
-                        rules::PPROCESS_ENTRY threadProcessEntry = rules::GetProcessEntry(PsGetThreadProcessId(thread));
+                        thread = PsGetCurrentThread();
+                    }
+                    else
+                    {
+                        status = ObReferenceObjectByHandle(ThreadHandle, THREAD_QUERY_INFORMATION, *PsThreadType,
+                                                           previousMode, reinterpret_cast<PVOID *>(&thread), nullptr);
+                        if (!NT_SUCCESS(status))
+                        {
+                            goto Exit;
+                        }
 
                         SCOPE_EXIT
                         {
                             ObDereferenceObject(thread);
-
-                            if (threadProcessEntry)
-                            {
-                                object::DereferenceObject(threadProcessEntry);
-                                threadProcessEntry = nullptr;
-                            }
                         };
+                    }
 
-                        if (ThreadInformationClass == ThreadHideFromDebugger)
+                    PPROCESS_ENTRY threadProcessEntry = GetProcessEntry(PsGetThreadProcessId(thread));
+
+                    SCOPE_EXIT
+                    {
+                        if (threadProcessEntry)
                         {
-                            if (ThreadInformationLength != 0)
-                            {
-                                return STATUS_INFO_LENGTH_MISMATCH;
-                            }
+                            object::DereferenceObject(threadProcessEntry);
+                            threadProcessEntry = nullptr;
+                        }
+                    };
 
-                            if (threadProcessEntry && BooleanFlagOn(threadProcessEntry->PolicyFlags,
-                                                                    rules::ProcessPolicyFlagNtSetInformationThread))
+                    if (threadProcessEntry &&
+                        BooleanFlagOn(threadProcessEntry->PolicyFlags, ProcessPolicyFlagNtSetInformationThread))
+                    {
+                        if (BooleanFlagOn(threadProcessEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
+                        {
+                            if (ThreadInformationClass == ThreadHideFromDebugger)
                             {
-                                rules::PTHREAD_ENTRY threadEntry = threadProcessEntry->AppendThreadList(thread);
+                                if (ThreadInformationLength != 0)
+                                {
+                                    status = STATUS_INFO_LENGTH_MISMATCH;
+                                    goto Exit;
+                                }
+
+                                PTHREAD_ENTRY threadEntry = threadProcessEntry->AppendThreadList(thread);
                                 if (threadEntry)
                                 {
                                     threadEntry->Flags.IsThreadHidden = TRUE;
@@ -837,26 +1069,25 @@ NTSTATUS NTAPI hkNtSetInformationThread(HANDLE ThreadHandle, THREADINFOCLASS Thr
                                                   HandleToUlong(PsGetThreadId(threadEntry->Thread)));
                                 }
 
-                                return STATUS_SUCCESS;
+                                status = STATUS_SUCCESS;
+                                handled = true;
                             }
-                        }
-                        else if (ThreadInformationClass == ThreadWow64Context)
-                        {
-                            if (threadProcessEntry && BooleanFlagOn(threadProcessEntry->PolicyFlags,
-                                                                    rules::ProcessPolicyFlagNtSetInformationThread))
+                            else if (ThreadInformationClass == ThreadWow64Context)
                             {
                                 if (ThreadInformationLength != sizeof(WOW64_CONTEXT))
                                 {
-                                    return STATUS_INFO_LENGTH_MISMATCH;
+                                    status = STATUS_INFO_LENGTH_MISMATCH;
+                                    goto Exit;
                                 }
 
                                 PVOID WoW64Process = PsGetCurrentProcessWow64Process();
-                                if (WoW64Process == 0)
+                                if (!WoW64Process)
                                 {
-                                    return STATUS_INVALID_PARAMETER;
+                                    status = STATUS_INVALID_PARAMETER;
+                                    goto Exit;
                                 }
 
-                                PWOW64_CONTEXT Wow64Context = (PWOW64_CONTEXT)ThreadInformation;
+                                auto Wow64Context = static_cast<PWOW64_CONTEXT>(ThreadInformation);
                                 ULONG OriginalFlags = Wow64Context->ContextFlags;
 
                                 Wow64Context->ContextFlags &= ~0x10;
@@ -868,7 +1099,7 @@ NTSTATUS NTAPI hkNtSetInformationThread(HANDLE ThreadHandle, THREADINFOCLASS Thr
                                 {
                                     Wow64Context->ContextFlags |= 0x10;
 
-                                    rules::PTHREAD_ENTRY threadEntry = threadProcessEntry->AppendThreadList(thread);
+                                    PTHREAD_ENTRY threadEntry = threadProcessEntry->AppendThreadList(thread);
                                     if (threadEntry)
                                     {
                                         RtlCopyMemory(&threadEntry->SavedWow64DebugContext, &Wow64Context->Dr0,
@@ -878,29 +1109,30 @@ NTSTATUS NTAPI hkNtSetInformationThread(HANDLE ThreadHandle, THREADINFOCLASS Thr
                                                       "Spoofed NtSetInformationThread(ThreadWow64Context) tid:%d",
                                                       HandleToUlong(PsGetThreadId(threadEntry->Thread)));
                                     }
-                                    return status;
                                 }
-                            }
-                        }
-                        else if (ThreadInformationClass == ThreadBreakOnTermination)
-                        {
-                            if (ThreadInformationLength != sizeof(ULONG))
-                            {
-                                return STATUS_INFO_LENGTH_MISMATCH;
-                            }
 
-                            volatile ULONG Touch = *(ULONG *)ThreadInformation;
-                            UNREFERENCED_PARAMETER(Touch);
-
-                            if (!tools::HasDebugPrivilege())
-                            {
-                                return STATUS_PRIVILEGE_NOT_HELD;
+                                handled = true;
                             }
-
-                            if (threadProcessEntry && BooleanFlagOn(threadProcessEntry->PolicyFlags,
-                                                                    rules::ProcessPolicyFlagNtSetInformationThread))
+                            else if (ThreadInformationClass == ThreadBreakOnTermination)
                             {
-                                rules::PTHREAD_ENTRY threadEntry = threadProcessEntry->AppendThreadList(thread);
+                                if (ThreadInformationLength != sizeof(ULONG))
+                                {
+                                    status = STATUS_INFO_LENGTH_MISMATCH;
+                                    goto Exit;
+                                }
+
+                                volatile ULONG Touch = *(ULONG *)ThreadInformation;
+                                UNREFERENCED_PARAMETER(Touch);
+
+                                // Caller process needs debug privileges
+                                //
+                                if (!tools::HasDebugPrivilege())
+                                {
+                                    status = STATUS_PRIVILEGE_NOT_HELD;
+                                    goto Exit;
+                                }
+
+                                PTHREAD_ENTRY threadEntry = threadProcessEntry->AppendThreadList(thread);
                                 if (threadEntry)
                                 {
                                     threadEntry->Flags.BreakOnTermination = *(ULONG *)ThreadInformation ? TRUE : FALSE;
@@ -909,16 +1141,35 @@ NTSTATUS NTAPI hkNtSetInformationThread(HANDLE ThreadHandle, THREADINFOCLASS Thr
                                                   "Spoofed NtSetInformationThread(ThreadBreakOnTermination) tid:%d",
                                                   HandleToUlong(PsGetThreadId(threadEntry->Thread)));
                                 }
-                                return STATUS_SUCCESS;
+
+                                status = STATUS_SUCCESS;
+                                handled = true;
                             }
                         }
                     }
                 }
                 __except (EXCEPTION_EXECUTE_HANDLER)
                 {
-                    return GetExceptionCode();
+                    status = GetExceptionCode();
+                    handled = true;
                 }
             }
+
+            if (!handled)
+            {
+                status = reinterpret_cast<decltype(&hkNtSetInformationThread)>(hookEntry->Original)(
+                    ThreadHandle, ThreadInformationClass, ThreadInformation, ThreadInformationLength);
+            }
+
+        Exit:
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagMonitored))
+            {
+                WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                              "NtSetInformationThread from pid %u ThreadHandle = 0x%p ThreadInformationClass %d "
+                              "returned %!STATUS!\n",
+                              HandleToUlong(PsGetCurrentProcessId()), ThreadHandle, ThreadInformationClass, status);
+            }
+            return status;
         }
     }
     return reinterpret_cast<decltype(&hkNtSetInformationThread)>(hookEntry->Original)(
@@ -931,13 +1182,13 @@ NTSTATUS NTAPI hkNtQueryInformationThread(HANDLE ThreadHandle, THREADINFOCLASS T
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtQueryInformationThread"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -950,143 +1201,172 @@ NTSTATUS NTAPI hkNtQueryInformationThread(HANDLE ThreadHandle, THREADINFOCLASS T
 
         // If (1) it's a blacklisted process and (2) current hook is meant to be intercepted
         //
-        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtQueryInformationThread))
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtQueryInformationThread))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger) && ThreadInformation &&
+                (ThreadInformationClass == ThreadHideFromDebugger ||
+                 ThreadInformationClass == ThreadBreakOnTermination || ThreadInformationClass == ThreadWow64Context))
             {
-                if (ThreadInformation && (ThreadInformationClass == ThreadHideFromDebugger ||
-                                          ThreadInformationClass == ThreadBreakOnTermination ||
-                                          ThreadInformationClass == ThreadWow64Context))
+                NTSTATUS status = STATUS_SUCCESS;
+                bool handled = false;
+
+                __try
                 {
-                    __try
+                    const ULONG alignment = ThreadInformationLength < 4 ? 1 : 4;
+
+                    if (ThreadInformationLength != 0)
                     {
-                        const ULONG alignment = ThreadInformationLength < 4 ? 1 : 4;
+                        ProbeForWrite(ThreadInformation, ThreadInformationLength, alignment);
+                    }
 
-                        if (ThreadInformationLength != 0)
+                    if (ARGUMENT_PRESENT(ReturnLength))
+                    {
+                        ProbeForWrite(ReturnLength, sizeof(*ReturnLength), 1);
+                    }
+
+                    PETHREAD thread = nullptr;
+
+                    if (ThreadHandle == ZwCurrentThread())
+                    {
+                        thread = PsGetCurrentThread();
+                    }
+                    else
+                    {
+                        status = ObReferenceObjectByHandle(ThreadHandle, THREAD_QUERY_INFORMATION, *PsThreadType,
+                                                           previousMode, reinterpret_cast<PVOID *>(&thread), nullptr);
+                        if (!NT_SUCCESS(status))
                         {
-                            ProbeForWrite(ThreadInformation, ThreadInformationLength, alignment);
+                            goto Exit;
                         }
 
-                        if (ARGUMENT_PRESENT(ReturnLength))
+                        SCOPE_EXIT
                         {
-                            ProbeForWrite(ReturnLength, sizeof(*ReturnLength), 1);
+                            ObDereferenceObject(thread);
+                        };
+                    }
+
+                    PPROCESS_ENTRY threadProcessEntry = GetProcessEntry(PsGetThreadProcessId(thread));
+
+                    SCOPE_EXIT
+                    {
+                        if (threadProcessEntry)
+                        {
+                            object::DereferenceObject(threadProcessEntry);
+                            threadProcessEntry = nullptr;
                         }
+                    };
 
-                        PETHREAD thread = nullptr;
-                        NTSTATUS status =
-                            ObReferenceObjectByHandle(ThreadHandle, THREAD_QUERY_INFORMATION, *PsThreadType,
-                                                      previousMode, reinterpret_cast<PVOID *>(&thread), nullptr);
-                        if (NT_SUCCESS(status))
+                    // If (1) it's a blacklisted process and (2) current hook is meant to be intercepted
+                    //
+                    if (threadProcessEntry &&
+                        BooleanFlagOn(threadProcessEntry->PolicyFlags, ProcessPolicyFlagNtQueryInformationThread))
+                    {
+                        if (BooleanFlagOn(threadProcessEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
                         {
-                            rules::PPROCESS_ENTRY threadProcessEntry =
-                                rules::GetProcessEntry(PsGetThreadProcessId(thread));
-
-                            SCOPE_EXIT
+                            PTHREAD_ENTRY threadEntry = threadProcessEntry->AppendThreadList(thread);
+                            if (threadEntry)
                             {
-                                ObDereferenceObject(thread);
-
-                                if (threadProcessEntry)
+                                if (ThreadInformationClass == ThreadHideFromDebugger)
                                 {
-                                    object::DereferenceObject(threadProcessEntry);
-                                    threadProcessEntry = nullptr;
-                                }
-                            };
-
-                            // If (1) it's a blacklisted process and (2) current hook is meant to be intercepted
-                            //
-                            if (threadProcessEntry && BooleanFlagOn(threadProcessEntry->PolicyFlags,
-                                                                    rules::ProcessPolicyFlagNtQueryInformationThread))
-                            {
-                                if (BooleanFlagOn(threadProcessEntry->PolicyFlags,
-                                                  rules::ProcessPolicyFlagHideFromDebugger))
-                                {
-                                    rules::PTHREAD_ENTRY threadEntry = threadProcessEntry->AppendThreadList(thread);
-                                    if (threadEntry)
+                                    if (ThreadInformationLength != 1)
                                     {
-                                        if (ThreadInformationClass == ThreadHideFromDebugger)
-                                        {
-                                            if (ThreadInformationLength != 1)
-                                            {
-                                                return STATUS_INFO_LENGTH_MISMATCH;
-                                            }
-
-                                            *(BOOLEAN *)ThreadInformation = threadEntry->Flags.IsThreadHidden;
-
-                                            if (ReturnLength != 0)
-                                            {
-                                                *ReturnLength = 1;
-                                            }
-
-                                            WppTracePrint(
-                                                TRACE_LEVEL_VERBOSE, HOOKS,
-                                                "Spoofed NtQueryInformationThread(ThreadHideFromDebugger) tid:%d",
-                                                HandleToUlong(PsGetThreadId(threadEntry->Thread)));
-
-                                            return STATUS_SUCCESS;
-                                        }
-                                        else if (ThreadInformationClass == ThreadBreakOnTermination)
-                                        {
-                                            if (ThreadInformationLength != 4)
-                                            {
-                                                return STATUS_INFO_LENGTH_MISMATCH;
-                                            }
-
-                                            *(ULONG *)ThreadInformation = threadEntry->Flags.BreakOnTermination;
-
-                                            if (ReturnLength != NULL)
-                                            {
-                                                *ReturnLength = 4;
-                                            }
-
-                                            WppTracePrint(
-                                                TRACE_LEVEL_VERBOSE, HOOKS,
-                                                "Spoofed NtQueryInformationThread(ThreadBreakOnTermination) tid:%d",
-                                                HandleToUlong(PsGetThreadId(threadEntry->Thread)));
-
-                                            return STATUS_SUCCESS;
-                                        }
-                                        else if (ThreadInformationClass == ThreadWow64Context)
-                                        {
-                                            if (ThreadInformationLength != sizeof(WOW64_CONTEXT))
-                                            {
-                                                return STATUS_INFO_LENGTH_MISMATCH;
-                                            }
-
-                                            PWOW64_CONTEXT Context = PWOW64_CONTEXT(ThreadInformation);
-                                            ULONG OriginalFlags = Context->ContextFlags;
-
-                                            Context->ContextFlags &= ~0x10;
-
-                                            status = reinterpret_cast<decltype(&hkNtQueryInformationThread)>(
-                                                hookEntry->Original)(ThreadHandle, ThreadInformationClass,
-                                                                     ThreadInformation, ThreadInformationLength,
-                                                                     ReturnLength);
-
-                                            if (NT_SUCCESS(status) && OriginalFlags & 0x10)
-                                            {
-                                                Context->ContextFlags |= 0x10;
-
-                                                RtlCopyMemory(&Context->Dr0, &threadEntry->SavedWow64DebugContext,
-                                                              sizeof(ULONG) * 6);
-
-                                                WppTracePrint(
-                                                    TRACE_LEVEL_VERBOSE, HOOKS,
-                                                    "Spoofed NtQueryInformationThread(ThreadWow64Context) tid:%d",
-                                                    HandleToUlong(PsGetThreadId(threadEntry->Thread)));
-                                            }
-
-                                            return status;
-                                        }
+                                        status = STATUS_INFO_LENGTH_MISMATCH;
+                                        goto Exit;
                                     }
+
+                                    *(BOOLEAN *)ThreadInformation = threadEntry->Flags.IsThreadHidden;
+
+                                    if (ReturnLength != 0)
+                                    {
+                                        *ReturnLength = 1;
+                                    }
+
+                                    WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                                                  "Spoofed NtQueryInformationThread(ThreadHideFromDebugger) tid:%d",
+                                                  HandleToUlong(PsGetThreadId(threadEntry->Thread)));
+
+                                    status = STATUS_SUCCESS;
+                                    handled = true;
+                                }
+                                else if (ThreadInformationClass == ThreadBreakOnTermination)
+                                {
+                                    if (ThreadInformationLength != 4)
+                                    {
+                                        status = STATUS_INFO_LENGTH_MISMATCH;
+                                        goto Exit;
+                                    }
+
+                                    *(ULONG *)ThreadInformation = threadEntry->Flags.BreakOnTermination;
+
+                                    if (ReturnLength != NULL)
+                                    {
+                                        *ReturnLength = 4;
+                                    }
+
+                                    WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                                                  "Spoofed NtQueryInformationThread(ThreadBreakOnTermination) tid:%d",
+                                                  HandleToUlong(PsGetThreadId(threadEntry->Thread)));
+
+                                    status = STATUS_SUCCESS;
+                                    handled = true;
+                                }
+                                else if (ThreadInformationClass == ThreadWow64Context)
+                                {
+                                    if (ThreadInformationLength != sizeof(WOW64_CONTEXT))
+                                    {
+                                        status = STATUS_INFO_LENGTH_MISMATCH;
+                                        goto Exit;
+                                    }
+
+                                    PWOW64_CONTEXT Context = PWOW64_CONTEXT(ThreadInformation);
+                                    ULONG OriginalFlags = Context->ContextFlags;
+
+                                    Context->ContextFlags &= ~0x10;
+
+                                    status = reinterpret_cast<decltype(&hkNtQueryInformationThread)>(
+                                        hookEntry->Original)(ThreadHandle, ThreadInformationClass, ThreadInformation,
+                                                             ThreadInformationLength, ReturnLength);
+
+                                    if (NT_SUCCESS(status) && OriginalFlags & 0x10)
+                                    {
+                                        Context->ContextFlags |= 0x10;
+
+                                        RtlCopyMemory(&Context->Dr0, &threadEntry->SavedWow64DebugContext,
+                                                      sizeof(ULONG) * 6);
+
+                                        WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                                                      "Spoofed NtQueryInformationThread(ThreadWow64Context) tid:%d",
+                                                      HandleToUlong(PsGetThreadId(threadEntry->Thread)));
+                                    }
+
+                                    handled = true;
                                 }
                             }
                         }
                     }
-                    __except (EXCEPTION_EXECUTE_HANDLER)
-                    {
-                        return GetExceptionCode();
-                    }
                 }
+                __except (EXCEPTION_EXECUTE_HANDLER)
+                {
+                    status = GetExceptionCode();
+                    handled = true;
+                }
+
+                if (!handled)
+                {
+                    status = reinterpret_cast<decltype(&hkNtQueryInformationThread)>(hookEntry->Original)(
+                        ThreadHandle, ThreadInformationClass, ThreadInformation, ThreadInformationLength, ReturnLength);
+                }
+
+            Exit:
+                if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagMonitored))
+                {
+                    WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                                  "NtQueryInformationThread from pid %u ThreadHandle = 0x%p ThreadInformationClass %d "
+                                  "returned %!STATUS!\n",
+                                  HandleToUlong(PsGetCurrentProcessId()), ThreadHandle, ThreadInformationClass, status);
+                }
+
+                return status;
             }
         }
     }
@@ -1101,15 +1381,13 @@ NTSTATUS NTAPI hkNtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLAS
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtQueryInformationProcess"));
-    const AutoRefCount lock(&hookEntry->RefCount);
-
-    NTSTATUS status;
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -1122,14 +1400,18 @@ NTSTATUS NTAPI hkNtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLAS
 
         // (1) check if the process is blacklisted (2) check if hook is meant to be intercepted
         //
-        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtQueryInformationProcess))
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtQueryInformationProcess))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger) &&
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger) &&
                 (ProcessInformationClass == ProcessDebugObjectHandle || ProcessInformationClass == ProcessDebugPort ||
                  ProcessInformationClass == ProcessDebugFlags || ProcessInformationClass == ProcessBreakOnTermination ||
                  ProcessInformationClass == ProcessBasicInformation || ProcessInformationClass == ProcessIoCounters ||
+                 ProcessInformationClass == ProcessInstrumentationCallback ||
                  ProcessInformationClass == ProcessHandleTracing))
             {
+                NTSTATUS status = STATUS_SUCCESS;
+                bool handled = false;
+
                 __try
                 {
                     if (ProcessInformationLength != 0)
@@ -1143,29 +1425,45 @@ NTSTATUS NTAPI hkNtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLAS
                     }
 
                     PEPROCESS process = nullptr;
-                    status = ObReferenceObjectByHandle(ProcessHandle, PROCESS_QUERY_INFORMATION, *PsProcessType,
-                                                       previousMode, reinterpret_cast<PVOID *>(&process), nullptr);
-                    if (NT_SUCCESS(status))
+
+                    if (ProcessHandle == ZwCurrentProcess())
                     {
-                        rules::PPROCESS_ENTRY threadProcessEntry = rules::GetProcessEntry(PsGetProcessId(process));
+                        process = PsGetCurrentProcess();
+                    }
+                    else
+                    {
+                        status = ObReferenceObjectByHandle(ProcessHandle, PROCESS_QUERY_INFORMATION, *PsProcessType,
+                                                           previousMode, reinterpret_cast<PVOID *>(&process), nullptr);
+                        if (!NT_SUCCESS(status))
+                        {
+                            goto Exit;
+                        }
 
                         SCOPE_EXIT
                         {
                             ObDereferenceObject(process);
-
-                            if (threadProcessEntry)
-                            {
-                                object::DereferenceObject(threadProcessEntry);
-                                threadProcessEntry = nullptr;
-                            }
                         };
+                    }
 
-                        if (threadProcessEntry && BooleanFlagOn(threadProcessEntry->PolicyFlags,
-                                                                rules::ProcessPolicyFlagNtQueryInformationProcess))
+                    PPROCESS_ENTRY threadProcessEntry = GetProcessEntry(PsGetProcessId(process));
+
+                    SCOPE_EXIT
+                    {
+                        if (threadProcessEntry)
+                        {
+                            object::DereferenceObject(threadProcessEntry);
+                            threadProcessEntry = nullptr;
+                        }
+                    };
+
+                    if (threadProcessEntry &&
+                        BooleanFlagOn(threadProcessEntry->PolicyFlags, ProcessPolicyFlagNtQueryInformationProcess))
+                    {
+                        if (BooleanFlagOn(threadProcessEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
                         {
                             if (ProcessInformationClass == ProcessDebugObjectHandle)
                             {
-                                *(PHANDLE)ProcessInformation = nullptr;
+                                *static_cast<PHANDLE>(ProcessInformation) = nullptr;
 
                                 if (ReturnLength != nullptr)
                                 {
@@ -1176,7 +1474,8 @@ NTSTATUS NTAPI hkNtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLAS
                                               "Spoofed NtQueryInformationProcess(ProcessDebugObjectHandle) tid:%d",
                                               HandleToUlong(threadProcessEntry->ProcessId));
 
-                                return STATUS_PORT_NOT_SET;
+                                status = STATUS_PORT_NOT_SET;
+                                handled = true;
                             }
                             else if (ProcessInformationClass == ProcessInstrumentationCallback)
                             {
@@ -1185,13 +1484,14 @@ NTSTATUS NTAPI hkNtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLAS
                                     "Spoofed NtQueryInformationProcess(ProcessInstrumentationCallback) tid:%d",
                                     HandleToUlong(threadProcessEntry->ProcessId));
 
-                                return STATUS_INVALID_INFO_CLASS;
+                                status = STATUS_INVALID_INFO_CLASS;
+                                handled = true;
                             }
                             else if (ProcessInformationClass == ProcessDebugPort)
                             {
                                 BACKUP_RETURNLENGTH();
 
-                                *((HANDLE *)ProcessInformation) = nullptr;
+                                *(static_cast<PHANDLE>(ProcessInformation)) = nullptr;
 
                                 if (ReturnLength != nullptr)
                                 {
@@ -1204,7 +1504,8 @@ NTSTATUS NTAPI hkNtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLAS
                                               "Spoofed NtQueryInformationProcess(ProcessDebugPort) tid:%d",
                                               HandleToUlong(threadProcessEntry->ProcessId));
 
-                                return STATUS_SUCCESS;
+                                status = STATUS_SUCCESS;
+                                handled = true;
                             }
                             else if (ProcessInformationClass == ProcessDebugFlags)
                             {
@@ -1226,7 +1527,8 @@ NTSTATUS NTAPI hkNtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLAS
                                               "Spoofed NtQueryInformationProcess(ProcessDebugFlags) tid:%d",
                                               HandleToUlong(threadProcessEntry->ProcessId));
 
-                                return STATUS_SUCCESS;
+                                status = STATUS_SUCCESS;
+                                handled = true;
                             }
                             else if (ProcessInformationClass == ProcessBreakOnTermination)
                             {
@@ -1241,7 +1543,8 @@ NTSTATUS NTAPI hkNtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLAS
                                               "Spoofed NtQueryInformationProcess(ProcessBreakOnTermination) tid:%d",
                                               HandleToUlong(threadProcessEntry->ProcessId));
 
-                                return STATUS_SUCCESS;
+                                status = STATUS_SUCCESS;
+                                handled = true;
                             }
 
                             status = reinterpret_cast<decltype(&hkNtQueryInformationProcess)>(hookEntry->Original)(
@@ -1258,7 +1561,8 @@ NTSTATUS NTAPI hkNtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLAS
                                         tools::GetProcessByName(threadProcessEntry->FakeParentProcessName);
                                     if (parentProcess)
                                     {
-                                        ((PPROCESS_BASIC_INFORMATION)ProcessInformation)->InheritedFromUniqueProcessId =
+                                        (static_cast<PPROCESS_BASIC_INFORMATION>(ProcessInformation))
+                                            ->InheritedFromUniqueProcessId =
                                             HandleToUlong(PsGetProcessId(parentProcess));
 
                                         ObDereferenceObject(parentProcess);
@@ -1270,7 +1574,8 @@ NTSTATUS NTAPI hkNtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLAS
                                                   "Spoofed NtQueryInformationProcess(ProcessBasicInformation) tid:%d",
                                                   HandleToUlong(threadProcessEntry->ProcessId));
 
-                                    return STATUS_SUCCESS;
+                                    status = STATUS_SUCCESS;
+                                    handled = true;
                                 }
 
                                 else if (ProcessInformationClass == ProcessHandleTracing)
@@ -1280,9 +1585,14 @@ NTSTATUS NTAPI hkNtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLAS
                                                             // with the output buffer before changing the final
                                                             // return status
 
-                                    return threadProcessEntry->Flags.ProcessHandleTracingEnabled
-                                               ? STATUS_SUCCESS
-                                               : STATUS_INVALID_PARAMETER;
+                                    WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                                                  "Spoofed NtQueryInformationProcess(ProcessHandleTracing) tid:%d",
+                                                  HandleToUlong(threadProcessEntry->ProcessId));
+
+                                    status = threadProcessEntry->Flags.ProcessHandleTracingEnabled
+                                                 ? STATUS_SUCCESS
+                                                 : STATUS_INVALID_PARAMETER;
+                                    handled = true;
                                 }
                                 else if (ProcessInformationClass == ProcessIoCounters)
                                 {
@@ -1296,7 +1606,8 @@ NTSTATUS NTAPI hkNtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLAS
                                                   "Spoofed NtQueryInformationProcess(ProcessIoCounters) tid:%d",
                                                   HandleToUlong(threadProcessEntry->ProcessId));
 
-                                    return STATUS_SUCCESS;
+                                    status = STATUS_SUCCESS;
+                                    handled = true;
                                 }
                             }
                         }
@@ -1304,8 +1615,28 @@ NTSTATUS NTAPI hkNtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLAS
                 }
                 __except (EXCEPTION_EXECUTE_HANDLER)
                 {
-                    return GetExceptionCode();
+                    status = GetExceptionCode();
+                    handled = true;
                 }
+
+                if (!handled)
+                {
+                    status = reinterpret_cast<decltype(&hkNtQueryInformationProcess)>(hookEntry->Original)(
+                        ProcessHandle, ProcessInformationClass, ProcessInformation, ProcessInformationLength,
+                        ReturnLength);
+                }
+
+            Exit:
+                if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagMonitored))
+                {
+                    WppTracePrint(
+                        TRACE_LEVEL_VERBOSE, HOOKS,
+                        "NtQueryInformationProcess from pid %u ProcessHandle = 0x%p ProcessInformationClass %d "
+                        "returned %!STATUS!\n",
+                        HandleToUlong(PsGetCurrentProcessId()), ProcessHandle, ProcessInformationClass, status);
+                }
+
+                return status;
             }
         }
     }
@@ -1319,15 +1650,13 @@ NTSTATUS NTAPI hkNtSetInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS 
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtSetInformationProcess"));
-    const AutoRefCount lock(&hookEntry->RefCount);
-
-    NTSTATUS status;
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -1340,137 +1669,174 @@ NTSTATUS NTAPI hkNtSetInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS 
 
         // (1) check if the process is blacklisted (2) check if hook is meant to be intercepted
         //
-        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtSetInformationProcess))
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtSetInformationProcess))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger) &&
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger) &&
                 (ProcessInformationClass == ProcessBreakOnTermination || ProcessInformationClass == ProcessDebugFlags ||
+                 ProcessInformationClass == ProcessInstrumentationCallback ||
                  ProcessInformationClass == ProcessHandleTracing))
             {
+                NTSTATUS status = STATUS_SUCCESS;
+                bool handled = false;
+
                 __try
                 {
                     if (ProcessInformationLength != 0)
                     {
-                        ProbeForRead(ProcessInformation, ProcessInformationLength, 4);
+                        ProbeForRead(ProcessInformation, ProcessInformationLength, 1);
                     }
 
                     PEPROCESS process = nullptr;
-                    status = ObReferenceObjectByHandle(ProcessHandle, PROCESS_QUERY_INFORMATION, *PsProcessType,
-                                                       previousMode, reinterpret_cast<PVOID *>(&process), nullptr);
-                    if (NT_SUCCESS(status))
+
+                    if (ProcessHandle == ZwCurrentProcess())
                     {
-                        rules::PPROCESS_ENTRY threadProcessEntry = rules::GetProcessEntry(PsGetProcessId(process));
+                        process = PsGetCurrentProcess();
+                    }
+                    else
+                    {
+                        status = ObReferenceObjectByHandle(ProcessHandle, PROCESS_QUERY_INFORMATION, *PsProcessType,
+                                                           previousMode, reinterpret_cast<PVOID *>(&process), nullptr);
+                        if (!NT_SUCCESS(status))
+                        {
+                            goto Exit;
+                        }
 
                         SCOPE_EXIT
                         {
                             ObDereferenceObject(process);
-
-                            if (threadProcessEntry)
-                            {
-                                object::DereferenceObject(threadProcessEntry);
-                                threadProcessEntry = nullptr;
-                            }
                         };
+                    }
 
-                        if (threadProcessEntry && BooleanFlagOn(threadProcessEntry->PolicyFlags,
-                                                                rules::ProcessPolicyFlagNtSetInformationProcess))
+                    PPROCESS_ENTRY threadProcessEntry = GetProcessEntry(PsGetProcessId(process));
+
+                    SCOPE_EXIT
+                    {
+                        if (threadProcessEntry)
                         {
-                            if (ProcessInformationClass == ProcessBreakOnTermination)
+                            object::DereferenceObject(threadProcessEntry);
+                            threadProcessEntry = nullptr;
+                        }
+                    };
+
+                    if (threadProcessEntry &&
+                        BooleanFlagOn(threadProcessEntry->PolicyFlags, ProcessPolicyFlagNtSetInformationProcess))
+                    {
+                        if (ProcessInformationClass == ProcessBreakOnTermination)
+                        {
+                            if (ProcessInformationLength != sizeof(ULONG))
                             {
-                                if (ProcessInformationLength != sizeof(ULONG))
-                                {
-                                    return STATUS_INFO_LENGTH_MISMATCH;
-                                }
-
-                                volatile ULONG Touch = *(ULONG *)ProcessInformation;
-                                UNREFERENCED_PARAMETER(Touch);
-
-                                // A process must have debug privileges enabled to set the ProcessBreakOnTermination
-                                // flag
-                                if (!tools::HasDebugPrivilege())
-                                {
-                                    return STATUS_PRIVILEGE_NOT_HELD;
-                                }
-
-                                threadProcessEntry->Flags.ValueProcessBreakOnTermination =
-                                    *(ULONG *)ProcessInformation & 1;
-
-                                WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
-                                              "Spoofed NtSetInformationProcess(ProcessBreakOnTermination) tid:%d",
-                                              HandleToUlong(threadProcessEntry->ProcessId));
-
-                                return STATUS_SUCCESS;
+                                status = STATUS_INFO_LENGTH_MISMATCH;
+                                goto Exit;
                             }
-                            else if (ProcessInformationClass == ProcessInstrumentationCallback)
+
+                            volatile ULONG Touch = *(ULONG *)ProcessInformation;
+                            UNREFERENCED_PARAMETER(Touch);
+
+                            // A process must have debug privileges enabled to set the ProcessBreakOnTermination
+                            // flag
+                            if (!tools::HasDebugPrivilege())
                             {
-                                WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
-                                              "Spoofed NtSetInformationProcess(ProcessInstrumentationCallback) tid:%d",
-                                              HandleToUlong(threadProcessEntry->ProcessId));
-
-                                return STATUS_SUCCESS;
+                                status = STATUS_PRIVILEGE_NOT_HELD;
+                                goto Exit;
                             }
-                            else if (ProcessInformationClass == ProcessDebugFlags)
+
+                            threadProcessEntry->Flags.ValueProcessBreakOnTermination = *(ULONG *)ProcessInformation & 1;
+
+                            WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                                          "Spoofed NtSetInformationProcess(ProcessBreakOnTermination) tid:%d",
+                                          HandleToUlong(threadProcessEntry->ProcessId));
+
+                            status = STATUS_SUCCESS;
+                            handled = true;
+                        }
+                        else if (ProcessInformationClass == ProcessInstrumentationCallback)
+                        {
+                            WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                                          "Spoofed NtSetInformationProcess(ProcessInstrumentationCallback) tid:%d",
+                                          HandleToUlong(threadProcessEntry->ProcessId));
+
+                            status = STATUS_SUCCESS;
+                            handled = true;
+                        }
+                        else if (ProcessInformationClass == ProcessDebugFlags)
+                        {
+                            if (ProcessInformationLength != sizeof(ULONG))
                             {
-                                if (ProcessInformationLength != sizeof(ULONG))
-                                {
-                                    return STATUS_INFO_LENGTH_MISMATCH;
-                                }
-
-                                ULONG Flags = *(ULONG *)ProcessInformation;
-                                if ((Flags & ~PROCESS_DEBUG_INHERIT) != 0)
-                                {
-                                    return STATUS_INVALID_PARAMETER;
-                                }
-
-                                if ((Flags & PROCESS_DEBUG_INHERIT) != 0)
-                                {
-                                    threadProcessEntry->Flags.ValueProcessDebugFlags = 0;
-                                }
-                                else
-                                {
-                                    threadProcessEntry->Flags.ValueProcessDebugFlags = TRUE;
-                                }
-
-                                WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
-                                              "Spoofed NtSetInformationProcess(ProcessDebugFlags) tid:%d",
-                                              HandleToUlong(threadProcessEntry->ProcessId));
-
-                                return STATUS_SUCCESS;
+                                status = STATUS_INFO_LENGTH_MISMATCH;
+                                goto Exit;
                             }
-                            else if (ProcessInformationClass == ProcessHandleTracing)
+
+                            ULONG Flags = *(ULONG *)ProcessInformation;
+                            if ((Flags & ~PROCESS_DEBUG_INHERIT) != 0)
                             {
-                                const bool enable = ProcessInformationLength != 0;
-                                if (enable)
+                                status = STATUS_INVALID_PARAMETER;
+                                goto Exit;
+                            }
+
+                            if ((Flags & PROCESS_DEBUG_INHERIT) != 0)
+                            {
+                                threadProcessEntry->Flags.ValueProcessDebugFlags = 0;
+                            }
+                            else
+                            {
+                                threadProcessEntry->Flags.ValueProcessDebugFlags = TRUE;
+                            }
+
+                            WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                                          "Spoofed NtSetInformationProcess(ProcessDebugFlags) tid:%d",
+                                          HandleToUlong(threadProcessEntry->ProcessId));
+
+                            status = STATUS_SUCCESS;
+                            handled = true;
+                        }
+                        else if (ProcessInformationClass == ProcessHandleTracing)
+                        {
+                            const bool enable = ProcessInformationLength != 0;
+                            if (enable)
+                            {
+                                if (ProcessInformationLength != sizeof(ULONG) &&
+                                    ProcessInformationLength != (sizeof(ULONG64)))
                                 {
-                                    if (ProcessInformationLength != sizeof(ULONG) &&
-                                        ProcessInformationLength != (sizeof(ULONG64)))
-                                    {
-                                        return STATUS_INFO_LENGTH_MISMATCH;
-                                    }
-
-                                    PPROCESS_HANDLE_TRACING_ENABLE_EX phtEx =
-                                        (PPROCESS_HANDLE_TRACING_ENABLE_EX)ProcessInformation;
-
-                                    if (phtEx->Flags != 0)
-                                    {
-                                        return STATUS_INVALID_PARAMETER;
-                                    }
+                                    status = STATUS_INFO_LENGTH_MISMATCH;
+                                    goto Exit;
                                 }
 
-                                processEntry->Flags.ProcessHandleTracingEnabled = enable;
-
-                                WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
-                                              "Spoofed NtSetInformationProcess(ProcessHandleTracing) tid:%d",
-                                              HandleToUlong(threadProcessEntry->ProcessId));
-
-                                return STATUS_SUCCESS;
+                                auto *phtEx = static_cast<PPROCESS_HANDLE_TRACING_ENABLE_EX>(ProcessInformation);
+                                if (phtEx->Flags != 0)
+                                {
+                                    status = STATUS_INVALID_PARAMETER;
+                                    goto Exit;
+                                }
                             }
+
+                            processEntry->Flags.ProcessHandleTracingEnabled = enable;
+
+                            WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                                          "Spoofed NtSetInformationProcess(ProcessHandleTracing) tid:%d",
+                                          HandleToUlong(threadProcessEntry->ProcessId));
+
+                            status = STATUS_SUCCESS;
+                            handled = true;
                         }
                     }
                 }
                 __except (EXCEPTION_EXECUTE_HANDLER)
                 {
-                    return GetExceptionCode();
+                    status = GetExceptionCode();
+                    handled = true;
                 }
+
+            Exit:
+                if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagMonitored))
+                {
+                    WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                                  "NtSetInformationProcess from pid %u ProcessHandle = 0x%p ProcessInformationClass %d "
+                                  "returned %!STATUS!\n",
+                                  HandleToUlong(PsGetCurrentProcessId()), ProcessHandle, ProcessInformationClass,
+                                  status);
+                }
+
+                return status;
             }
         }
     }
@@ -1478,28 +1844,42 @@ NTSTATUS NTAPI hkNtSetInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS 
         ProcessHandle, ProcessInformationClass, ProcessInformation, ProcessInformationLength);
 }
 
-void FilterObject(POBJECT_TYPE_INFORMATION pObject)
+void FilterObject(_In_ POBJECT_TYPE_INFORMATION object)
 {
+    PAGED_CODE();
+    NT_ASSERT(object);
+
     UNICODE_STRING debugObjectName = RTL_CONSTANT_STRING(L"DebugObject");
-    if (RtlEqualUnicodeString(&debugObjectName, &pObject->TypeName, FALSE))
+    if (RtlEqualUnicodeString(&debugObjectName, &object->TypeName, FALSE))
     {
         // Subtract just one from both counts for our debugger, unless the query was a generic one for all object
         // types
-        pObject->TotalNumberOfObjects = 0;
-        pObject->TotalNumberOfHandles = 0;
+        if (object->TotalNumberOfObjects > 1)
+        {
+            object->TotalNumberOfObjects = 1;
+            object->TotalNumberOfHandles = 1;
+        }
+        else
+        {
+            object->TotalNumberOfObjects = 0;
+            object->TotalNumberOfHandles = 0;
+        }
     }
 }
 
-void FilterObjects(POBJECT_ALL_INFORMATION pObjectAllInformation)
+void FilterObjects(_In_ POBJECT_ALL_INFORMATION objectAllInformation)
 {
-    auto pObject = pObjectAllInformation->ObjectInformation;
+    PAGED_CODE();
+    NT_ASSERT(objectAllInformation);
 
-    for (ULONG i = 0; i < pObjectAllInformation->NumberOfObjectsTypes; i++)
+    POBJECT_TYPE_INFORMATION object = objectAllInformation->ObjectInformation;
+
+    for (ULONG i = 0; i < objectAllInformation->NumberOfObjectsTypes; i++)
     {
-        FilterObject(pObject);
+        FilterObject(object);
 
-        pObject =
-            (POBJECT_TYPE_INFORMATION)(((PCHAR)(pObject + 1) + ALIGN_UP(pObject->TypeName.MaximumLength, ULONG_PTR)));
+        object = reinterpret_cast<POBJECT_TYPE_INFORMATION>(reinterpret_cast<PCHAR>(object + 1) +
+                                                            ALIGN_UP(object->TypeName.MaximumLength, ULONG_PTR));
     }
 }
 
@@ -1509,16 +1889,16 @@ NTSTATUS NTAPI hkNtQueryObject(HANDLE Handle, OBJECT_INFORMATION_CLASS ObjectInf
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtQueryObject"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
-    const NTSTATUS status = reinterpret_cast<decltype(&hkNtQueryObject)>(hookEntry->Original)(
+    NTSTATUS status = reinterpret_cast<decltype(&hkNtQueryObject)>(hookEntry->Original)(
         Handle, ObjectInformationClass, ObjectInformation, ObjectInformationLength, ReturnLength);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode && ObjectInformation)
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -1531,24 +1911,23 @@ NTSTATUS NTAPI hkNtQueryObject(HANDLE Handle, OBJECT_INFORMATION_CLASS ObjectInf
 
         // (1) check if the process is blacklisted (2) check if hook is meant to be intercepted
         //
-        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtQueryObject))
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtQueryObject))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
             {
-                __try
+                if (NT_SUCCESS(status) && ObjectInformation &&
+                    (ObjectInformationClass == ObjectTypesInformation ||
+                     ObjectInformationClass == ObjectTypeInformation))
                 {
-                    if ((ObjectInformationClass == ObjectTypesInformation ||
-                         ObjectInformationClass == ObjectTypeInformation) &&
-                        (NT_SUCCESS(status) && ObjectInformation))
+                    __try
                     {
-                        // Probe usermode buffer
                         ProbeForWrite(ObjectInformation, ObjectInformationLength, 1);
 
                         if (ObjectInformationClass == ObjectTypesInformation)
                         {
                             BACKUP_RETURNLENGTH();
 
-                            FilterObjects((POBJECT_ALL_INFORMATION)ObjectInformation);
+                            FilterObjects(static_cast<POBJECT_ALL_INFORMATION>(ObjectInformation));
 
                             RESTORE_RETURNLENGTH();
 
@@ -1560,7 +1939,7 @@ NTSTATUS NTAPI hkNtQueryObject(HANDLE Handle, OBJECT_INFORMATION_CLASS ObjectInf
                         {
                             BACKUP_RETURNLENGTH();
 
-                            FilterObject((POBJECT_TYPE_INFORMATION)ObjectInformation);
+                            FilterObject(static_cast<POBJECT_TYPE_INFORMATION>(ObjectInformation));
 
                             RESTORE_RETURNLENGTH();
 
@@ -1569,11 +1948,19 @@ NTSTATUS NTAPI hkNtQueryObject(HANDLE Handle, OBJECT_INFORMATION_CLASS ObjectInf
                                           HandleToUlong(processEntry->ProcessId));
                         }
                     }
+                    __except (EXCEPTION_EXECUTE_HANDLER)
+                    {
+                        status = GetExceptionCode();
+                    }
                 }
-                __except (EXCEPTION_EXECUTE_HANDLER)
-                {
-                    return GetExceptionCode();
-                }
+            }
+
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagMonitored))
+            {
+                WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                              "NtQueryObject from pid %u Handle = 0x%p ObjectInformationClass %d "
+                              "returned %!STATUS!\n",
+                              HandleToUlong(PsGetCurrentProcessId()), Handle, ObjectInformationClass, status);
             }
         }
     }
@@ -1587,14 +1974,14 @@ NTSTATUS NTAPI hkNtCreateThreadEx(PHANDLE ThreadHandle, ACCESS_MASK DesiredAcces
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtCreateThreadEx"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode && (CreateFlags & THREAD_CREATE_FLAGS_HIDE_FROM_DEBUGGER ||
                                      CreateFlags & THREAD_CREATE_FLAGS_BYPASS_PROCESS_FREEZE))
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -1607,71 +1994,110 @@ NTSTATUS NTAPI hkNtCreateThreadEx(PHANDLE ThreadHandle, ACCESS_MASK DesiredAcces
 
         // (1) check if the process is blacklisted (2) check if hook is meant to be intercepted
         //
-        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtCreateThreadEx))
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtCreateThreadEx))
         {
-            NTSTATUS status;
-            ULONG OriginalFlags = CreateFlags;
+            NTSTATUS status = STATUS_SUCCESS;
+            bool handled = false;
 
-            if (KERNEL_BUILD >= WINDOWS_10_VERSION_19H1)
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
             {
-                status = reinterpret_cast<decltype(&hkNtCreateThreadEx)>(hookEntry->Original)(
-                    ThreadHandle, DesiredAccess, ObjectAttributes, ProcessHandle, StartRoutine, Argument,
-                    CreateFlags & ~(THREAD_CREATE_FLAGS_HIDE_FROM_DEBUGGER | THREAD_CREATE_FLAGS_BYPASS_PROCESS_FREEZE),
-                    ZeroBits, StackSize, MaximumStackSize, AttributeList);
-            }
-            else
-            {
-                status = reinterpret_cast<decltype(&hkNtCreateThreadEx)>(hookEntry->Original)(
-                    ThreadHandle, DesiredAccess, ObjectAttributes, ProcessHandle, StartRoutine, Argument,
-                    CreateFlags & ~(THREAD_CREATE_FLAGS_HIDE_FROM_DEBUGGER), ZeroBits, StackSize, MaximumStackSize,
-                    AttributeList);
-            }
+                const ULONG OriginalFlags = CreateFlags;
+                ULONG ClearFlags = OriginalFlags & ~(THREAD_CREATE_FLAGS_HIDE_FROM_DEBUGGER);
 
-            if (NT_SUCCESS(status))
-            {
-                PETHREAD thread = nullptr;
-                if (NT_SUCCESS(ObReferenceObjectByHandle(*ThreadHandle, THREAD_QUERY_INFORMATION, *PsThreadType,
-                                                         previousMode, reinterpret_cast<PVOID *>(&thread), NULL)))
+                if (KERNEL_BUILD_VERSION >= WINDOWS_10_VERSION_19H1)
                 {
-                    SCOPE_EXIT
-                    {
-                        ObDereferenceObject(thread);
-                    };
+                    ClearFlags = OriginalFlags &
+                                 ~(THREAD_CREATE_FLAGS_HIDE_FROM_DEBUGGER | THREAD_CREATE_FLAGS_BYPASS_PROCESS_FREEZE);
+                }
 
-                    PEPROCESS process = nullptr;
-                    if (NT_SUCCESS(ObReferenceObjectByHandle(ProcessHandle, PROCESS_QUERY_INFORMATION, *PsProcessType,
-                                                             previousMode, reinterpret_cast<PVOID *>(&process), NULL)))
+                status = reinterpret_cast<decltype(&hkNtCreateThreadEx)>(hookEntry->Original)(
+                    ThreadHandle, DesiredAccess, ObjectAttributes, ProcessHandle, StartRoutine, Argument, ClearFlags,
+                    ZeroBits, StackSize, MaximumStackSize, AttributeList);
+                handled = true;
+
+                if (NT_SUCCESS(status))
+                {
+                    PETHREAD thread = nullptr;
+                    if (NT_SUCCESS(ObReferenceObjectByHandle(*ThreadHandle, THREAD_QUERY_INFORMATION, *PsThreadType,
+                                                             previousMode, reinterpret_cast<PVOID *>(&thread), NULL)))
                     {
-                        rules::PPROCESS_ENTRY processEntry2 = rules::GetProcessEntry(process);
+                        SCOPE_EXIT
+                        {
+                            ObDereferenceObject(thread);
+                        };
+
+                        PEPROCESS process = nullptr;
+
+                        if (ProcessHandle == ZwCurrentProcess())
+                        {
+                            process = PsGetCurrentProcess();
+                        }
+                        else
+                        {
+                            if (!NT_SUCCESS(ObReferenceObjectByHandle(ProcessHandle, PROCESS_QUERY_INFORMATION,
+                                                                      *PsProcessType, previousMode,
+                                                                      reinterpret_cast<PVOID *>(&process), NULL)))
+                            {
+                                goto Exit;
+                            }
+
+                            SCOPE_EXIT
+                            {
+                                ObDereferenceObject(process);
+                            };
+                        }
+
+                        PPROCESS_ENTRY threadProcessEntry = GetProcessEntry(process);
 
                         SCOPE_EXIT
                         {
-                            ObDereferenceObject(process);
-
-                            if (processEntry2)
+                            if (threadProcessEntry)
                             {
-                                object::DereferenceObject(processEntry2);
-                                processEntry2 = nullptr;
+                                object::DereferenceObject(threadProcessEntry);
+                                threadProcessEntry = nullptr;
                             }
                         };
 
                         // If (1) it's a blacklisted process and (2) current hook is meant to be intercepted
                         //
-                        if (processEntry2 &&
-                            BooleanFlagOn(processEntry2->PolicyFlags, rules::ProcessPolicyFlagNtCreateThreadEx))
+                        if (threadProcessEntry &&
+                            BooleanFlagOn(threadProcessEntry->PolicyFlags, ProcessPolicyFlagNtCreateThreadEx))
                         {
-                            if (BooleanFlagOn(processEntry2->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
+                            if (BooleanFlagOn(threadProcessEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
                             {
-                                rules::PTHREAD_ENTRY threadEntry = processEntry2->AppendThreadList(thread);
+                                PTHREAD_ENTRY threadEntry = threadProcessEntry->AppendThreadList(thread);
                                 if (threadEntry)
                                 {
                                     threadEntry->Flags.IsThreadHidden =
                                         OriginalFlags & THREAD_CREATE_FLAGS_HIDE_FROM_DEBUGGER;
+
+                                    WppTracePrint(
+                                        TRACE_LEVEL_VERBOSE, HOOKS,
+                                        "NtCreateThreadEx hide thread %u from pid %u from debugger and freeze",
+                                        HandleToUlong(PsGetThreadId(thread)),
+                                        HandleToUlong(threadProcessEntry->ProcessId));
                                 }
                             }
                         }
                     }
                 }
+            }
+
+            if (!handled)
+            {
+                status = reinterpret_cast<decltype(&hkNtCreateThreadEx)>(hookEntry->Original)(
+                    ThreadHandle, DesiredAccess, ObjectAttributes, ProcessHandle, StartRoutine, Argument, CreateFlags,
+                    ZeroBits, StackSize, MaximumStackSize, AttributeList);
+            }
+
+        Exit:
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagMonitored))
+            {
+                WppTracePrint(
+                    TRACE_LEVEL_VERBOSE, HOOKS,
+                    "NtCreateThreadEx from pid %u ProcessHandle = 0x%p StartRoutine 0x%p Argument 0x%p CreateFlags %d "
+                    "returned %!STATUS!\n",
+                    HandleToUlong(PsGetCurrentProcessId()), ProcessHandle, StartRoutine, Argument, CreateFlags, status);
             }
 
             return status;
@@ -1687,15 +2113,13 @@ NTSTATUS NTAPI hkNtGetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext)
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtGetContextThread"));
-    const AutoRefCount lock(&hookEntry->RefCount);
-
-    NTSTATUS status;
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -1708,34 +2132,50 @@ NTSTATUS NTAPI hkNtGetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext)
 
         // (1) check if the process is blacklisted (2) check if hook is meant to be intercepted
         //
-        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtGetContextThread))
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtGetContextThread))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
+            NTSTATUS status = STATUS_SUCCESS;
+            bool handled = false;
+
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
             {
                 __try
                 {
-                    ProbeForWrite(ThreadContext, sizeof(*ThreadContext), __alignof(CONTEXT));
+                    ProbeForWrite(ThreadContext, sizeof(*ThreadContext), TYPE_ALIGNMENT(CONTEXT));
 
                     PETHREAD thread = nullptr;
-                    status = ObReferenceObjectByHandle(ThreadHandle, THREAD_QUERY_INFORMATION, *PsThreadType,
-                                                       previousMode, reinterpret_cast<PVOID *>(&thread), nullptr);
-                    if (NT_SUCCESS(status))
+
+                    if (ThreadHandle == ZwCurrentThread())
                     {
-                        rules::PPROCESS_ENTRY threadProcessEntry = rules::GetProcessEntry(PsGetThreadProcessId(thread));
-
-                        SCOPE_EXIT
+                        thread = PsGetCurrentThread();
+                    }
+                    else
+                    {
+                        if (!NT_SUCCESS(ObReferenceObjectByHandle(ThreadHandle, THREAD_QUERY_INFORMATION, *PsThreadType,
+                                                                  previousMode, reinterpret_cast<PVOID *>(&thread),
+                                                                  nullptr)))
                         {
-                            ObDereferenceObject(thread);
+                            goto Exit;
+                        }
+                    }
 
-                            if (threadProcessEntry)
-                            {
-                                object::DereferenceObject(threadProcessEntry);
-                                threadProcessEntry = nullptr;
-                            }
-                        };
+                    PPROCESS_ENTRY threadProcessEntry = GetProcessEntry(PsGetThreadProcessId(thread));
 
-                        if (threadProcessEntry &&
-                            BooleanFlagOn(threadProcessEntry->PolicyFlags, rules::ProcessPolicyFlagNtGetContextThread))
+                    SCOPE_EXIT
+                    {
+                        ObDereferenceObject(thread);
+
+                        if (threadProcessEntry)
+                        {
+                            object::DereferenceObject(threadProcessEntry);
+                            threadProcessEntry = nullptr;
+                        }
+                    };
+
+                    if (threadProcessEntry &&
+                        BooleanFlagOn(threadProcessEntry->PolicyFlags, ProcessPolicyFlagNtGetContextThread))
+                    {
+                        if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
                         {
                             ULONG OriginalFlags = ThreadContext->ContextFlags;
                             ThreadContext->ContextFlags &= ~0x10;
@@ -1747,7 +2187,7 @@ NTSTATUS NTAPI hkNtGetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext)
                             {
                                 ThreadContext->ContextFlags |= 0x10;
 
-                                rules::PTHREAD_ENTRY threadEntry = threadProcessEntry->AppendThreadList(thread);
+                                PTHREAD_ENTRY threadEntry = threadProcessEntry->AppendThreadList(thread);
                                 if (threadEntry)
                                 {
                                     RtlCopyMemory(&ThreadContext->Dr0, &threadEntry->SavedDebugContext.Dr0,
@@ -1764,15 +2204,33 @@ NTSTATUS NTAPI hkNtGetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext)
                                     RtlSecureZeroMemory(&ThreadContext->DebugControl, sizeof(ULONG64) * 5);
                                 }
                             }
-                            return status;
+
+                            handled = true;
                         }
                     }
                 }
                 __except (EXCEPTION_EXECUTE_HANDLER)
                 {
-                    return GetExceptionCode();
+                    status = GetExceptionCode();
+                    handled = true;
                 }
             }
+
+            if (!handled)
+            {
+                status =
+                    reinterpret_cast<decltype(&hkNtGetContextThread)>(hookEntry->Original)(ThreadHandle, ThreadContext);
+            }
+
+        Exit:
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagMonitored))
+            {
+                WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                              "NtGetContextThread from pid %u ThreadHandle = 0x%p returned %!STATUS!\n",
+                              HandleToUlong(PsGetCurrentProcessId()), ThreadHandle, status);
+            }
+
+            return status;
         }
     }
     return reinterpret_cast<decltype(&hkNtGetContextThread)>(hookEntry->Original)(ThreadHandle, ThreadContext);
@@ -1783,15 +2241,13 @@ NTSTATUS NTAPI hkNtSetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext)
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtSetContextThread"));
-    const AutoRefCount lock(&hookEntry->RefCount);
-
-    NTSTATUS status;
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -1804,34 +2260,50 @@ NTSTATUS NTAPI hkNtSetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext)
 
         // (1) check if the process is blacklisted (2) check if hook is meant to be intercepted
         //
-        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtSetContextThread))
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtSetContextThread))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
+            NTSTATUS status = STATUS_SUCCESS;
+            bool handled = false;
+
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
             {
                 __try
                 {
-                    ProbeForWrite(ThreadContext, sizeof(*ThreadContext), __alignof(CONTEXT));
+                    ProbeForWrite(ThreadContext, sizeof(*ThreadContext), TYPE_ALIGNMENT(CONTEXT));
 
                     PETHREAD thread = nullptr;
-                    status = ObReferenceObjectByHandle(ThreadHandle, THREAD_QUERY_INFORMATION, *PsThreadType,
-                                                       previousMode, reinterpret_cast<PVOID *>(&thread), nullptr);
-                    if (NT_SUCCESS(status))
+
+                    if (ThreadHandle == ZwCurrentThread())
                     {
-                        rules::PPROCESS_ENTRY threadProcessEntry = rules::GetProcessEntry(PsGetThreadProcessId(thread));
-
-                        SCOPE_EXIT
+                        thread = PsGetCurrentThread();
+                    }
+                    else
+                    {
+                        if (!NT_SUCCESS(ObReferenceObjectByHandle(ThreadHandle, THREAD_QUERY_INFORMATION, *PsThreadType,
+                                                                  previousMode, reinterpret_cast<PVOID *>(&thread),
+                                                                  nullptr)))
                         {
-                            ObDereferenceObject(thread);
+                            goto Exit;
+                        }
+                    }
 
-                            if (threadProcessEntry)
-                            {
-                                object::DereferenceObject(threadProcessEntry);
-                                threadProcessEntry = nullptr;
-                            }
-                        };
+                    PPROCESS_ENTRY threadProcessEntry = GetProcessEntry(PsGetThreadProcessId(thread));
 
-                        if (threadProcessEntry &&
-                            BooleanFlagOn(threadProcessEntry->PolicyFlags, rules::ProcessPolicyFlagNtSetContextThread))
+                    SCOPE_EXIT
+                    {
+                        ObDereferenceObject(thread);
+
+                        if (threadProcessEntry)
+                        {
+                            object::DereferenceObject(threadProcessEntry);
+                            threadProcessEntry = nullptr;
+                        }
+                    };
+
+                    if (threadProcessEntry &&
+                        BooleanFlagOn(threadProcessEntry->PolicyFlags, ProcessPolicyFlagNtSetContextThread))
+                    {
+                        if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
                         {
                             ULONG OriginalFlags = ThreadContext->ContextFlags;
                             ThreadContext->ContextFlags &= ~0x10;
@@ -1843,7 +2315,7 @@ NTSTATUS NTAPI hkNtSetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext)
                             {
                                 ThreadContext->ContextFlags |= 0x10;
 
-                                rules::PTHREAD_ENTRY threadEntry = threadProcessEntry->AppendThreadList(thread);
+                                PTHREAD_ENTRY threadEntry = threadProcessEntry->AppendThreadList(thread);
                                 if (threadEntry)
                                 {
                                     RtlCopyMemory(&threadEntry->SavedDebugContext.Dr0, &ThreadContext->Dr0,
@@ -1855,15 +2327,33 @@ NTSTATUS NTAPI hkNtSetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext)
                                                   HandleToUlong(PsGetThreadId(threadEntry->Thread)));
                                 }
                             }
-                            return status;
+
+                            handled = true;
                         }
                     }
                 }
                 __except (EXCEPTION_EXECUTE_HANDLER)
                 {
-                    return GetExceptionCode();
+                    status = GetExceptionCode();
+                    handled = true;
                 }
             }
+
+            if (!handled)
+            {
+                status =
+                    reinterpret_cast<decltype(&hkNtSetContextThread)>(hookEntry->Original)(ThreadHandle, ThreadContext);
+            }
+
+        Exit:
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagMonitored))
+            {
+                WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                              "NtSetContextThread from pid %u ThreadHandle = 0x%p returned %!STATUS!\n",
+                              HandleToUlong(PsGetCurrentProcessId()), ThreadHandle, status);
+            }
+
+            return status;
         }
     }
     return reinterpret_cast<decltype(&hkNtSetContextThread)>(hookEntry->Original)(ThreadHandle, ThreadContext);
@@ -1875,7 +2365,7 @@ NTSTATUS NTAPI hkNtWriteVirtualMemory(HANDLE ProcessHandle, PVOID BaseAddress, P
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtWriteVirtualMemory"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const NTSTATUS status = reinterpret_cast<decltype(&hkNtWriteVirtualMemory)>(hookEntry->Original)(
         ProcessHandle, BaseAddress, Buffer, NumberOfBytesToWrite, NumberOfBytesWritten);
@@ -1891,7 +2381,7 @@ NTSTATUS NTAPI hkNtAllocateVirtualMemory(HANDLE ProcessHandle, PVOID *BaseAddres
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtAllocateVirtualMemory"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const NTSTATUS status = reinterpret_cast<decltype(&hkNtAllocateVirtualMemory)>(hookEntry->Original)(
         ProcessHandle, BaseAddress, ZeroBits, RegionSize, AllocationType, Protect);
@@ -1906,7 +2396,7 @@ NTSTATUS NTAPI hkNtFreeVirtualMemory(HANDLE ProcessHandle, PVOID *BaseAddress, P
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtFreeVirtualMemory"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const NTSTATUS status = reinterpret_cast<decltype(&hkNtFreeVirtualMemory)>(hookEntry->Original)(
         ProcessHandle, BaseAddress, RegionSize, FreeType);
@@ -1923,7 +2413,7 @@ NTSTATUS NTAPI hkNtDeviceIoControlFile(HANDLE FileHandle, HANDLE Event, PIO_APC_
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtDeviceIoControlFile"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     NTSTATUS status = reinterpret_cast<decltype(&NtDeviceIoControlFile)>(hookEntry->Original)(
         FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, IoControlCode, InputBuffer, InputBufferLength,
@@ -1933,7 +2423,7 @@ NTSTATUS NTAPI hkNtDeviceIoControlFile(HANDLE FileHandle, HANDLE Event, PIO_APC_
     if (previousMode == UserMode)
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -1946,9 +2436,9 @@ NTSTATUS NTAPI hkNtDeviceIoControlFile(HANDLE FileHandle, HANDLE Event, PIO_APC_
 
         // (1) check if the process is blacklisted (2) check if hook is meant to be intercepted
         //
-        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtDeviceIoControlFile))
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtDeviceIoControlFile))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
             {
                 [[maybe_unused]] const LPWSTR moduleName = wcsrchr(processEntry->ImageFileName.Buffer, '\\') + 1;
 
@@ -2198,13 +2688,96 @@ NTSTATUS NTAPI hkNtDeviceIoControlFile(HANDLE FileHandle, HANDLE Event, PIO_APC_
     return status;
 }
 
+void FilterJobProcessList(PJOBOBJECT_BASIC_PROCESS_ID_LIST JobInformation, PULONG pReturnLengthAdjust)
+{
+    *pReturnLengthAdjust = 0;
+    const ULONG TrueCount = JobInformation->NumberOfAssignedProcesses;
+    for (ULONG i = 0; i < TrueCount; ++i)
+    {
+        const auto processId = (HANDLE)JobInformation->ProcessIdList[i];
+        if (process::IsProtectedProcess(processId))
+        {
+            JobInformation->NumberOfAssignedProcesses--;
+            JobInformation->NumberOfProcessIdsInList--;
+            *pReturnLengthAdjust += sizeof(ULONG_PTR);
+            for (ULONG j = i; j < TrueCount - 1; ++j)
+            {
+                JobInformation->ProcessIdList[j] = JobInformation->ProcessIdList[j + 1];
+                RtlZeroMemory(&JobInformation->ProcessIdList[j + 1], sizeof(JobInformation->ProcessIdList[j + 1]));
+            }
+            i--;
+        }
+    }
+}
+
+NTSTATUS NTAPI hkNtQueryInformationJobObject(HANDLE JobHandle, JOBOBJECTINFOCLASS JobInformationClass,
+                                             PVOID JobInformation, ULONG JobInformationLength, PULONG ReturnLength)
+{
+    const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtQueryInformationJobObject"));
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
+
+    auto status = reinterpret_cast<decltype(&hkNtQueryInformationJobObject)>(hookEntry->Original)(
+        JobHandle, JobInformationClass, JobInformation, JobInformationLength, ReturnLength);
+
+    const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
+    if (previousMode == UserMode)
+    {
+        const HANDLE currentProcessId = PsGetCurrentProcessId();
+        process::PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
+
+        SCOPE_EXIT
+        {
+            if (processEntry)
+            {
+                object::DereferenceObject(processEntry);
+                processEntry = nullptr;
+            }
+        };
+
+        // If (1) process has entry and (2) current hook is meant to be intercepted
+        //
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtQueryInformationJobObject))
+        {
+            if (NT_SUCCESS(status) && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger) &&
+                JobInformationClass == JobObjectBasicProcessIdList)
+            {
+                BACKUP_RETURNLENGTH();
+                ULONG ReturnLengthAdjust = 0;
+
+                FilterJobProcessList(static_cast<PJOBOBJECT_BASIC_PROCESS_ID_LIST>(JobInformation),
+                                     &ReturnLengthAdjust);
+
+                if (ReturnLengthAdjust <= TempReturnLength)
+                {
+                    TempReturnLength -= ReturnLengthAdjust;
+                }
+
+                RESTORE_RETURNLENGTH();
+
+                WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                              "Spoofed NtQueryInformationJobObject(JobObjectBasicProcessIdList) pid:%d",
+                              HandleToUlong(processEntry->ProcessId));
+            }
+
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagMonitored))
+            {
+                WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                              "NtQueryInformationJobObject from pid %u JobHandle = 0x%p JobInformationClass = %u "
+                              "returned %!STATUS!\n",
+                              HandleToUlong(PsGetCurrentProcessId()), JobHandle, JobInformationClass, status);
+            }
+        }
+    }
+    return status;
+}
+
 void FilterHandleInfo(PSYSTEM_HANDLE_INFORMATION pHandleInfo, PULONG pReturnLengthAdjust)
 {
     *pReturnLengthAdjust = 0;
     const ULONG TrueCount = pHandleInfo->NumberOfHandles;
     for (ULONG i = 0; i < TrueCount; ++i)
     {
-        if (rules::IsHijackedProcess((HANDLE)pHandleInfo->Handles[i].UniqueProcessId))
+        if (IsProtectedProcess((HANDLE)pHandleInfo->Handles[i].UniqueProcessId))
         {
             pHandleInfo->NumberOfHandles--;
             *pReturnLengthAdjust += sizeof(SYSTEM_HANDLE_TABLE_ENTRY_INFO);
@@ -2224,7 +2797,7 @@ void FilterHandleInfoEx(PSYSTEM_HANDLE_INFORMATION_EX pHandleInfoEx, PULONG pRet
     const ULONG TrueCount = (ULONG)pHandleInfoEx->NumberOfHandles;
     for (ULONG i = 0; i < TrueCount; ++i)
     {
-        if (rules::IsHijackedProcess((HANDLE)pHandleInfoEx->Handles[i].UniqueProcessId))
+        if (IsProtectedProcess((HANDLE)pHandleInfoEx->Handles[i].UniqueProcessId))
         {
             pHandleInfoEx->NumberOfHandles--;
             *pReturnLengthAdjust += sizeof(SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX);
@@ -2244,7 +2817,7 @@ void FilterModuleInfoEx(PRTL_PROCESS_MODULES pModules, PULONG pReturnLengthAdjus
     const ULONG TrueCount = (ULONG)pModules->NumberOfModules;
     for (ULONG i = 0; i < TrueCount; ++i)
     {
-        if (rules::IsWhitelistedDriver((PCHAR)pModules->Modules[i].FullPathName))
+        if (IsWhitelistedDriver((PCHAR)pModules->Modules[i].FullPathName))
         {
             pModules->NumberOfModules--;
             *pReturnLengthAdjust += sizeof(RTL_PROCESS_MODULES);
@@ -2264,7 +2837,7 @@ void FilterProcess(PSYSTEM_PROCESS_INFORMATION pInfo)
 
     while (TRUE)
     {
-        if (rules::IsHijackedProcess(pInfo->UniqueProcessId))
+        if (IsProtectedProcess(pInfo->UniqueProcessId))
         {
             if (pInfo->ImageName.Buffer)
             {
@@ -2302,16 +2875,16 @@ NTSTATUS NTAPI hkNtQuerySystemInformation(SYSTEM_INFORMATION_CLASS SystemInforma
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtQuerySystemInformation"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
-    const NTSTATUS status = reinterpret_cast<decltype(&hkNtQuerySystemInformation)>(hookEntry->Original)(
+    NTSTATUS status = reinterpret_cast<decltype(&hkNtQuerySystemInformation)>(hookEntry->Original)(
         SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -2324,18 +2897,15 @@ NTSTATUS NTAPI hkNtQuerySystemInformation(SYSTEM_INFORMATION_CLASS SystemInforma
 
         // (1) check if the process is blacklisted (2) check if hook is meant to be intercepted
         //
-        if (NT_SUCCESS(status) && (processEntry && BooleanFlagOn(processEntry->PolicyFlags,
-                                                                 rules::ProcessPolicyFlagNtQuerySystemInformation)))
+        if (NT_SUCCESS(status) &&
+            (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtQuerySystemInformation)))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
             {
                 __try
                 {
                     ProbeForWrite(SystemInformation, SystemInformationLength, 1);
 
-                    //
-                    // Hide from Driver list
-                    //
                     if (SystemInformationClass == SystemModuleInformation)
                     {
                         BACKUP_RETURNLENGTH();
@@ -2349,32 +2919,29 @@ NTSTATUS NTAPI hkNtQuerySystemInformation(SYSTEM_INFORMATION_CLASS SystemInforma
                         RESTORE_RETURNLENGTH();
 
                         WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
-                                      "Spoofed NtQuerySystemInformation(SystemModuleInformation) pid:%d",
+                                      "NtQuerySystemInformation(SystemModuleInformation) pid:%d",
                                       HandleToUlong(processEntry->ProcessId));
                     }
-                    //
-                    // Hide from Process list
-                    //
                     else if (SystemInformationClass == SystemProcessInformation ||
                              SystemInformationClass == SystemSessionProcessInformation ||
                              SystemInformationClass == SystemExtendedProcessInformation)
                     {
                         BACKUP_RETURNLENGTH();
 
-                        PSYSTEM_PROCESS_INFORMATION ProcessInfo = (PSYSTEM_PROCESS_INFORMATION)SystemInformation;
+                        auto ProcessInfo = static_cast<PSYSTEM_PROCESS_INFORMATION>(SystemInformation);
                         if (SystemInformationClass == SystemSessionProcessInformation)
                         {
-                            ProcessInfo =
-                                (PSYSTEM_PROCESS_INFORMATION)((PSYSTEM_SESSION_PROCESS_INFORMATION)SystemInformation)
-                                    ->Buffer;
+                            ProcessInfo = static_cast<PSYSTEM_PROCESS_INFORMATION>(
+                                (static_cast<PSYSTEM_SESSION_PROCESS_INFORMATION>(SystemInformation))->Buffer);
                         }
 
                         FilterProcess(ProcessInfo);
 
                         for (PSYSTEM_PROCESS_INFORMATION entry = ProcessInfo; entry->NextEntryOffset != NULL;
-                             entry = (PSYSTEM_PROCESS_INFORMATION)((UCHAR *)entry + entry->NextEntryOffset))
+                             entry = reinterpret_cast<PSYSTEM_PROCESS_INFORMATION>(reinterpret_cast<PUCHAR>(entry) +
+                                                                                   entry->NextEntryOffset))
                         {
-                            rules::PPROCESS_ENTRY processEntry2 = rules::GetProcessEntry(entry->UniqueProcessId);
+                            PPROCESS_ENTRY processEntry2 = GetProcessEntry(entry->UniqueProcessId);
 
                             SCOPE_EXIT
                             {
@@ -2385,38 +2952,41 @@ NTSTATUS NTAPI hkNtQuerySystemInformation(SYSTEM_INFORMATION_CLASS SystemInforma
                                 }
                             };
 
-                            if (processEntry2 && BooleanFlagOn(processEntry2->PolicyFlags,
-                                                               rules::ProcessPolicyFlagNtQuerySystemInformation))
+                            if (processEntry2 &&
+                                BooleanFlagOn(processEntry2->PolicyFlags, ProcessPolicyFlagNtQuerySystemInformation))
                             {
-                                PEPROCESS process = tools::GetProcessByName(processEntry2->FakeParentProcessName);
-                                if (process)
+                                if (BooleanFlagOn(processEntry2->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
                                 {
-                                    entry->InheritedFromUniqueProcessId = PsGetProcessId(process);
-                                    ObDereferenceObject(process);
-                                }
+                                    PEPROCESS process = tools::GetProcessByName(processEntry2->FakeParentProcessName);
+                                    if (process)
+                                    {
+                                        entry->InheritedFromUniqueProcessId = PsGetProcessId(process);
+                                        ObDereferenceObject(process);
+                                    }
 
-                                entry->OtherOperationCount.QuadPart = 1;
+                                    entry->OtherOperationCount.QuadPart = 1;
+
+                                    WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                                                  "Spoofed NtQuerySystemInformation(ProcessInformation) pid:%d",
+                                                  HandleToUlong(processEntry->ProcessId));
+                                }
                             }
                         }
 
                         RESTORE_RETURNLENGTH();
-
-                        WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
-                                      "Spoofed NtQuerySystemInformation(ProcessInformation) pid:%d",
-                                      HandleToUlong(processEntry->ProcessId));
                     }
-                    //
-                    // Hide from handle list
-                    //
                     else if (SystemInformationClass == SystemHandleInformation)
                     {
                         BACKUP_RETURNLENGTH();
                         ULONG ReturnLengthAdjust = 0;
 
-                        FilterHandleInfo((PSYSTEM_HANDLE_INFORMATION)SystemInformation, &ReturnLengthAdjust);
+                        FilterHandleInfo(static_cast<PSYSTEM_HANDLE_INFORMATION>(SystemInformation),
+                                         &ReturnLengthAdjust);
 
                         if (ReturnLengthAdjust <= TempReturnLength)
+                        {
                             TempReturnLength -= ReturnLengthAdjust;
+                        }
 
                         RESTORE_RETURNLENGTH();
 
@@ -2429,10 +2999,13 @@ NTSTATUS NTAPI hkNtQuerySystemInformation(SYSTEM_INFORMATION_CLASS SystemInforma
                         BACKUP_RETURNLENGTH();
                         ULONG ReturnLengthAdjust = 0;
 
-                        FilterHandleInfoEx((PSYSTEM_HANDLE_INFORMATION_EX)SystemInformation, &ReturnLengthAdjust);
+                        FilterHandleInfoEx(static_cast<PSYSTEM_HANDLE_INFORMATION_EX>(SystemInformation),
+                                           &ReturnLengthAdjust);
 
                         if (ReturnLengthAdjust <= TempReturnLength)
+                        {
                             TempReturnLength -= ReturnLengthAdjust;
+                        }
 
                         RESTORE_RETURNLENGTH();
 
@@ -2440,18 +3013,14 @@ NTSTATUS NTAPI hkNtQuerySystemInformation(SYSTEM_INFORMATION_CLASS SystemInforma
                                       "Spoofed NtQuerySystemInformation(SystemExtendedHandleInformation) pid:%d",
                                       HandleToUlong(processEntry->ProcessId));
                     }
-                    //
-                    // Spoof code integrity status
-                    //
                     else if (SystemInformationClass == SystemCodeIntegrityInformation)
                     {
                         BACKUP_RETURNLENGTH();
 
-                        auto systemInformation = PSYSTEM_CODEINTEGRITY_INFORMATION(SystemInformation);
+                        auto systemInformation = static_cast<PSYSTEM_CODEINTEGRITY_INFORMATION>(SystemInformation);
 
                         ULONG options = systemInformation->CodeIntegrityOptions;
 
-                        // fix flags
                         options &= ~CODEINTEGRITY_OPTION_DEBUGMODE_ENABLED;
                         options &= ~CODEINTEGRITY_OPTION_TESTSIGN;
                         options |= CODEINTEGRITY_OPTION_ENABLED;
@@ -2480,8 +3049,7 @@ NTSTATUS NTAPI hkNtQuerySystemInformation(SYSTEM_INFORMATION_CLASS SystemInforma
                     }
                     else if (SystemInformationClass == SystemKernelDebuggerInformation)
                     {
-                        PSYSTEM_KERNEL_DEBUGGER_INFORMATION debuggerInfo =
-                            (PSYSTEM_KERNEL_DEBUGGER_INFORMATION)SystemInformation;
+                        auto debuggerInfo = static_cast<PSYSTEM_KERNEL_DEBUGGER_INFORMATION>(SystemInformation);
 
                         BACKUP_RETURNLENGTH();
 
@@ -2496,7 +3064,7 @@ NTSTATUS NTAPI hkNtQuerySystemInformation(SYSTEM_INFORMATION_CLASS SystemInforma
                     }
                     else if (SystemInformationClass == SystemKernelDebuggerInformationEx)
                     {
-                        auto debuggerInfoEx = PSYSTEM_KERNEL_DEBUGGER_INFORMATION_EX(SystemInformation);
+                        auto debuggerInfoEx = static_cast<PSYSTEM_KERNEL_DEBUGGER_INFORMATION_EX>(SystemInformation);
 
                         BACKUP_RETURNLENGTH();
 
@@ -2514,7 +3082,7 @@ NTSTATUS NTAPI hkNtQuerySystemInformation(SYSTEM_INFORMATION_CLASS SystemInforma
                     {
                         BACKUP_RETURNLENGTH();
 
-                        *(PUCHAR)SystemInformation = 0;
+                        *reinterpret_cast<PUCHAR>(SystemInformation) = 0;
 
                         RESTORE_RETURNLENGTH();
 
@@ -2525,8 +3093,15 @@ NTSTATUS NTAPI hkNtQuerySystemInformation(SYSTEM_INFORMATION_CLASS SystemInforma
                 }
                 __except (EXCEPTION_EXECUTE_HANDLER)
                 {
-                    return GetExceptionCode();
+                    status = GetExceptionCode();
                 }
+            }
+
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagMonitored))
+            {
+                WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
+                              "NtQuerySystemInformation from pid %u SystemInformationClass = %u returned %!STATUS!\n",
+                              HandleToUlong(PsGetCurrentProcessId()), SystemInformationClass, status);
             }
         }
     }
@@ -2538,13 +3113,13 @@ NTSTATUS NTAPI hkNtLoadDriver(PUNICODE_STRING DriverServiceName)
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtLoadDriver"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -2557,9 +3132,9 @@ NTSTATUS NTAPI hkNtLoadDriver(PUNICODE_STRING DriverServiceName)
 
         // (1) check if the process is blacklisted (2) check if hook is meant to be intercepted
         //
-        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtLoadDriver))
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtLoadDriver))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
             {
                 // (3) Block loading of driver
                 //
@@ -2601,7 +3176,7 @@ HWND NTAPI hkNtUserWindowFromPoint(LONG x, LONG y)
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtUserWindowFromPoint"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const HWND resultHwnd = reinterpret_cast<decltype(&hkNtUserWindowFromPoint)>(hookEntry->Original)(x, y);
 
@@ -2609,7 +3184,7 @@ HWND NTAPI hkNtUserWindowFromPoint(LONG x, LONG y)
     if (previousMode == UserMode)
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -2622,13 +3197,13 @@ HWND NTAPI hkNtUserWindowFromPoint(LONG x, LONG y)
 
         // (1) check if the process is blacklisted (2) check if hook is meant to be intercepted
         //
-        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtUserWindowFromPoint))
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtUserWindowFromPoint))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
             {
                 const HANDLE processId = reinterpret_cast<decltype(&hkNtUserQueryWindow)>(
                     FindHookEntry(FNV("NtUserQueryWindow"))->Original)(resultHwnd, WindowProcess);
-                if (rules::IsHijackedProcess(processId))
+                if (IsProtectedProcess(processId))
                 {
                     return NtUserGetThreadState(THREADSTATE_ACTIVEWINDOW);
                 }
@@ -2643,13 +3218,13 @@ HANDLE NTAPI hkNtUserQueryWindow(HWND WindowHandle, WINDOWINFOCLASS WindowInfo)
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtUserQueryWindow"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const KPROCESSOR_MODE previousMode = ExGetPreviousMode();
     if (previousMode == UserMode)
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -2662,15 +3237,15 @@ HANDLE NTAPI hkNtUserQueryWindow(HWND WindowHandle, WINDOWINFOCLASS WindowInfo)
 
         // (1) check if the process is blacklisted (2) check if hook is meant to be intercepted
         //
-        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtUserQueryWindow))
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtUserQueryWindow))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
             {
                 // Spoof result if trying to query protected process
                 //
                 const HANDLE processId =
                     reinterpret_cast<decltype(&hkNtUserQueryWindow)>(hookEntry->Original)(WindowHandle, WindowProcess);
-                if (rules::IsHijackedProcess(processId))
+                if (IsProtectedProcess(processId))
                 {
                     switch (WindowInfo)
                     {
@@ -2695,7 +3270,7 @@ HWND NTAPI hkNtUserFindWindowEx(HWND hWndParent, HWND hWndChildAfter, PUNICODE_S
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtUserFindWindowEx"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const HWND resultHwnd = reinterpret_cast<decltype(&hkNtUserFindWindowEx)>(hookEntry->Original)(
         hWndParent, hWndChildAfter, lpszClass, lpszWindow, dwType);
@@ -2704,7 +3279,7 @@ HWND NTAPI hkNtUserFindWindowEx(HWND hWndParent, HWND hWndChildAfter, PUNICODE_S
     if (previousMode == UserMode)
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -2718,15 +3293,15 @@ HWND NTAPI hkNtUserFindWindowEx(HWND hWndParent, HWND hWndChildAfter, PUNICODE_S
         // (1) check if the process is blacklisted (2) check if hook is meant to be intercepted
         //
         if (resultHwnd &&
-            (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtUserFindWindowEx)))
+            (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtUserFindWindowEx)))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
             {
                 // Spoof result if trying to query protected process
                 //
                 const HANDLE processId = reinterpret_cast<decltype(&hkNtUserQueryWindow)>(
                     FindHookEntry(FNV("NtUserQueryWindow"))->Original)(resultHwnd, WindowProcess);
-                if (rules::IsHijackedProcess(processId))
+                if (IsProtectedProcess(processId))
                 {
                     return 0;
                 }
@@ -2745,7 +3320,7 @@ void FilterHwndList(HWND *phwndFirst, PULONG pcHwndNeeded)
         HANDLE processId = reinterpret_cast<decltype(&hkNtUserQueryWindow)>(
             FindHookEntry(FNV("NtUserQueryWindow"))->Original)(phwndFirst[i], WindowProcess);
 
-        if (phwndFirst[i] != nullptr && rules::IsHijackedProcess(processId))
+        if (phwndFirst[i] != nullptr && IsProtectedProcess(processId))
         {
             if (i == 0)
             {
@@ -2755,7 +3330,7 @@ void FilterHwndList(HWND *phwndFirst, PULONG pcHwndNeeded)
                     processId = reinterpret_cast<decltype(&hkNtUserQueryWindow)>(
                         FindHookEntry(FNV("NtUserQueryWindow"))->Original)(phwndFirst[j], WindowProcess);
 
-                    if (phwndFirst[j] != nullptr && !rules::IsHijackedProcess(processId))
+                    if (phwndFirst[j] != nullptr && !IsProtectedProcess(processId))
                     {
                         phwndFirst[i] = phwndFirst[j];
                         break;
@@ -2776,7 +3351,7 @@ NTSTATUS NTAPI hkNtUserBuildHwndList_Win7(HDESK hdesk, HWND hwndNext, ULONG fEnu
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtUserBuildHwndList"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const NTSTATUS status = reinterpret_cast<decltype(&hkNtUserBuildHwndList_Win7)>(hookEntry->Original)(
         hdesk, hwndNext, fEnumChildren, idThread, cHwndMax, phwndFirst, pcHwndNeeded);
@@ -2787,7 +3362,7 @@ NTSTATUS NTAPI hkNtUserBuildHwndList_Win7(HDESK hdesk, HWND hwndNext, ULONG fEnu
         if (NT_SUCCESS(status) && phwndFirst && pcHwndNeeded)
         {
             const HANDLE currentProcessId = PsGetCurrentProcessId();
-            rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+            PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
             SCOPE_EXIT
             {
@@ -2800,9 +3375,9 @@ NTSTATUS NTAPI hkNtUserBuildHwndList_Win7(HDESK hdesk, HWND hwndNext, ULONG fEnu
 
             // (1) check if the process is blacklisted (2) check if hook is meant to be intercepted
             //
-            if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtUserBuildHwndList))
+            if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtUserBuildHwndList))
             {
-                if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
+                if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
                 {
                     FilterHwndList(phwndFirst, pcHwndNeeded);
                 }
@@ -2818,7 +3393,7 @@ NTSTATUS NTAPI hkNtUserBuildHwndList(HDESK hDesktop, HWND hwndParent, BOOLEAN bC
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtUserBuildHwndList"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const NTSTATUS status = reinterpret_cast<decltype(&hkNtUserBuildHwndList)>(hookEntry->Original)(
         hDesktop, hwndParent, bChildren, bUnknownFlag, dwThreadId, lParam, pWnd, pBufSize);
@@ -2829,7 +3404,7 @@ NTSTATUS NTAPI hkNtUserBuildHwndList(HDESK hDesktop, HWND hwndParent, BOOLEAN bC
         if (NT_SUCCESS(status) && pWnd && pBufSize)
         {
             const HANDLE currentProcessId = PsGetCurrentProcessId();
-            rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+            PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
             SCOPE_EXIT
             {
@@ -2842,9 +3417,9 @@ NTSTATUS NTAPI hkNtUserBuildHwndList(HDESK hDesktop, HWND hwndParent, BOOLEAN bC
 
             // (1) check if the process is blacklisted (2) check if hook is meant to be intercepted
             //
-            if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtUserBuildHwndList))
+            if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtUserBuildHwndList))
             {
-                if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
+                if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
                 {
                     FilterHwndList(pWnd, pBufSize);
                 }
@@ -2859,7 +3434,7 @@ HWND NTAPI hkNtUserGetForegroundWindow(VOID)
     PAGED_CODE();
 
     const PHOOK_ENTRY hookEntry = FindHookEntry(FNV("NtUserGetForegroundWindow"));
-    const AutoRefCount lock(&hookEntry->RefCount);
+    const ScopedReferenceGuard lock(&hookEntry->RefCount);
 
     const HWND resultHwnd = reinterpret_cast<decltype(&hkNtUserGetForegroundWindow)>(hookEntry->Original)();
 
@@ -2867,7 +3442,7 @@ HWND NTAPI hkNtUserGetForegroundWindow(VOID)
     if (previousMode == UserMode)
     {
         const HANDLE currentProcessId = PsGetCurrentProcessId();
-        rules::PPROCESS_ENTRY processEntry = rules::GetProcessEntry(currentProcessId);
+        PPROCESS_ENTRY processEntry = GetProcessEntry(currentProcessId);
 
         SCOPE_EXIT
         {
@@ -2880,15 +3455,15 @@ HWND NTAPI hkNtUserGetForegroundWindow(VOID)
 
         // (1) check if the process is blacklisted (2) check if hook is meant to be intercepted
         //
-        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagNtUserGetForegroundWindow))
+        if (processEntry && BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagNtUserGetForegroundWindow))
         {
-            if (BooleanFlagOn(processEntry->PolicyFlags, rules::ProcessPolicyFlagHideFromDebugger))
+            if (BooleanFlagOn(processEntry->PolicyFlags, ProcessPolicyFlagHideFromDebugger))
             {
                 // Spoof result if trying to query protected process
                 //
                 const HANDLE processId = reinterpret_cast<decltype(&hkNtUserQueryWindow)>(
                     FindHookEntry(FNV("NtUserQueryWindow"))->Original)(resultHwnd, WindowProcess);
-                if (rules::IsHijackedProcess(processId))
+                if (IsProtectedProcess(processId))
                 {
                     return NtUserGetThreadState(THREADSTATE_ACTIVEWINDOW);
                 }

@@ -4,9 +4,6 @@ namespace masterhide
 {
 namespace syscalls
 {
-static UNICODE_STRING g_NtdllPath = RTL_CONSTANT_STRING(L"\\SystemRoot\\System32\\ntdll.dll");
-static UNICODE_STRING g_Win32UPath = RTL_CONSTANT_STRING(L"\\SystemRoot\\System32\\win32u.dll");
-
 /// <summary>
 /// Initialize and fill the syscall dynamic hash table.
 /// </summary>
@@ -18,6 +15,19 @@ NTSTATUS Initialize();
 /// </summary>
 void Deinitialize();
 
+/// <summary>
+/// Obtain syscall index by service name
+/// </summary>
+/// <param name="serviceName">Service name</param>
+/// <returns>MAXUSHORT on failure, otherwise syscall index</returns>
 USHORT GetSyscallIndexByName(_In_ LPCSTR serviceName);
+
+/// <summary>
+/// Obtain syscall routine address by service name
+/// </summary>
+/// <param name="serviceName">Service routine name</param>
+/// <param name="win32k">Is Win32k table?</param>
+/// <returns>nullptr on failure, otherwise syscall routine address</returns>
+PVOID GetSyscallRoutineByName(_In_ LPCSTR serviceName, _In_ bool win32k);
 } // namespace syscalls
 } // namespace masterhide

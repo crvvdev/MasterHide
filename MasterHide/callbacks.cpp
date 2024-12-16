@@ -2,6 +2,9 @@
 
 namespace masterhide
 {
+using namespace process;
+using namespace rules;
+
 namespace callbacks
 {
 VOID CreateProcessNotifyRoutineEx(_Inout_ PEPROCESS Process, _In_ HANDLE ProcessId,
@@ -57,7 +60,7 @@ VOID CreateProcessNotifyRoutineEx(_Inout_ PEPROCESS process, _In_ HANDLE process
     {
         if (createInfo->ImageFileName)
         {
-            rules::PPROCESS_RULE_ENTRY processRuleEntry = rules::GetProcessRuleEntry(createInfo->ImageFileName);
+            PPROCESS_RULE_ENTRY processRuleEntry = GetProcessRuleEntry(createInfo->ImageFileName);
 
             // If there's a rule for the creating process
             //
@@ -65,7 +68,7 @@ VOID CreateProcessNotifyRoutineEx(_Inout_ PEPROCESS process, _In_ HANDLE process
             {
                 // Proceed to create a process entry
                 //
-                const NTSTATUS status = rules::AddProcessEntry(process, processRuleEntry->PolicyFlags);
+                const NTSTATUS status = AddProcessEntry(process, processRuleEntry->PolicyFlags);
                 if (NT_SUCCESS(status))
                 {
                     WppTracePrint(TRACE_LEVEL_VERBOSE, GENERAL,
@@ -74,7 +77,7 @@ VOID CreateProcessNotifyRoutineEx(_Inout_ PEPROCESS process, _In_ HANDLE process
                 }
                 else
                 {
-                    WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to create process entry!");
+                    WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to add process entry %!STATUS!", status);
                 }
 
                 object::DereferenceObject(processRuleEntry);
@@ -85,7 +88,7 @@ VOID CreateProcessNotifyRoutineEx(_Inout_ PEPROCESS process, _In_ HANDLE process
     {
         // Will remove if on list
         //
-        if (NT_SUCCESS(rules::RemoveProcessEntry(processId)))
+        if (NT_SUCCESS(RemoveProcessEntry(processId)))
         {
             WppTracePrint(TRACE_LEVEL_VERBOSE, GENERAL, "Removed process entry pid:%d", HandleToUlong(processId));
         }
