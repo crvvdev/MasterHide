@@ -9,6 +9,8 @@ static PDEVICE_OBJECT g_deviceObject = nullptr;
 #define IOCTL_MASTERHIDE_ADD_RULE CTL_CODE(FILE_DEVICE_UNKNOWN, 0, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
 #define IOCTL_MASTERHIDE_REMOVE_RULE CTL_CODE(FILE_DEVICE_UNKNOWN, 1, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
 #define IOCTL_MASTERHIDE_UPDATE_RULE CTL_CODE(FILE_DEVICE_UNKNOWN, 2, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
+#define IOCTL_MASTERHIDE_PROCESS_RESUME CTL_CODE(FILE_DEVICE_UNKNOWN, 3, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
+#define IOCTL_MASTERHIDE_PROCESS_STOP CTL_CODE(FILE_DEVICE_UNKNOWN, 4, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
 
 void Test()
 {
@@ -95,54 +97,148 @@ static NTSTATUS DispatchCreateClose(_In_ PDEVICE_OBJECT deviceObject, _Inout_ PI
     return STATUS_SUCCESS;
 }
 
+typedef struct _PROCESS_RULE
+{
+    UNICODE_STRING ImageFileName;
+    ULONG ProcessId;
+    BOOLEAN UseProcessId;
+    LONG64 PolicyFlags;
+
+} PROCESS_RULE, *PPROCESS_RULE;
+
 static NTSTATUS DispatchDeviceControl(_In_ PDEVICE_OBJECT deviceObject, _Inout_ PIRP irp)
 {
     UNREFERENCED_PARAMETER(deviceObject);
 
-    NTSTATUS status = STATUS_NOT_IMPLEMENTED;
-
     PIO_STACK_LOCATION irpStack = IoGetCurrentIrpStackLocation(irp);
     ULONG controlCode = irpStack->Parameters.DeviceIoControl.IoControlCode;
 
-    switch (controlCode)
+    NTSTATUS status = STATUS_SUCCESS;
+
+    __try
     {
-    case IOCTL_MASTERHIDE_ADD_RULE: {
-        ULONG *Pid = (ULONG *)Irp->AssociatedIrp.SystemBuffer;
-        if (Hider::CreateEntry(IoGetCurrentProcess(), PidToProcess(*Pid)) == FALSE)
-            Status = STATUS_UNSUCCESSFUL;
-        else
-            g_HyperHide.NumberOfActiveDebuggers++;
-        break;
-    }
+        switch (controlCode)
+        {
+        case IOCTL_MASTERHIDE_ADD_RULE: {
 
-    case IOCTL_MASTERHIDE_REMOVE_RULE: {
-        ULONG *Pid = (ULONG *)Irp->AssociatedIrp.SystemBuffer;
-        if (Hider::RemoveEntry(PidToProcess(*Pid)) == FALSE)
-            Status = STATUS_UNSUCCESSFUL;
-        else
-            g_HyperHide.NumberOfActiveDebuggers--;
-        break;
-    }
+            auto processRule = static_cast<PPROCESS_RULE>(irp->AssociatedIrp.SystemBuffer);
 
-    case IOCTL_PROCESS_RESUMED: {
-        ULONG *Pid = (ULONG *)Irp->AssociatedIrp.SystemBuffer;
-        UpdateDelta(PidToProcess(*Pid));
-        if (Hider::ResumeCounterForProcess(PidToProcess(*Pid)) == FALSE)
-            Status = STATUS_UNSUCCESSFUL;
-        break;
-    }
+            if (processRule->UseProcessId)
+            {
+                if (!NT_SUCCESS(
+                        process::AddProcessEntry(UlongToHandle(processRule->ProcessId), processRule->PolicyFlags)))
+                {
+                    status = STATUS_UNSUCCESSFUL;
+                }
+            }
+            else
+            {
+                if (!NT_SUCCESS(
+                        process::rules::AddProcessRuleEntry(&processRule->ImageFileName, processRule->PolicyFlags)))
+                {
+                    status = STATUS_UNSUCCESSFUL;
+                }
+            }
 
-    case IOCTL_PROCESS_STOPPED: {
-        ULONG *Pid = (ULONG *)Irp->AssociatedIrp.SystemBuffer;
-        GetBegin(PidToProcess(*Pid));
+            break;
+        }
+        case IOCTL_MASTERHIDE_UPDATE_RULE: {
 
-        if (Hider::StopCounterForProcess(PidToProcess(*Pid)) == FALSE)
-            Status = STATUS_UNSUCCESSFUL;
-        break;
+            auto processRule = static_cast<PPROCESS_RULE>(irp->AssociatedIrp.SystemBuffer);
+
+            if (processRule->UseProcessId)
+            {
+                if (!NT_SUCCESS(
+                        process::UpdateProcessEntry(UlongToHandle(processRule->ProcessId), processRule->PolicyFlags)))
+                {
+                    status = STATUS_UNSUCCESSFUL;
+                }
+            }
+            else
+            {
+                if (!NT_SUCCESS(
+                        process::rules::UpdateProcessRuleEntry(&processRule->ImageFileName, processRule->PolicyFlags)))
+                {
+                    status = STATUS_UNSUCCESSFUL;
+                }
+            }
+
+            break;
+        }
+        case IOCTL_MASTERHIDE_REMOVE_RULE: {
+
+            auto processRule = static_cast<PPROCESS_RULE>(irp->AssociatedIrp.SystemBuffer);
+
+            if (processRule->UseProcessId)
+            {
+                if (!NT_SUCCESS(process::RemoveProcessEntry(UlongToHandle(processRule->ProcessId))))
+                {
+                    status = STATUS_UNSUCCESSFUL;
+                }
+            }
+            else
+            {
+                if (!NT_SUCCESS(process::rules::RemoveProcessRuleEntry(&processRule->ImageFileName)))
+                {
+                    status = STATUS_UNSUCCESSFUL;
+                }
+            }
+
+            break;
+        }
+        case IOCTL_MASTERHIDE_PROCESS_RESUME: {
+
+            auto processId = static_cast<PULONG>(irp->AssociatedIrp.SystemBuffer);
+
+            PEPROCESS process = nullptr;
+            if (NT_SUCCESS(PsLookupProcessByProcessId(UlongToHandle(*processId), &process)))
+            {
+                process::UpdateDelta(process);
+
+                if (process::ResumeCounterForProcess(process) == FALSE)
+                {
+                    status = STATUS_UNSUCCESSFUL;
+                }
+
+                ObDereferenceObject(process);
+            }
+            else
+            {
+                status = STATUS_UNSUCCESSFUL;
+            }
+            break;
+        }
+        case IOCTL_MASTERHIDE_PROCESS_STOP: {
+
+            auto processId = static_cast<PULONG>(irp->AssociatedIrp.SystemBuffer);
+
+            PEPROCESS process = nullptr;
+            if (NT_SUCCESS(PsLookupProcessByProcessId(UlongToHandle(*processId), &process)))
+            {
+                process::GetBegin(process);
+
+                if (process::StopCounterForProcess(process) == FALSE)
+                {
+                    status = STATUS_UNSUCCESSFUL;
+                }
+
+                ObDereferenceObject(process);
+            }
+            else
+            {
+                status = STATUS_UNSUCCESSFUL;
+            }
+            break;
+        }
+        default:
+            status = STATUS_INVALID_DEVICE_REQUEST;
+            break;
+        }
     }
-    default:
-        status = STATUS_INVALID_DEVICE_REQUEST;
-        break;
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        status = GetExceptionCode();
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Exception in dispatch handler %!STATUS!", status);
     }
 
     irp->IoStatus.Status = status;
@@ -161,11 +257,10 @@ extern "C" NTSTATUS NTAPI DriverEntry(PDRIVER_OBJECT driverObject, PUNICODE_STRI
     WPP_INIT_TRACING(driverObject, registryPath);
     WppTracePrint(TRACE_LEVEL_INFORMATION, GENERAL, "MasterHide driver is loading");
 
-    *(PULONG)((PCHAR)driverObject->DriverSection + 13 * sizeof(void *)) |= 0x20;
-
     // (1) Setup driver object
     //
-    status = IoCreateDevice(driverObject, 0, &g_deviceName, FILE_DEVICE_UNKNOWN, 0, FALSE, &g_deviceObject);
+    status = IoCreateDevice(driverObject, 0, &g_deviceName, FILE_DEVICE_UNKNOWN, FILE_DEVICE_SECURE_OPEN, FALSE,
+                            &g_deviceObject);
     if (!NT_SUCCESS(status))
     {
         WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "IoCreateDevice returned %!STATUS!", status);
@@ -183,6 +278,7 @@ extern "C" NTSTATUS NTAPI DriverEntry(PDRIVER_OBJECT driverObject, PUNICODE_STRI
     driverObject->MajorFunction[IRP_MJ_CLOSE] = DispatchCreateClose;
     driverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = DispatchDeviceControl;
     driverObject->DriverUnload = &DriverUnload;
+    driverObject->Flags |= DO_BUFFERED_IO;
 
     // (2) Attach to Win32K process memory space
     //

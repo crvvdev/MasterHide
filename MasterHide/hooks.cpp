@@ -2811,26 +2811,6 @@ void FilterHandleInfoEx(PSYSTEM_HANDLE_INFORMATION_EX pHandleInfoEx, PULONG pRet
     }
 }
 
-void FilterModuleInfoEx(PRTL_PROCESS_MODULES pModules, PULONG pReturnLengthAdjust)
-{
-    *pReturnLengthAdjust = 0;
-    const ULONG TrueCount = (ULONG)pModules->NumberOfModules;
-    for (ULONG i = 0; i < TrueCount; ++i)
-    {
-        if (IsWhitelistedDriver((PCHAR)pModules->Modules[i].FullPathName))
-        {
-            pModules->NumberOfModules--;
-            *pReturnLengthAdjust += sizeof(RTL_PROCESS_MODULES);
-            for (ULONG j = i; j < TrueCount - 1; ++j)
-            {
-                pModules->Modules[j] = pModules->Modules[j + 1];
-                RtlZeroMemory(&pModules->Modules[j + 1], sizeof(pModules->Modules[j + 1]));
-            }
-            i--;
-        }
-    }
-}
-
 void FilterProcess(PSYSTEM_PROCESS_INFORMATION pInfo)
 {
     PSYSTEM_PROCESS_INFORMATION pPrev = pInfo;
@@ -2906,25 +2886,9 @@ NTSTATUS NTAPI hkNtQuerySystemInformation(SYSTEM_INFORMATION_CLASS SystemInforma
                 {
                     ProbeForWrite(SystemInformation, SystemInformationLength, 1);
 
-                    if (SystemInformationClass == SystemModuleInformation)
-                    {
-                        BACKUP_RETURNLENGTH();
-                        ULONG ReturnLengthAdjust = 0;
-
-                        FilterModuleInfoEx(PRTL_PROCESS_MODULES(SystemInformation), &ReturnLengthAdjust);
-
-                        if (ReturnLengthAdjust <= TempReturnLength)
-                            TempReturnLength -= ReturnLengthAdjust;
-
-                        RESTORE_RETURNLENGTH();
-
-                        WppTracePrint(TRACE_LEVEL_VERBOSE, HOOKS,
-                                      "NtQuerySystemInformation(SystemModuleInformation) pid:%d",
-                                      HandleToUlong(processEntry->ProcessId));
-                    }
-                    else if (SystemInformationClass == SystemProcessInformation ||
-                             SystemInformationClass == SystemSessionProcessInformation ||
-                             SystemInformationClass == SystemExtendedProcessInformation)
+                    if (SystemInformationClass == SystemProcessInformation ||
+                        SystemInformationClass == SystemSessionProcessInformation ||
+                        SystemInformationClass == SystemExtendedProcessInformation)
                     {
                         BACKUP_RETURNLENGTH();
 

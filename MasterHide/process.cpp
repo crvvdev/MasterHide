@@ -976,6 +976,28 @@ NTSTATUS AddProcessEntry(_In_ PEPROCESS process, _In_ ProcessPolicyFlag_t flags)
     return STATUS_SUCCESS;
 }
 
+NTSTATUS AddProcessEntry(_In_ HANDLE processId, _In_ ProcessPolicyFlag_t flags)
+{
+    PAGED_CODE();
+    NT_ASSERT(g_initialized);
+
+    PEPROCESS process = nullptr;
+    NTSTATUS status = PsLookupProcessByProcessId(processId, &process);
+    if (!NT_SUCCESS(status))
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "PsLookupProcessByProcessId returned %!STATUS!", status);
+
+        return status;
+    }
+
+    SCOPE_EXIT
+    {
+        ObDereferenceObject(process);
+    };
+
+    return AddProcessEntry(process, flags);
+}
+
 NTSTATUS RemoveProcessEntry(_In_ HANDLE processId)
 {
     PAGED_CODE();
@@ -1150,6 +1172,58 @@ NTSTATUS ModifyCounterForProcess(_In_ PEPROCESS process, _In_ BOOLEAN value)
                 if (processEntry->Process == process)
                 {
                     processEntry->Flags.ProcessPaused = value;
+                    return true;
+                }
+                return false;
+            }))
+        {
+            status = STATUS_SUCCESS;
+        }
+        g_processResource.Unlock();
+    }
+    return status;
+}
+
+BOOLEAN StopCounterForProcess(_In_ PEPROCESS process)
+{
+    PAGED_CODE();
+    NT_ASSERT(g_initialized);
+    NT_ASSERT(process);
+
+    BOOLEAN status = FALSE;
+
+    if (g_processResource.LockExclusive())
+    {
+        if (EnumProcessesUnsafe([&](_In_ PPROCESS_ENTRY processEntry) -> bool {
+                if (processEntry->Process == process)
+                {
+                    status = (processEntry->Flags.ProcessPaused = TRUE);
+                    return true;
+                }
+                return false;
+            }))
+        {
+            status = STATUS_SUCCESS;
+        }
+        g_processResource.Unlock();
+    }
+    return status;
+}
+
+BOOLEAN ResumeCounterForProcess(_In_ PEPROCESS process)
+{
+    PAGED_CODE();
+    NT_ASSERT(g_initialized);
+    NT_ASSERT(process);
+
+    BOOLEAN status = FALSE;
+
+    if (g_processResource.LockExclusive())
+    {
+        if (EnumProcessesUnsafe([&](_In_ PPROCESS_ENTRY processEntry) -> bool {
+                if (processEntry->Process == process)
+                {
+                    status = (processEntry->Flags.ProcessPaused = FALSE);
                     return true;
                 }
                 return false;
@@ -1371,7 +1445,7 @@ NTSTATUS AddProcessRuleEntry(_In_ PUNICODE_STRING imageFileName, _In_ ProcessPol
 
         WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "RtlUnicodeStringCopy returned %!STATUS!", status);
 
-        return STATUS_INVALID_PARAMETER;
+        return status;
     }
 
     InsertTailList(&g_processRuleListHead, &processRuleEntry->ListEntry);
@@ -1389,7 +1463,7 @@ PPROCESS_RULE_ENTRY GetProcessRuleEntry(_In_ PCUNICODE_STRING imageFileName)
 
     if (g_processRuleResource.LockShared())
     {
-        EnumRuleProcessesUnsafe([&](PPROCESS_RULE_ENTRY processRuleEntry) -> bool {
+        EnumRuleProcessesUnsafe([&](_In_ PPROCESS_RULE_ENTRY processRuleEntry) -> bool {
             if (!RtlCompareUnicodeString(&processRuleEntry->ImageFileName, imageFileName, TRUE))
             {
                 object::ReferenceObject(processRuleEntry);
@@ -1403,6 +1477,62 @@ PPROCESS_RULE_ENTRY GetProcessRuleEntry(_In_ PCUNICODE_STRING imageFileName)
     }
 
     return resultProcessRuleEntry;
+}
+
+NTSTATUS UpdateProcessRuleEntry(_In_ PUNICODE_STRING imageFileName, _In_ ProcessPolicyFlag_t flags)
+{
+    PAGED_CODE();
+    NT_ASSERT(g_initialized);
+    NT_ASSERT(imageFileName);
+
+    NTSTATUS status = STATUS_NOT_CAPABLE;
+
+    if (g_processRuleResource.LockExclusive())
+    {
+        if (EnumRuleProcessesUnsafe([&](_In_ PPROCESS_RULE_ENTRY processRuleEntry) -> bool {
+                if (!RtlCompareUnicodeString(&processRuleEntry->ImageFileName, imageFileName, TRUE))
+                {
+                    processRuleEntry->PolicyFlags = flags;
+                    return true;
+                }
+                return false;
+            }))
+        {
+            status = STATUS_SUCCESS;
+        }
+
+        g_processRuleResource.Unlock();
+    }
+
+    return status;
+}
+
+NTSTATUS RemoveProcessRuleEntry(_In_ PCUNICODE_STRING imageFileName)
+{
+    PAGED_CODE();
+    NT_ASSERT(g_initialized);
+    NT_ASSERT(imageFileName);
+
+    NTSTATUS status = STATUS_NOT_CAPABLE;
+
+    if (g_processRuleResource.LockExclusive())
+    {
+        if (EnumRuleProcessesUnsafe([&](_In_ PPROCESS_RULE_ENTRY processRuleEntry) -> bool {
+                if (!RtlCompareUnicodeString(&processRuleEntry->ImageFileName, imageFileName, TRUE))
+                {
+                    RemoveEntryList(&processRuleEntry->ListEntry);
+                    return true;
+                }
+                return false;
+            }))
+        {
+            status = STATUS_SUCCESS;
+        }
+
+        g_processRuleResource.Unlock();
+    }
+
+    return status;
 }
 } // namespace rules
 } // namespace process

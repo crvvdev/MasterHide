@@ -211,8 +211,6 @@ void DeleteProcessEntry(_In_ PVOID object);
 NTSTATUS RemoveProcessEntry(_In_ PEPROCESS process);
 NTSTATUS RemoveProcessEntry(_In_ HANDLE processId);
 
-[[nodiscard]] bool IsWhitelistedDriver(_In_ LPCSTR driverName);
-
 [[nodiscard]] bool IsProtectedProcess(_In_ HANDLE processId);
 [[nodiscard]] bool IsProtectedProcess(_In_ PEPROCESS process);
 [[nodiscard]] bool IsProtectedProcess(_In_ PUNICODE_STRING processFullPath);
@@ -225,7 +223,11 @@ NTSTATUS RemoveProcessEntry(_In_ HANDLE processId);
 [[nodiscard]] bool IsHiddenFromDebugProcess(_In_ PEPROCESS process);
 [[nodiscard]] bool IsHiddenFromDebugProcess(_In_ PUNICODE_STRING processFullPath);
 
+void GetBegin(_In_ PEPROCESS process);
+void UpdateDelta(_In_ PEPROCESS process);
 void CounterUpdater(PVOID Context);
+BOOLEAN StopCounterForProcess(_In_ PEPROCESS process);
+BOOLEAN ResumeCounterForProcess(_In_ PEPROCESS process);
 NTSTATUS ModifyCounterForProcess(_In_ PEPROCESS process, _In_ BOOLEAN status);
 
 bool ClearHeapFlags(PEPROCESS process);
@@ -301,13 +303,12 @@ template <typename Callback = ENUM_RULE_PROCESSES_CALLBACK> bool EnumRuleProcess
     return false;
 }
 
-[[nodiscard]] NTSTATUS AddProcessRuleEntry(_In_ PEPROCESS process, _In_ ProcessPolicyFlag_t flags);
-[[nodiscard]] NTSTATUS AddProcessRuleEntry(_In_ HANDLE processId, _In_ ProcessPolicyFlag_t flags);
 [[nodiscard]] NTSTATUS AddProcessRuleEntry(_In_ PUNICODE_STRING imageFileName, _In_ ProcessPolicyFlag_t flags);
 
-[[nodiscard]] PPROCESS_RULE_ENTRY GetProcessRuleEntry(_In_ PEPROCESS process);
-[[nodiscard]] PPROCESS_RULE_ENTRY GetProcessRuleEntry(_In_ HANDLE processId);
+[[nodiscard]] NTSTATUS UpdateProcessRuleEntry(_In_ PUNICODE_STRING imageFileName, _In_ ProcessPolicyFlag_t flags);
 [[nodiscard]] PPROCESS_RULE_ENTRY GetProcessRuleEntry(_In_ PCUNICODE_STRING imageFileName);
+
+NTSTATUS RemoveProcessRuleEntry(_In_ PCUNICODE_STRING imageFileName);
 } // namespace rules
 } // namespace process
 } // namespace masterhide
