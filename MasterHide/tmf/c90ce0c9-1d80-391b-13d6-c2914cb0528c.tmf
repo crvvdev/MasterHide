@@ -1,5 +1,5 @@
 // PDB:  A:\work\MasterHide\bin\Debug\MasterHide.pdb
-// PDB:  Last Updated :2024-12-27:05:34:43:817 (UTC) [tracepdb]
+// PDB:  Last Updated :2024-12-27:05:49:50:966 (UTC) [tracepdb]
 c90ce0c9-1d80-391b-13d6-c2914cb0528c MasterHide // SRC=callbacks.cpp MJ= MN=
 #typev callbacks_cpp93 14 "%0Removed process entry pid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::callbacks::CreateProcessNotifyRoutineEx
 {

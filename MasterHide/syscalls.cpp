@@ -34,7 +34,7 @@ typedef struct _SYSCALL_TABLE_ENTRY
 /// </summary>
 /// <param name="fileName">File name to extract syscalls from</param>
 /// <returns>NTSTATUS value</returns>
-static NTSTATUS FillSyscallTable(_In_ PUNICODE_STRING fileName)
+static NTSTATUS FillSyscallTable(_In_ PUNICODE_STRING fileName, _In_ bool win32k = false)
 {
     PVOID mappedBase = nullptr;
     SIZE_T mappedSize = 0;
@@ -99,7 +99,8 @@ static NTSTATUS FillSyscallTable(_In_ PUNICODE_STRING fileName)
                 if (entry)
                 {
                     const FNV1A_t serviceHash = FNV1A::Hash(exportName);
-                    entry->serviceIndex = static_cast<USHORT>(syscallNum);
+                    entry->serviceIndex =
+                        win32k ? static_cast<USHORT>(syscallNum) + 0x1000 : static_cast<USHORT>(syscallNum);
 
                     InitializeListHead(&entry->hashTableEntry.Linkage);
                     RtlInsertEntryHashTable(g_hashTable, &entry->hashTableEntry, serviceHash, &g_hashTableContext);
@@ -227,7 +228,7 @@ NTSTATUS Initialize()
     //
     if (KERNEL_BUILD_VERSION > WINDOWS_8_1)
     {
-        status = FillSyscallTable(&g_Win32UPath);
+        status = FillSyscallTable(&g_Win32UPath, true);
         if (!NT_SUCCESS(status))
         {
             ClearAndDeleteHashTable();
