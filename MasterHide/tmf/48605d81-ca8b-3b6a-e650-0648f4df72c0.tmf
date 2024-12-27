@@ -1,0 +1,28 @@
+// PDB:  A:\work\MasterHide\bin\Debug\MasterHide.pdb
+// PDB:  Last Updated :2024-12-26:19:29:08:084 (UTC) [tracepdb]
+48605d81-ca8b-3b6a-e650-0648f4df72c0 MasterHide // SRC=infinityhook.cpp MJ= MN=
+#typev infinityhook_cpp35 11 "%0ModifyTraceSettings(CKCL_TRACE_SYSCALL) failed %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=InitializeInfinityHook
+{
+status, ItemNTSTATUS -- 10
+}
+#typev infinityhook_cpp24 10 "%0ModifyTraceSettings(CKCL_TRACE_START) failed %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=InitializeInfinityHook
+{
+status, ItemNTSTATUS -- 10
+}
+#typev infinityhook_cpp271 16 "%0RtlStringCchCopyW failed %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=ModifyTraceSettings
+{
+status, ItemNTSTATUS -- 10
+}
+#typev infinityhook_cpp256 15 "%0Could not allocate memory for provider name!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=ModifyTraceSettings
+{
+}
+#typev infinityhook_cpp241 14 "%0Could not allocate memory for trace properties!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=ModifyTraceSettings
+{
+}
+#typev infinityhook_cpp224 13 "%0PsCreateSystemThread returned %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=StartSyscallHook
+{
+status, ItemNTSTATUS -- 10
+}
+#typev infinityhook_cpp188 12 "%0Invalid g_GetCpuClock!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=StartSyscallHook
+{
+}

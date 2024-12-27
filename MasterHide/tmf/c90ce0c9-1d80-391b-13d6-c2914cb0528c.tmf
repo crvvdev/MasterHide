@@ -1,0 +1,24 @@
+// PDB:  A:\work\MasterHide\bin\Debug\MasterHide.pdb
+// PDB:  Last Updated :2024-12-27:04:18:49:382 (UTC) [tracepdb]
+c90ce0c9-1d80-391b-13d6-c2914cb0528c MasterHide // SRC=callbacks.cpp MJ= MN=
+#typev callbacks_cpp93 14 "%0Removed process entry pid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::callbacks::CreateProcessNotifyRoutineEx
+{
+HandleToUlong(ProcessId), ItemLong -- 10
+}
+#typev callbacks_cpp81 13 "%0Failed to add process entry %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=masterhide::callbacks::CreateProcessNotifyRoutineEx
+{
+status, ItemNTSTATUS -- 10
+}
+#typev callbacks_cpp75 12 "%0Successfully added process rule entry imageName:%10!s! pid:%11!d! policyFlags:%12!I64d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::callbacks::CreateProcessNotifyRoutineEx
+{
+CreateInfo->ImageFileName, ItemPWString -- 10
+HandleToUlong(ProcessId), ItemLong -- 11
+processRuleEntry->PolicyFlags, ItemLongLong -- 12
+}
+#typev callbacks_cpp50 11 "%0Successfully de-initialized callbacks interface!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::callbacks::Deinitialize
+{
+}
+#typev callbacks_cpp28 10 "%0PsSetCreateProcessNotifyRoutine returned %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=masterhide::callbacks::Initialize
+{
+status, ItemNTSTATUS -- 10
+}

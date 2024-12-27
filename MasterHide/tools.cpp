@@ -736,5 +736,13 @@ UCHAR *FindCodeCave(UCHAR *const startAddress, ULONG searchSize, ULONG sizeNeede
     return nullptr;
 }
 
+KPROCESSOR_MODE SetPreviousMode(KPROCESSOR_MODE NewMode, ULONG_PTR thread)
+{
+    auto ret = *(UCHAR *)(thread + 0x1f6);
+    *(UCHAR *)(thread + 0x1f6) = NewMode;
+
+    return ret;
+};
+
 } // namespace tools
 }; // namespace masterhide

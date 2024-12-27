@@ -19,6 +19,8 @@ PRTL_DYNAMIC_HASH_TABLE g_hashTable = nullptr;
 /// </summary>
 RTL_DYNAMIC_HASH_TABLE_CONTEXT g_hashTableContext{};
 
+void ClearAndDeleteHashTable();
+
 typedef struct _SYSCALL_TABLE_ENTRY
 {
     RTL_DYNAMIC_HASH_TABLE_ENTRY hashTableEntry;
@@ -51,12 +53,10 @@ static NTSTATUS FillSyscallTable(_In_ PUNICODE_STRING fileName)
 
     __try
     {
-        PIMAGE_NT_HEADERS nth = nullptr;
-
-        status = RtlImageNtHeaderEx(NULL, mappedBase, mappedSize, &nth);
-        if (!NT_SUCCESS(status))
+        PIMAGE_NT_HEADERS nth = RtlImageNtHeader(mappedBase);
+        if (!nth)
         {
-            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "RtlImageNtHeaderEx returned %!STATUS!", status);
+            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Invalid NT header!");
             return STATUS_UNSUCCESSFUL;
         }
 
@@ -116,6 +116,76 @@ static NTSTATUS FillSyscallTable(_In_ PUNICODE_STRING fileName)
     return status;
 }
 
+struct WIN32K_TABLE
+{
+    char Name[64];
+    USHORT Index;
+
+    WIN32K_TABLE(const char *name, USHORT index) : Index(index)
+    {
+        strcpy(Name, name);
+    }
+};
+
+void FillWin32SyscallTableLegacy()
+{
+    USHORT NtUserWindowFromPoint = MAXUSHORT;
+    USHORT NtUserQueryWindow = MAXUSHORT;
+    USHORT NtUserFindWindowEx = MAXUSHORT;
+    USHORT NtUserBuildHwndList = MAXUSHORT;
+    USHORT NtUserGetForegroundWindow = MAXUSHORT;
+    USHORT NtUserGetThreadState = MAXUSHORT;
+
+    switch (KERNEL_BUILD_VERSION)
+    {
+    case WINDOWS_7_SP1:
+        NtUserWindowFromPoint = 0x1014;
+        NtUserQueryWindow = 0x1010;
+        NtUserFindWindowEx = 0x106e;
+        NtUserBuildHwndList = 0x101c;
+        NtUserGetForegroundWindow = 0x103c;
+        NtUserGetThreadState = 0x1000;
+        break;
+    case WINDOWS_8:
+        NtUserWindowFromPoint = 4117;
+        NtUserQueryWindow = 4113;
+        NtUserFindWindowEx = 4206;
+        NtUserBuildHwndList = 4125;
+        NtUserGetForegroundWindow = 4157;
+        NtUserGetThreadState = 4097;
+        break;
+    case WINDOWS_8_1:
+        NtUserWindowFromPoint = 5130;
+        NtUserQueryWindow = 4114;
+        NtUserFindWindowEx = 4206;
+        NtUserBuildHwndList = 4207;
+        NtUserGetForegroundWindow = 4158;
+        NtUserGetThreadState = 4098;
+        break;
+    }
+
+    const WIN32K_TABLE win32kTable[] = {{"NtUserWindowFromPoint", NtUserWindowFromPoint},
+                                        {"NtUserQueryWindow", NtUserQueryWindow},
+                                        {"NtUserFindWindowEx", NtUserFindWindowEx},
+                                        {"NtUserBuildHwndList", NtUserBuildHwndList},
+                                        {"NtUserGetForegroundWindow", NtUserGetForegroundWindow},
+                                        {"NtUserGetThreadState", NtUserGetThreadState}};
+
+    for (auto &tableEntry : win32kTable)
+    {
+        auto entry = tools::AllocatePoolZero<PSYSCALL_TABLE_ENTRY>(NonPagedPool, sizeof(SYSCALL_TABLE_ENTRY),
+                                                                   tags::TAG_HASH_TABLE_ENTRY);
+        if (entry)
+        {
+            FNV1A_t serviceHash = FNV1A::Hash(tableEntry.Name);
+            entry->serviceIndex = tableEntry.Index;
+
+            InitializeListHead(&entry->hashTableEntry.Linkage);
+            RtlInsertEntryHashTable(g_hashTable, &entry->hashTableEntry, serviceHash, &g_hashTableContext);
+        }
+    }
+}
+
 NTSTATUS Initialize()
 {
     PAGED_CODE();
@@ -137,6 +207,7 @@ NTSTATUS Initialize()
     if (!RtlCreateHashTable(&g_hashTable, 0, 0))
     {
         ExFreePool(g_hashTable);
+
         WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to create hash table!");
         return STATUS_UNSUCCESSFUL;
     }
@@ -146,17 +217,28 @@ NTSTATUS Initialize()
     NTSTATUS status = FillSyscallTable(&g_NtdllPath);
     if (!NT_SUCCESS(status))
     {
-        ExFreePool(g_hashTable);
+        ClearAndDeleteHashTable();
+
         WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to fill ntdll.dll syscall table!");
         return STATUS_UNSUCCESSFUL;
     }
 
-    status = FillSyscallTable(&g_Win32UPath);
-    if (!NT_SUCCESS(status))
+    // win32u.dll is only exported starting Windows 10
+    //
+    if (KERNEL_BUILD_VERSION > WINDOWS_8_1)
     {
-        ExFreePool(g_hashTable);
-        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to fill win32u.dll syscall table!");
-        return STATUS_UNSUCCESSFUL;
+        status = FillSyscallTable(&g_Win32UPath);
+        if (!NT_SUCCESS(status))
+        {
+            ClearAndDeleteHashTable();
+
+            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to fill win32u.dll syscall table!");
+            return STATUS_UNSUCCESSFUL;
+        }
+    }
+    else
+    {
+        FillWin32SyscallTableLegacy();
     }
 
     g_initialized = true;
@@ -173,6 +255,15 @@ void Deinitialize()
         return;
     }
 
+    ClearAndDeleteHashTable();
+    g_initialized = false;
+
+    WppTracePrint(TRACE_LEVEL_VERBOSE, GENERAL, "Successfully de-initialized syscalls interface!");
+    return;
+}
+
+void ClearAndDeleteHashTable()
+{
     RTL_DYNAMIC_HASH_TABLE_ENUMERATOR hashTableEnumerator{};
 
     if (RtlInitEnumerationHashTable(g_hashTable, &hashTableEnumerator))
@@ -197,11 +288,6 @@ void Deinitialize()
     RtlDeleteHashTable(g_hashTable);
     RtlReleaseHashTableContext(&g_hashTableContext);
     ExFreePool(g_hashTable);
-
-    g_initialized = false;
-
-    WppTracePrint(TRACE_LEVEL_VERBOSE, GENERAL, "Successfully de-initialized syscalls interface!");
-    return;
 }
 
 USHORT GetSyscallIndexByName(_In_ LPCSTR serviceName)
@@ -241,32 +327,6 @@ USHORT GetSyscallIndexByName(_In_ LPCSTR serviceName)
     }
 
     return serviceIndex;
-}
-
-PVOID GetSyscallRoutineByName(_In_ LPCSTR serviceName, _In_ bool win32k)
-{
-    PAGED_CODE();
-    NT_ASSERT(serviceName);
-
-    const USHORT serviceIndex = GetSyscallIndexByName(serviceName);
-    if (serviceIndex == MAXUSHORT)
-    {
-        return nullptr;
-    }
-
-    auto serviceDescriptorTable =
-        reinterpret_cast<PSERVICE_DESCRIPTOR_TABLE>(dyn::DynCtx.Kernel.KeServiceDescriptorTableShadow);
-
-    ULONG_PTR SsdtBase = reinterpret_cast<ULONG_PTR>(serviceDescriptorTable->NtosTable.ServiceTableBase);
-    ULONG Offset = serviceDescriptorTable->NtosTable.ServiceTableBase[serviceIndex] >> 4;
-
-    if (win32k)
-    {
-        SsdtBase = reinterpret_cast<ULONG_PTR>(serviceDescriptorTable->Win32kTable.ServiceTableBase);
-        Offset = serviceDescriptorTable->Win32kTable.ServiceTableBase[serviceIndex] >> 4;
-    }
-
-    return reinterpret_cast<PVOID>(SsdtBase + Offset);
 }
 } // namespace syscalls
 } // namespace masterhide

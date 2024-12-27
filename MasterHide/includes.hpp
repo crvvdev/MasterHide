@@ -32,30 +32,20 @@ extern "C"
 
 #ifndef DBGPRINT
 #if DBG
-#define DBGPRINT(x, ...) DbgPrintEx(NULL, NULL, "[ MasterHide ] " x "\n", __VA_ARGS__);
+#define DBGPRINT(x, ...) DbgPrintEx(NULL, NULL, "[MasterHide] " x "\n", __VA_ARGS__);
 #else
 #define DBGPRINT(...)
 #endif
 #endif
 
 #ifndef BIT
-#define BIT(x) (1ULL << (x))
+#define BIT(x) (1LL << (x))
 #endif
 
-#define MASTERHIDE_MODE_KASPERSKYHOOK 0
-#define MASTERHIDE_MODE_INFINITYHOOK 1
-#define MASTERHIDE_MODE_SSDTHOOK 2
-
-#ifndef MASTERHIDE_MODE
-#define MASTERHIDE_MODE MASTERHIDE_MODE_SSDTHOOK
-#error "SSDT hook mode is not implemented yet!"
-#endif
-
-#if (MASTERHIDE_MODE == MASTERHIDE_MODE_KASPERSKYHOOK)
 #include "kaspersky.hpp"
-#elif (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
 #include "infinityhook.hpp"
-#endif
+
+#include "..\shared\shared.hpp"
 
 #include "fnv1a.hpp"
 #include "wpp_trace.hpp"

@@ -1,6 +1,5 @@
 #pragma once
 
-#if (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
 #include <evntrace.h>
 #include <wmistr.h>
 #include "hde\hde64.h"
@@ -24,7 +23,10 @@ typedef struct _EVENT_TRACE_PROPERTIES
     ULONG LogFileMode;
     ULONG FlushTimer;
     ULONG EnableFlags;
-    LONG AgeLimit;
+    union {
+        LONG AgeLimit;
+        LONG FlushThreshold;
+    } DUMMYUNIONNAME;
     ULONG NumberOfBuffers;
     ULONG FreeBuffers;
     ULONG EventsLost;
@@ -34,6 +36,7 @@ typedef struct _EVENT_TRACE_PROPERTIES
     HANDLE LoggerThreadId;
     ULONG LogFileNameOffset;
     ULONG LoggerNameOffset;
+
 } EVENT_TRACE_PROPERTIES, *PEVENT_TRACE_PROPERTIES;
 
 /* 54dea73a-ed1f-42a4-af713e63d056f174 */
@@ -50,6 +53,7 @@ typedef struct _CKCL_TRACE_PROPERIES : EVENT_TRACE_PROPERTIES
 {
     ULONG64 Unknown[3];
     UNICODE_STRING ProviderName;
+
 } CKCL_TRACE_PROPERTIES, *PCKCL_TRACE_PROPERTIES;
 
 typedef VOID(__fastcall *SSDT_CALLBACK)(ULONG, PVOID *);
@@ -84,5 +88,4 @@ NTSTATUS
 ModifyTraceSettings(_In_ const CKCL_TRACE_OPERATION &TraceOperation);
 
 NTSTATUS InitializeInfinityHook(_In_ SSDT_CALLBACK ssdtCallback);
-void CleanupInfinityHook();
-#endif
+void DeinitializeInfinityHook();

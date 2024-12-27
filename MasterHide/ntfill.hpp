@@ -2135,10 +2135,10 @@ typedef struct _SERVICE_DESCRIPTOR_TABLE
 
 } SERVICE_DESCRIPTOR_TABLE, *PSERVICE_DESCRIPTOR_TABLE;
 
-__forceinline __int64 KeFlushCurrentTbImmediately()
+__forceinline size_t KeFlushCurrentTbImmediately()
 {
-    unsigned __int64 v0; // rcx
-    __int64 result;      // rax
+    size_t v0;     // rcx
+    size_t result; // rax
 
     v0 = __readcr4();
     if ((v0 & 0x20080) != 0)
@@ -2257,20 +2257,15 @@ KeCapturePersistentThreadState(IN PCONTEXT Context, IN PKTHREAD Thread, IN ULONG
                                IN ULONG BugCheckParameter4, OUT PVOID VirtualAddress);
 
 NTSYSCALLAPI
-NTSTATUS
-NTAPI
-ZwTraceControl(_In_ ULONG FunctionCode, _In_reads_bytes_opt_(InBufferLen) PVOID InBuffer, _In_ ULONG InBufferLen,
-               _Out_writes_bytes_opt_(OutBufferLen) PVOID OutBuffer, _In_ ULONG OutBufferLen,
-               _Out_ PULONG ReturnLength);
-
-NTSYSCALLAPI
-NTSTATUS
-NTAPI
-RtlImageNtHeaderEx(ULONG Flags, PVOID Base, ULONG64 Size, OUT PIMAGE_NT_HEADERS *OutHeaders);
-
-NTSYSCALLAPI
 PVOID
 NTAPI
 RtlImageDirectoryEntryToData(PVOID BaseAddress, BOOLEAN MappedAsImage, USHORT Directory, PULONG Size);
+
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
+NtTraceControl(_In_ ULONG FunctionCode, _In_reads_bytes_opt_(InBufferLen) PVOID InBuffer, _In_ ULONG InBufferLen,
+               _Out_writes_bytes_opt_(OutBufferLen) PVOID OutBuffer, _In_ ULONG OutBufferLen,
+               _Out_ PULONG ReturnLength);
 
 EXTERN_C_END

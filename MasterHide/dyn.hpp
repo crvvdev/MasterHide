@@ -21,6 +21,7 @@ namespace dyn
 #define KERNEL_BUILD_VERSION dyn::DynCtx.Kernel.BuildVersion
 #define KERNEL_BUILD_MAJOR dyn::DynCtx.Kernel.MajorVersion
 #define KERNEL_BUILD_MINOR dyn::DynCtx.Kernel.MinorVersion
+#define MASTERHIDE_HOOK_TYPE dyn::DynCtx.HookType
 
 // Structs
 //
@@ -34,37 +35,28 @@ struct DynamicContext_t
         ULONG MinorVersion;
         ULONG BuildVersion;
         KDDEBUGGER_DATA64 KdBlock;
-#if (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
         ULONG_PTR EtwpDebuggerData;
         ULONG_PTR HvlpReferenceTscPage;
         ULONG_PTR HvlGetQpcBias;
-#endif
-        PULONG_PTR KeServiceDescriptorTable;
-        PULONG_PTR KeServiceDescriptorTableShadow;
+
     } Kernel;
 
     struct
     {
-#if (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
-        ULONG GetCpuClock; // struct _WMI_LOGGER_CONTEXT
-#endif
-        ULONG SeAuditProcessCreationInfoOffset;   // struct _EPROCESS
-        ULONG BypassProcessFreezeFlagOffset;      // struct _KTHREAD
-        ULONG ThreadHideFromDebuggerFlagOffset;   // struct _ETHREAD
-        ULONG ThreadBreakOnTerminationFlagOffset; // struct _ETHREAD
-        ULONG PicoContextOffset;                  // struct _ETHREAD
-        ULONG RestrictSetThreadContextOffset;     // struct _EPROCESS
+        ULONG GetCpuClock;                  // _WMI_LOGGER_CONTEXT->GetCpuClock
+        ULONG SeAuditProcessCreationInfo;   // _EPROCESS->SeAuditProcessCreationInfo
+        ULONG BypassProcessFreezeFlag;      // _KTHREAD->BypassProcessFreeze
+        ULONG ThreadHideFromDebuggerFlag;   // _ETHREAD->ThreadHideFromDebugger
+        ULONG ThreadBreakOnTerminationFlag; // _ETHREAD->ThreadBreakOnTermination
+        ULONG PicoContext;                  // _ETHREAD->PicoContext
+        ULONG RestrictSetThreadContext;     // _EPROCESS->RestrictSetThreadContext
+        ULONG SystemCallNumber;             // _KTHREAD->SystemCallNumber
 
     } Offsets;
 
-    struct
-    {
+    int HookType;
 
-    } Fn;
-
-#if (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
     DEFINE_DYN_CONTEXT_PROC(PVOID *, GetCpuClock, ULONG_PTR)
-#endif
 };
 
 extern DynamicContext_t DynCtx;

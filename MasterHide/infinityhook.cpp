@@ -1,13 +1,15 @@
 #include "includes.hpp"
 
-#if (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
 NTSTATUS InitializeInfinityHook(_In_ SSDT_CALLBACK ssdtCallback)
 {
     PAGED_CODE();
+    NT_ASSERT(ssdtCallback);
+
+    g_SsdtCallback = ssdtCallback;
 
     NTSTATUS status;
 
-    g_SsdtCallback = ssdtCallback;
+    ModifyTraceSettings(CKCL_TRACE_END);
 
     status = ModifyTraceSettings(CKCL_TRACE_SYSCALL);
     if (!NT_SUCCESS(status))
@@ -35,28 +37,23 @@ NTSTATUS InitializeInfinityHook(_In_ SSDT_CALLBACK ssdtCallback)
         }
     }
 
-    ULONG64 CkclWmiLoggerContext;
-    PVOID EtwpDebuggerData;
-    PULONG64 EtwpDebuggerDataSilo;
-    PVOID syscallEntry;
+    ULONG_PTR EtwpDebuggerData = dyn::DynCtx.Kernel.EtwpDebuggerData;
+    DBGPRINT("EtwpDebuggerData = 0x%p", (void *)EtwpDebuggerData);
 
-    EtwpDebuggerData = reinterpret_cast<VOID *>(dyn::DynCtx.Kernel.EtwpDebuggerData);
-    DBGPRINT("EtwpDebuggerData = 0x%p", EtwpDebuggerData);
-
-    EtwpDebuggerDataSilo = *reinterpret_cast<PULONG64 *>(PTR_OFFSET_ADD(EtwpDebuggerData, 0x10));
+    auto *EtwpDebuggerDataSilo = *reinterpret_cast<PULONG_PTR *>(PTR_OFFSET_ADD(EtwpDebuggerData, 0x10));
     DBGPRINT("EtwpDebuggerDataSilo = 0x%p", EtwpDebuggerDataSilo);
 
     if (!MmIsAddressValid(EtwpDebuggerDataSilo))
     {
-        goto Exit;
+        return STATUS_UNSUCCESSFUL;
     }
 
-    CkclWmiLoggerContext = EtwpDebuggerDataSilo[2];
-    DBGPRINT("CkclWmiLoggerContext = 0x%016llX", CkclWmiLoggerContext);
+    ULONG_PTR CkclWmiLoggerContext = EtwpDebuggerDataSilo[2];
+    DBGPRINT("CkclWmiLoggerContext = 0x%p", (void *)CkclWmiLoggerContext);
 
     if (!CkclWmiLoggerContext)
     {
-        goto Exit;
+        return STATUS_UNSUCCESSFUL;
     }
 
     g_GetCpuClock = dyn::DynCtx.GetCpuClock(CkclWmiLoggerContext);
@@ -64,35 +61,29 @@ NTSTATUS InitializeInfinityHook(_In_ SSDT_CALLBACK ssdtCallback)
 
     if (!MmIsAddressValid(g_GetCpuClock))
     {
-        goto Exit;
+        return STATUS_UNSUCCESSFUL;
     }
 
-    syscallEntry = GetSyscallEntry();
+    PVOID syscallEntry = GetSyscallEntry();
+    DBGPRINT("syscallEntry = 0x%p", syscallEntry);
+
     if (!syscallEntry)
     {
-        goto Exit;
+        return STATUS_UNSUCCESSFUL;
     }
-
-    DBGPRINT("syscallEntry = 0x%p", syscallEntry);
 
     g_SyscallTableAddress = PAGE_ALIGN(syscallEntry);
     DBGPRINT("g_SyscallTableAddress = 0x%p", g_SyscallTableAddress);
 
     if (!g_SyscallTableAddress)
     {
-        goto Exit;
+        return STATUS_UNSUCCESSFUL;
     }
 
-    if (StartSyscallHook())
-    {
-        return STATUS_SUCCESS;
-    }
-
-Exit:
-    return STATUS_UNSUCCESSFUL;
+    return StartSyscallHook() ? STATUS_SUCCESS : STATUS_UNSUCCESSFUL;
 }
 
-void CleanupInfinityHook()
+void DeinitializeInfinityHook()
 {
     if (g_WatchdogThreadHandle)
     {
@@ -115,7 +106,7 @@ void CleanupInfinityHook()
         InterlockedExchangePointer(g_HvlGetQpcBias, g_HvlGetQpcBiasOriginal);
     }
 
-    // Restart trace session
+    // Restart trace session to ensure cleanup
     //
     NTSTATUS Status = ModifyTraceSettings(CKCL_TRACE_END);
     if (NT_SUCCESS(Status))
@@ -123,7 +114,7 @@ void CleanupInfinityHook()
         ModifyTraceSettings(CKCL_TRACE_START);
     }
 
-    DBGPRINT("Cleaned up infinityhook");
+    DBGPRINT("Deinitialized infinityhook");
 }
 
 VOID WatchdogThread(_In_ PVOID StartContext)
@@ -228,7 +219,7 @@ StartSyscallHook(VOID)
     {
         WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "PsCreateSystemThread returned %!STATUS!", status);
 
-        CleanupInfinityHook();
+        DeinitializeInfinityHook();
         return FALSE;
     }
 
@@ -236,11 +227,11 @@ StartSyscallHook(VOID)
 }
 
 NTSTATUS
-ModifyTraceSettings(_In_ const CKCL_TRACE_OPERATION &TraceOperation)
+ModifyTraceSettings(_In_ const CKCL_TRACE_OPERATION &traceOperation)
 {
     PAGED_CODE();
 
-    auto traceProperty = tools::AllocatePoolZero<CKCL_TRACE_PROPERTIES *>(NonPagedPool, PAGE_SIZE, tags::TAG_DEFAULT);
+    auto traceProperty = tools::AllocatePoolZero<PCKCL_TRACE_PROPERTIES>(NonPagedPool, PAGE_SIZE, tags::TAG_DEFAULT);
     if (!traceProperty)
     {
         WppTracePrint(TRACE_LEVEL_ERROR, GENERAL,
@@ -255,35 +246,68 @@ ModifyTraceSettings(_In_ const CKCL_TRACE_OPERATION &TraceOperation)
         ExFreePool(traceProperty);
     };
 
+    auto providerName = tools::AllocatePoolZero<PWCH>(NonPagedPool, 0x1000, tags::TAG_STRING);
+    if (!providerName)
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL,
+                      "Could not allocate "
+                      "memory for provider name!");
+
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+
+    SCOPE_EXIT
+    {
+        ExFreePool(providerName);
+    };
+
+    NTSTATUS status = RtlStringCchCopyW(providerName, 0x1000 / sizeof(wchar_t), L"Circular Kernel Context Logger");
+    if (!providerName)
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "RtlStringCchCopyW failed %!STATUS!", status);
+
+        return status;
+    }
+
+    RtlInitUnicodeString(&traceProperty->ProviderName, providerName);
     traceProperty->Wnode.BufferSize = PAGE_SIZE;
     traceProperty->Wnode.Flags = WNODE_FLAG_TRACED_GUID;
-    traceProperty->ProviderName = RTL_CONSTANT_STRING(L"Circular Kernel Context Logger");
-    traceProperty->Wnode.Guid = {0x54DEA73A, 0xED1F, 0x42A4, {0xAF, 0x71, 0x3E, 0x63, 0xD0, 0x56, 0xF1, 0x74}};
+    traceProperty->Wnode.Guid = CkclSessionGuid;
     traceProperty->Wnode.ClientContext = 1;
     traceProperty->BufferSize = sizeof(ULONG);
     traceProperty->MinimumBuffers = traceProperty->MaximumBuffers = 2;
     traceProperty->LogFileMode = EVENT_TRACE_BUFFERING_MODE;
 
-    NTSTATUS status = STATUS_ACCESS_DENIED;
+    status = STATUS_ACCESS_DENIED;
     ULONG returnLength = 0UL;
 
-    switch (TraceOperation)
+    KPROCESSOR_MODE origMode = ExGetPreviousMode();
+    if (origMode == UserMode)
+    {
+        tools::SetPreviousMode(KernelMode);
+    }
+
+    switch (traceOperation)
     {
     case CKCL_TRACE_START: {
-        status = ZwTraceControl(EtwpStartTrace, traceProperty, PAGE_SIZE, traceProperty, PAGE_SIZE, &returnLength);
+        status = NtTraceControl(EtwpStartTrace, traceProperty, PAGE_SIZE, traceProperty, PAGE_SIZE, &returnLength);
         break;
     }
     case CKCL_TRACE_END: {
-        status = ZwTraceControl(EtwpStopTrace, traceProperty, PAGE_SIZE, traceProperty, PAGE_SIZE, &returnLength);
+        status = NtTraceControl(EtwpStopTrace, traceProperty, PAGE_SIZE, traceProperty, PAGE_SIZE, &returnLength);
         break;
     }
     case CKCL_TRACE_SYSCALL: {
         traceProperty->EnableFlags = EVENT_TRACE_FLAG_SYSTEMCALL;
-        status = ZwTraceControl(EtwpUpdateTrace, traceProperty, PAGE_SIZE, traceProperty, PAGE_SIZE, &returnLength);
+        status = NtTraceControl(EtwpUpdateTrace, traceProperty, PAGE_SIZE, traceProperty, PAGE_SIZE, &returnLength);
         break;
     }
     }
 
+    WppTracePrint(TRACE_LEVEL_VERBOSE, GENERAL, "NtTraceControl returned %!STATUS! retLength: %u", status,
+                  returnLength);
+
+    tools::SetPreviousMode(origMode);
     return status;
 }
 
@@ -365,8 +389,8 @@ SyscallHookHandler(VOID)
         return __rdtsc();
     }
 
-    const auto currentThread = __readgsqword(0x188);
-    const ULONG systemCallIndex = *(ULONG *)(currentThread + 0x80); // KTHREAD->SystemCallNumber
+    const auto currentThread = reinterpret_cast<ULONG_PTR>(KeGetCurrentThread());
+    const auto systemCallIndex = *(ULONG *)(currentThread + dyn::DynCtx.Offsets.SystemCallNumber);
 
     const auto stackMax = __readgsqword(KPCR_RSP_BASE);
     const PVOID *stackFrame = (PVOID *)_AddressOfReturnAddress();
@@ -435,4 +459,3 @@ hkHvlGetQpcBias(VOID)
 
     return *((ULONG64 *)(*((ULONG64 *)g_HvlpReferenceTscPage)) + 3);
 }
-#endif

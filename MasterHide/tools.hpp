@@ -50,8 +50,8 @@ class ReferenceGuard
     }
 
   private:
-    LONG _count;
     PKEVENT _event;
+    LONG _count;
 };
 
 class ScopedReferenceGuard
@@ -236,7 +236,7 @@ _Success_(return != false) bool GetProcessFileName(_In_ PEPROCESS process, _Out_
 bool GetProcessFileName(_In_ HANDLE processId, _Out_ PUNICODE_STRING processImageName);
 
 /// <summary>
-/// Get PEPROCESS by process name
+/// Get PEPROCESS by process name. NOTE: this function increments the object reference count
 /// </summary>
 /// <param name="processName">Process name</param>
 /// <returns>PEPROCESS value, otherwise nullptr</returns>
@@ -305,6 +305,8 @@ QuerySystemInformation(_In_ SYSTEM_INFORMATION_CLASS systemInfoClass,
                        _Outptr_result_maybenull_ _At_(*systemInfo,
                                                       _Pre_maybenull_ _Post_notnull_ _Post_writable_byte_size_(return))
                            PVOID *systemInfo);
+
+KPROCESSOR_MODE SetPreviousMode(KPROCESSOR_MODE NewMode, ULONG_PTR thread = __readgsqword(0x188));
 
 } // namespace tools
 } // namespace masterhide

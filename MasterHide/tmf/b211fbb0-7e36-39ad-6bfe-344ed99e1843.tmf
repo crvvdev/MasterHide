@@ -1,0 +1,520 @@
+// PDB:  A:\work\MasterHide\bin\Debug\MasterHide.pdb
+// PDB:  Last Updated :2024-12-27:01:34:59:033 (UTC) [tracepdb]
+b211fbb0-7e36-39ad-6bfe-344ed99e1843 MasterHide // SRC=hooks.cpp MJ= MN=
+#typev hooks_cpp146 11 "%0Could not find index for service %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=masterhide::hooks::CreateHooks
+{
+entry.ServiceName, ItemString -- 10
+}
+#typev hooks_cpp133 10 "%0Could not find index for service NtQuerySystemTime" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=masterhide::hooks::CreateHooks
+{
+}
+#typev hooks_cpp315 20 "%0Successfully de-initialized hooks interface!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::Deinitialize
+{
+}
+#typev hooks_cpp308 19 "%0UninstallHooks returned %10!s!, one of more hooks where not successfully unninstalled!" //   LEVEL=TRACE_LEVEL_WARNING EVENT=GENERAL FUNC=masterhide::hooks::Deinitialize
+{
+status, ItemNTSTATUS -- 10
+}
+#typev hooks_cpp287 18 "%0CreateHooks returned %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=masterhide::hooks::Initialize
+{
+status, ItemNTSTATUS -- 10
+}
+#typev hooks_cpp274 17 "%0InitializeInfinityHook returned %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=masterhide::hooks::Initialize
+{
+status, ItemNTSTATUS -- 10
+}
+#typev hooks_cpp267 16 "%0Kaspersky hypervisor is set up!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::Initialize
+{
+}
+#typev hooks_cpp263 15 "%0hvm_init returned %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=masterhide::hooks::Initialize
+{
+status, ItemNTSTATUS -- 10
+}
+#typev hooks_cpp256 14 "%0Failed to load kaspersky!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=masterhide::hooks::Initialize
+{
+}
+#typev hooks_cpp250 13 "%0Failed to initialize utils!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=masterhide::hooks::Initialize
+{
+}
+#typev hooks_cpp219 12 "%0Could not wait for hook %10!s! reference count %11!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=masterhide::hooks::UninstallHooks
+{
+entry.ServiceName, ItemString -- 10
+status, ItemNTSTATUS -- 11
+}
+#typev hooks_cpp637 28 "%0NtClose from pid %10!u!returned %11!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtClose
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+status, ItemNTSTATUS -- 11
+}
+#typev hooks_cpp614 27 "%0Spoofed NtClose(ProtectFromClose) anti-debug query!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtClose
+{
+}
+#typev hooks_cpp597 26 "%0Spoofed NtClose(Invalid Handle) anti-debug query!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtClose
+{
+}
+#typev hooks_cpp768 32 "%0NtContinue from pid %10!u! returned %11!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtContinue
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+status, ItemNTSTATUS -- 11
+}
+#typev hooks_cpp749 31 "%0Spoofed NtContinue anti-debug query!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtContinue
+{
+}
+#typev hooks_cpp768 32 "%0NtContinue from pid %10!u! returned %11!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtContinue'::`1'::filt$0
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+status, ItemNTSTATUS -- 11
+}
+#typev hooks_cpp749 31 "%0Spoofed NtContinue anti-debug query!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtContinue'::`1'::filt$0
+{
+}
+#typev hooks_cpp2045 62 "%0NtCreateThreadEx from pid %10!u! ProcessHandle = 0x%11!p! StartRoutine 0x%12!p! Argument 0x%13!p! CreateFlags %14!d! returned %15!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtCreateThreadEx
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+ProcessHandle, ItemPtr -- 11
+StartRoutine, ItemPtr -- 12
+Argument, ItemPtr -- 13
+CreateFlags, ItemLong -- 14
+status, ItemNTSTATUS -- 15
+}
+#typev hooks_cpp2023 61 "%0NtCreateThreadEx hide thread %10!u! from pid %11!u! from debugger and freeze" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtCreateThreadEx
+{
+HandleToUlong(PsGetThreadId(thread)), ItemLong -- 10
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 11
+}
+#typev hooks_cpp1907 60 "%0NtCreateUserProcess from pid %10!u! ProcessHandle = 0x%11!p! ThreadHandle = 0x%12!p! ProcessDesiredAccess 0x%13!08X! ThreadDesiredAccess 0x%14!08X! returned %15!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtCreateUserProcess
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+ProcessHandle, ItemPtr -- 11
+ThreadHandle, ItemPtr -- 12
+ProcessDesiredAccess, ItemLong -- 13
+ThreadDesiredAccess, ItemLong -- 14
+status, ItemNTSTATUS -- 15
+}
+#typev hooks_cpp1892 59 "%0Failed to add new process entry %10!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtCreateUserProcess
+{
+status2, ItemNTSTATUS -- 10
+}
+#typev hooks_cpp1907 60 "%0NtCreateUserProcess from pid %10!u! ProcessHandle = 0x%11!p! ThreadHandle = 0x%12!p! ProcessDesiredAccess 0x%13!08X! ThreadDesiredAccess 0x%14!08X! returned %15!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtCreateUserProcess'::`1'::filt$0
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+ProcessHandle, ItemPtr -- 11
+ThreadHandle, ItemPtr -- 12
+ProcessDesiredAccess, ItemLong -- 13
+ThreadDesiredAccess, ItemLong -- 14
+status, ItemNTSTATUS -- 15
+}
+#typev hooks_cpp1892 59 "%0Failed to add new process entry %10!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtCreateUserProcess'::`1'::filt$0
+{
+status2, ItemNTSTATUS -- 10
+}
+#typev hooks_cpp2178 64 "%0NtGetContextThread from pid %10!u! ThreadHandle = 0x%11!p! returned %12!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtGetContextThread
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+ThreadHandle, ItemPtr -- 11
+status, ItemNTSTATUS -- 12
+}
+#typev hooks_cpp2148 63 "%0Spoofed NtGetContextThread tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtGetContextThread
+{
+HandleToUlong(PsGetThreadId(threadEntry->Thread)), ItemLong -- 10
+}
+#typev hooks_cpp2178 64 "%0NtGetContextThread from pid %10!u! ThreadHandle = 0x%11!p! returned %12!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtGetContextThread'::`1'::filt$0
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+ThreadHandle, ItemPtr -- 11
+status, ItemNTSTATUS -- 12
+}
+#typev hooks_cpp2148 63 "%0Spoofed NtGetContextThread tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtGetContextThread'::`1'::filt$0
+{
+HandleToUlong(PsGetThreadId(threadEntry->Thread)), ItemLong -- 10
+}
+#typev hooks_cpp838 33 "%0NtGetNextProcess from pid %10!u! returned %11!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtGetNextProcess
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+status, ItemNTSTATUS -- 11
+}
+#typev hooks_cpp838 33 "%0NtGetNextProcess from pid %10!u! returned %11!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtGetNextProcess'::`1'::filt$0
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+status, ItemNTSTATUS -- 11
+}
+#typev hooks_cpp2432 68 "%0NtQueryInformationJobObject from pid %10!u! JobHandle = 0x%11!p! JobInformationClass = %12!u! returned %13!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQueryInformationJobObject
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+JobHandle, ItemPtr -- 11
+JobInformationClass, ItemLong -- 12
+status, ItemNTSTATUS -- 13
+}
+#typev hooks_cpp2425 67 "%0Spoofed NtQueryInformationJobObject(JobObjectBasicProcessIdList) pid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQueryInformationJobObject
+{
+HandleToUlong(processEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1505 50 "%0NtQueryInformationProcess from pid %10!u! ProcessHandle = 0x%11!p! ProcessInformationClass %12!d! returned %13!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQueryInformationProcess
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+ProcessHandle, ItemPtr -- 11
+ProcessInformationClass, ItemLong -- 12
+status, ItemNTSTATUS -- 13
+}
+#typev hooks_cpp1478 49 "%0Spoofed NtQueryInformationProcess(ProcessIoCounters) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQueryInformationProcess
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1461 48 "%0Spoofed NtQueryInformationProcess(ProcessHandleTracing) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQueryInformationProcess
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1446 47 "%0Spoofed NtQueryInformationProcess(ProcessBasicInformation) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQueryInformationProcess
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1415 46 "%0Spoofed NtQueryInformationProcess(ProcessBreakOnTermination) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQueryInformationProcess
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1399 45 "%0Spoofed NtQueryInformationProcess(ProcessDebugFlags) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQueryInformationProcess
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1376 44 "%0Spoofed NtQueryInformationProcess(ProcessDebugPort) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQueryInformationProcess
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1355 43 "%0Spoofed NtQueryInformationProcess(ProcessInstrumentationCallback) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQueryInformationProcess
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1344 42 "%0Spoofed NtQueryInformationProcess(ProcessDebugObjectHandle) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQueryInformationProcess
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1505 50 "%0NtQueryInformationProcess from pid %10!u! ProcessHandle = 0x%11!p! ProcessInformationClass %12!d! returned %13!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQueryInformationProcess'::`1'::filt$0
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+ProcessHandle, ItemPtr -- 11
+ProcessInformationClass, ItemLong -- 12
+status, ItemNTSTATUS -- 13
+}
+#typev hooks_cpp1478 49 "%0Spoofed NtQueryInformationProcess(ProcessIoCounters) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQueryInformationProcess'::`1'::filt$0
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1461 48 "%0Spoofed NtQueryInformationProcess(ProcessHandleTracing) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQueryInformationProcess'::`1'::filt$0
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1446 47 "%0Spoofed NtQueryInformationProcess(ProcessBasicInformation) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQueryInformationProcess'::`1'::filt$0
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1415 46 "%0Spoofed NtQueryInformationProcess(ProcessBreakOnTermination) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQueryInformationProcess'::`1'::filt$0
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1399 45 "%0Spoofed NtQueryInformationProcess(ProcessDebugFlags) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQueryInformationProcess'::`1'::filt$0
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1376 44 "%0Spoofed NtQueryInformationProcess(ProcessDebugPort) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQueryInformationProcess'::`1'::filt$0
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1355 43 "%0Spoofed NtQueryInformationProcess(ProcessInstrumentationCallback) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQueryInformationProcess'::`1'::filt$0
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1344 42 "%0Spoofed NtQueryInformationProcess(ProcessDebugObjectHandle) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQueryInformationProcess'::`1'::filt$0
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1234 41 "%0NtQueryInformationThread from pid %10!u! ThreadHandle = 0x%11!p! ThreadInformationClass %12!d! returned %13!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQueryInformationThread
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+ThreadHandle, ItemPtr -- 11
+ThreadInformationClass, ItemLong -- 12
+status, ItemNTSTATUS -- 13
+}
+#typev hooks_cpp1208 40 "%0Spoofed NtQueryInformationThread(ThreadWow64Context) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQueryInformationThread
+{
+HandleToUlong(PsGetThreadId(threadEntry->Thread)), ItemLong -- 10
+}
+#typev hooks_cpp1176 39 "%0Spoofed NtQueryInformationThread(ThreadBreakOnTermination) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQueryInformationThread
+{
+HandleToUlong(PsGetThreadId(threadEntry->Thread)), ItemLong -- 10
+}
+#typev hooks_cpp1154 38 "%0Spoofed NtQueryInformationThread(ThreadHideFromDebugger) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQueryInformationThread
+{
+HandleToUlong(PsGetThreadId(threadEntry->Thread)), ItemLong -- 10
+}
+#typev hooks_cpp1234 41 "%0NtQueryInformationThread from pid %10!u! ThreadHandle = 0x%11!p! ThreadInformationClass %12!d! returned %13!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQueryInformationThread'::`1'::filt$0
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+ThreadHandle, ItemPtr -- 11
+ThreadInformationClass, ItemLong -- 12
+status, ItemNTSTATUS -- 13
+}
+#typev hooks_cpp1208 40 "%0Spoofed NtQueryInformationThread(ThreadWow64Context) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQueryInformationThread'::`1'::filt$0
+{
+HandleToUlong(PsGetThreadId(threadEntry->Thread)), ItemLong -- 10
+}
+#typev hooks_cpp1176 39 "%0Spoofed NtQueryInformationThread(ThreadBreakOnTermination) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQueryInformationThread'::`1'::filt$0
+{
+HandleToUlong(PsGetThreadId(threadEntry->Thread)), ItemLong -- 10
+}
+#typev hooks_cpp1154 38 "%0Spoofed NtQueryInformationThread(ThreadHideFromDebugger) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQueryInformationThread'::`1'::filt$0
+{
+HandleToUlong(PsGetThreadId(threadEntry->Thread)), ItemLong -- 10
+}
+#typev hooks_cpp1835 58 "%0NtQueryObject from pid %10!u! Handle = 0x%11!p! ObjectInformationClass %12!d! returned %13!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQueryObject
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+Handle, ItemPtr -- 11
+ObjectInformationClass, ItemLong -- 12
+status, ItemNTSTATUS -- 13
+}
+#typev hooks_cpp1821 57 "%0Spoofed NtQueryObject(ObjectTypeInformation) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQueryObject
+{
+HandleToUlong(processEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1809 56 "%0Spoofed NtQueryObject(ObjectTypesInformation) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQueryObject
+{
+HandleToUlong(processEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1835 58 "%0NtQueryObject from pid %10!u! Handle = 0x%11!p! ObjectInformationClass %12!d! returned %13!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQueryObject'::`1'::filt$0
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+Handle, ItemPtr -- 11
+ObjectInformationClass, ItemLong -- 12
+status, ItemNTSTATUS -- 13
+}
+#typev hooks_cpp1821 57 "%0Spoofed NtQueryObject(ObjectTypeInformation) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQueryObject'::`1'::filt$0
+{
+HandleToUlong(processEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1809 56 "%0Spoofed NtQueryObject(ObjectTypesInformation) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQueryObject'::`1'::filt$0
+{
+HandleToUlong(processEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp474 22 "%0NtQueryPerformanceCounter from pid %10!u! returned %11!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQueryPerformanceCounter
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+status, ItemNTSTATUS -- 11
+}
+#typev hooks_cpp474 22 "%0NtQueryPerformanceCounter from pid %10!u! returned %11!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQueryPerformanceCounter'::`1'::filt$0
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+status, ItemNTSTATUS -- 11
+}
+#typev hooks_cpp2736 77 "%0NtQuerySystemInformation from pid %10!u! SystemInformationClass = %11!u! returned %12!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQuerySystemInformation
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+SystemInformationClass, ItemLong -- 11
+status, ItemNTSTATUS -- 12
+}
+#typev hooks_cpp2723 76 "%0Spoofed NtQuerySystemInformation(SystemKernelDebuggerFlags) pid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQuerySystemInformation
+{
+HandleToUlong(processEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp2711 75 "%0Spoofed NtQuerySystemInformation(SystemKernelDebuggerInformationEx) pid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQuerySystemInformation
+{
+HandleToUlong(processEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp2695 74 "%0Spoofed NtQuerySystemInformation(SystemKernelDebuggerInformation) pid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQuerySystemInformation
+{
+HandleToUlong(processEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp2680 73 "%0Spoofed NtQuerySystemInformation(SystemCodeIntegrityUnlockInformation) pid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQuerySystemInformation
+{
+HandleToUlong(processEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp2665 72 "%0Spoofed NtQuerySystemInformation(SystemCodeIntegrityInformation) pid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQuerySystemInformation
+{
+HandleToUlong(processEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp2644 71 "%0Spoofed NtQuerySystemInformation(SystemExtendedHandleInformation) pid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQuerySystemInformation
+{
+HandleToUlong(processEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp2625 70 "%0Spoofed NtQuerySystemInformation(SystemHandleInformation) pid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQuerySystemInformation
+{
+HandleToUlong(processEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp2601 69 "%0Spoofed NtQuerySystemInformation(ProcessInformation) pid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQuerySystemInformation
+{
+HandleToUlong(processEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp2736 77 "%0NtQuerySystemInformation from pid %10!u! SystemInformationClass = %11!u! returned %12!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQuerySystemInformation'::`1'::filt$0
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+SystemInformationClass, ItemLong -- 11
+status, ItemNTSTATUS -- 12
+}
+#typev hooks_cpp2723 76 "%0Spoofed NtQuerySystemInformation(SystemKernelDebuggerFlags) pid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQuerySystemInformation'::`1'::filt$0
+{
+HandleToUlong(processEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp2711 75 "%0Spoofed NtQuerySystemInformation(SystemKernelDebuggerInformationEx) pid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQuerySystemInformation'::`1'::filt$0
+{
+HandleToUlong(processEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp2695 74 "%0Spoofed NtQuerySystemInformation(SystemKernelDebuggerInformation) pid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQuerySystemInformation'::`1'::filt$0
+{
+HandleToUlong(processEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp2680 73 "%0Spoofed NtQuerySystemInformation(SystemCodeIntegrityUnlockInformation) pid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQuerySystemInformation'::`1'::filt$0
+{
+HandleToUlong(processEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp2665 72 "%0Spoofed NtQuerySystemInformation(SystemCodeIntegrityInformation) pid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQuerySystemInformation'::`1'::filt$0
+{
+HandleToUlong(processEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp2644 71 "%0Spoofed NtQuerySystemInformation(SystemExtendedHandleInformation) pid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQuerySystemInformation'::`1'::filt$0
+{
+HandleToUlong(processEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp2625 70 "%0Spoofed NtQuerySystemInformation(SystemHandleInformation) pid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQuerySystemInformation'::`1'::filt$0
+{
+HandleToUlong(processEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp2601 69 "%0Spoofed NtQuerySystemInformation(ProcessInformation) pid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQuerySystemInformation'::`1'::filt$0
+{
+HandleToUlong(processEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp386 21 "%0NtQuerySystemTime from pid %10!u! returned %11!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtQuerySystemTime
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+status, ItemNTSTATUS -- 11
+}
+#typev hooks_cpp386 21 "%0NtQuerySystemTime from pid %10!u! returned %11!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtQuerySystemTime'::`1'::filt$0
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+status, ItemNTSTATUS -- 11
+}
+#typev hooks_cpp2301 66 "%0NtSetContextThread from pid %10!u! ThreadHandle = 0x%11!p! returned %12!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtSetContextThread
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+ThreadHandle, ItemPtr -- 11
+status, ItemNTSTATUS -- 12
+}
+#typev hooks_cpp2276 65 "%0Spoofed NtSetContextThread tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtSetContextThread
+{
+HandleToUlong(PsGetThreadId(threadEntry->Thread)), ItemLong -- 10
+}
+#typev hooks_cpp2301 66 "%0NtSetContextThread from pid %10!u! ThreadHandle = 0x%11!p! returned %12!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtSetContextThread'::`1'::filt$0
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+ThreadHandle, ItemPtr -- 11
+status, ItemNTSTATUS -- 12
+}
+#typev hooks_cpp2276 65 "%0Spoofed NtSetContextThread tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtSetContextThread'::`1'::filt$0
+{
+HandleToUlong(PsGetThreadId(threadEntry->Thread)), ItemLong -- 10
+}
+#typev hooks_cpp1707 55 "%0NtSetInformationProcess from pid %10!u! ProcessHandle = 0x%11!p! ProcessInformationClass %12!d! returned %13!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtSetInformationProcess
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+ProcessHandle, ItemPtr -- 11
+ProcessInformationClass, ItemLong -- 12
+status, ItemNTSTATUS -- 13
+}
+#typev hooks_cpp1689 54 "%0Spoofed NtSetInformationProcess(ProcessHandleTracing) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtSetInformationProcess
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1660 53 "%0Spoofed NtSetInformationProcess(ProcessDebugFlags) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtSetInformationProcess
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1629 52 "%0Spoofed NtSetInformationProcess(ProcessInstrumentationCallback) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtSetInformationProcess
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1618 51 "%0Spoofed NtSetInformationProcess(ProcessBreakOnTermination) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtSetInformationProcess
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1707 55 "%0NtSetInformationProcess from pid %10!u! ProcessHandle = 0x%11!p! ProcessInformationClass %12!d! returned %13!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtSetInformationProcess'::`1'::filt$0
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+ProcessHandle, ItemPtr -- 11
+ProcessInformationClass, ItemLong -- 12
+status, ItemNTSTATUS -- 13
+}
+#typev hooks_cpp1689 54 "%0Spoofed NtSetInformationProcess(ProcessHandleTracing) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtSetInformationProcess'::`1'::filt$0
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1660 53 "%0Spoofed NtSetInformationProcess(ProcessDebugFlags) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtSetInformationProcess'::`1'::filt$0
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1629 52 "%0Spoofed NtSetInformationProcess(ProcessInstrumentationCallback) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtSetInformationProcess'::`1'::filt$0
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1618 51 "%0Spoofed NtSetInformationProcess(ProcessBreakOnTermination) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtSetInformationProcess'::`1'::filt$0
+{
+HandleToUlong(threadProcessEntry->ProcessId), ItemLong -- 10
+}
+#typev hooks_cpp1037 37 "%0NtSetInformationThread from pid %10!u! ThreadHandle = 0x%11!p! ThreadInformationClass %12!d! returned %13!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtSetInformationThread
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+ThreadHandle, ItemPtr -- 11
+ThreadInformationClass, ItemLong -- 12
+status, ItemNTSTATUS -- 13
+}
+#typev hooks_cpp1010 36 "%0Spoofed NtSetInformationThread(ThreadBreakOnTermination) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtSetInformationThread
+{
+HandleToUlong(PsGetThreadId(threadEntry->Thread)), ItemLong -- 10
+}
+#typev hooks_cpp978 35 "%0Spoofed NtSetInformationThread(ThreadWow64Context) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtSetInformationThread
+{
+HandleToUlong(PsGetThreadId(threadEntry->Thread)), ItemLong -- 10
+}
+#typev hooks_cpp937 34 "%0Spoofed NtSetInformationThread(ThreadHideFromDebugger) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtSetInformationThread
+{
+HandleToUlong(PsGetThreadId(threadEntry->Thread)), ItemLong -- 10
+}
+#typev hooks_cpp1037 37 "%0NtSetInformationThread from pid %10!u! ThreadHandle = 0x%11!p! ThreadInformationClass %12!d! returned %13!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtSetInformationThread'::`1'::filt$0
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+ThreadHandle, ItemPtr -- 11
+ThreadInformationClass, ItemLong -- 12
+status, ItemNTSTATUS -- 13
+}
+#typev hooks_cpp1010 36 "%0Spoofed NtSetInformationThread(ThreadBreakOnTermination) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtSetInformationThread'::`1'::filt$0
+{
+HandleToUlong(PsGetThreadId(threadEntry->Thread)), ItemLong -- 10
+}
+#typev hooks_cpp978 35 "%0Spoofed NtSetInformationThread(ThreadWow64Context) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtSetInformationThread'::`1'::filt$0
+{
+HandleToUlong(PsGetThreadId(threadEntry->Thread)), ItemLong -- 10
+}
+#typev hooks_cpp937 34 "%0Spoofed NtSetInformationThread(ThreadHideFromDebugger) tid:%10!d!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`masterhide::hooks::hkNtSetInformationThread'::`1'::filt$0
+{
+HandleToUlong(PsGetThreadId(threadEntry->Thread)), ItemLong -- 10
+}
+#typev hooks_cpp538 25 "%0NtSystemDebugControl from pid %10!u! Command %11!u! returned %12!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtSystemDebugControl
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+Command, ItemLong -- 11
+status, ItemNTSTATUS -- 12
+}
+#typev hooks_cpp522 24 "%0Spoofed NtSystemDebugControl(commad:%10!d!) anti-debug query!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtSystemDebugControl
+{
+Command, ItemLong -- 10
+}
+#typev hooks_cpp508 23 "%0NtSystemDebugControl from pid %10!u! Command %11!u!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtSystemDebugControl
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+Command, ItemLong -- 11
+}
+#typev hooks_cpp694 30 "%0NtYieldExecution from pid %10!u!returned %11!s!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtYieldExecution
+{
+HandleToUlong(PsGetCurrentProcessId()), ItemLong -- 10
+status, ItemNTSTATUS -- 11
+}
+#typev hooks_cpp680 29 "%0Spoofed NtYieldExecution anti-debug query!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=masterhide::hooks::hkNtYieldExecution
+{
+}

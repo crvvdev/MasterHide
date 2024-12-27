@@ -1,0 +1,35 @@
+// PDB:  A:\work\MasterHide\bin\Debug\MasterHide.pdb
+// PDB:  Last Updated :2024-12-27:01:22:59:020 (UTC) [tracepdb]
+8d267e6a-8d4a-3abe-29d5-db1c5e74d8aa MasterHide // SRC=dyn.cpp MJ= MN=
+#typev dyn_cpp295 19 "%0Failed to fill dynamic system offsets!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=masterhide::dyn::Initialize
+{
+}
+#typev dyn_cpp284 18 "%0Failed to read debugger block!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=masterhide::dyn::Initialize
+{
+}
+#typev dyn_cpp261 17 "%0Initializing debugger block to obtain PTE information" //   LEVEL=TRACE_LEVEL_INFORMATION EVENT=GENERAL FUNC=masterhide::dyn::Initialize
+{
+}
+#typev dyn_cpp248 16 "%0HvlGetQpcBias not found!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=masterhide::dyn::Initialize
+{
+}
+#typev dyn_cpp237 15 "%0HvlpReferenceTscPage not found!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=masterhide::dyn::Initialize
+{
+}
+#typev dyn_cpp222 14 "%0Invalid EtwpDebuggerData at 0x%10!p!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=masterhide::dyn::Initialize
+{
+EtwpDebuggerData, ItemPtr -- 10
+}
+#typev dyn_cpp212 13 "%0EtwpDebuggerData not found!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=masterhide::dyn::Initialize
+{
+}
+#typev dyn_cpp187 12 "%0Unsupported windows version!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=masterhide::dyn::Initialize
+{
+}
+#typev dyn_cpp172 11 "%0Failed to obtain ntoskrnl.exe information!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=masterhide::dyn::Initialize
+{
+}
+#typev dyn_cpp162 10 "%0RtlGetVersion returned %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=masterhide::dyn::Initialize
+{
+status, ItemNTSTATUS -- 10
+}

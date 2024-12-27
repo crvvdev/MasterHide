@@ -1,0 +1,116 @@
+// PDB:  A:\work\MasterHide\bin\Debug\MasterHide.pdb
+// PDB:  Last Updated :2024-12-27:04:18:49:382 (UTC) [tracepdb]
+44abe1c3-db2c-3ad1-6d84-37f60e1ab06c MasterHide // SRC=drivermain.cpp MJ= MN=
+#typev drivermain_cpp218 21 "%0Exception in dispatch handler %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=DispatchDeviceControl
+{
+status, ItemNTSTATUS -- 10
+}
+#typev drivermain_cpp211 20 "%0Unrecognized IOCTL request 0x%10!08X!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=DispatchDeviceControl
+{
+status, ItemLong -- 10
+}
+#typev drivermain_cpp158 19 "%0Successfully removed rule for image %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=DispatchDeviceControl
+{
+&processRule->ImageFileName, ItemPWString -- 10
+}
+#typev drivermain_cpp146 18 "%0Successfully removed rule for pid %10!u!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=DispatchDeviceControl
+{
+processRule->ProcessId, ItemLong -- 10
+}
+#typev drivermain_cpp127 17 "%0Successfully update rule for image %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=DispatchDeviceControl
+{
+&processRule->ImageFileName, ItemPWString -- 10
+}
+#typev drivermain_cpp114 16 "%0Successfully update rule for pid %10!u!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=DispatchDeviceControl
+{
+processRule->ProcessId, ItemLong -- 10
+}
+#typev drivermain_cpp94 15 "%0Successfully created rule for image %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=DispatchDeviceControl
+{
+&processRule->ImageFileName, ItemPWString -- 10
+}
+#typev drivermain_cpp89 14 "%0Failed to add process rule entry" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=DispatchDeviceControl
+{
+}
+#typev drivermain_cpp80 13 "%0Successfully created rule for pid %10!u!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=DispatchDeviceControl
+{
+processRule->ProcessId, ItemLong -- 10
+}
+#typev drivermain_cpp75 12 "%0Failed to add process entry" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=DispatchDeviceControl
+{
+}
+#typev drivermain_cpp218 21 "%0Exception in dispatch handler %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=`DispatchDeviceControl'::`1'::filt$0
+{
+status, ItemNTSTATUS -- 10
+}
+#typev drivermain_cpp211 20 "%0Unrecognized IOCTL request 0x%10!08X!" //   LEVEL=TRACE_LEVEL_VERBOSE EVENT=GENERAL FUNC=`DispatchDeviceControl'::`1'::filt$0
+{
+status, ItemLong -- 10
+}
+#typev drivermain_cpp158 19 "%0Successfully removed rule for image %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=`DispatchDeviceControl'::`1'::filt$0
+{
+&processRule->ImageFileName, ItemPWString -- 10
+}
+#typev drivermain_cpp146 18 "%0Successfully removed rule for pid %10!u!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=`DispatchDeviceControl'::`1'::filt$0
+{
+processRule->ProcessId, ItemLong -- 10
+}
+#typev drivermain_cpp127 17 "%0Successfully update rule for image %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=`DispatchDeviceControl'::`1'::filt$0
+{
+&processRule->ImageFileName, ItemPWString -- 10
+}
+#typev drivermain_cpp114 16 "%0Successfully update rule for pid %10!u!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=`DispatchDeviceControl'::`1'::filt$0
+{
+processRule->ProcessId, ItemLong -- 10
+}
+#typev drivermain_cpp94 15 "%0Successfully created rule for image %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=`DispatchDeviceControl'::`1'::filt$0
+{
+&processRule->ImageFileName, ItemPWString -- 10
+}
+#typev drivermain_cpp89 14 "%0Failed to add process rule entry" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=`DispatchDeviceControl'::`1'::filt$0
+{
+}
+#typev drivermain_cpp80 13 "%0Successfully created rule for pid %10!u!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=`DispatchDeviceControl'::`1'::filt$0
+{
+processRule->ProcessId, ItemLong -- 10
+}
+#typev drivermain_cpp75 12 "%0Failed to add process entry" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=`DispatchDeviceControl'::`1'::filt$0
+{
+}
+#typev drivermain_cpp37 11 "%0MasterHide is unloading" //   LEVEL=TRACE_LEVEL_INFORMATION EVENT=GENERAL FUNC=DriverUnload
+{
+}
+#typev drivermain_cpp30 10 "%0MasterHide successfully unloaded!" //   LEVEL=TRACE_LEVEL_INFORMATION EVENT=GENERAL FUNC=OnDriverUnload
+{
+}
+#typev drivermain_cpp272 24 "%0RtlQueryRegistryValues returned %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=QueryHookType
+{
+status, ItemNTSTATUS -- 10
+}
+#typev drivermain_cpp257 23 "%0RtlAppendUnicodeToString returned %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=QueryHookType
+{
+status, ItemNTSTATUS -- 10
+}
+#typev drivermain_cpp243 22 "%0Failed to allocate memory for registry path" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=QueryHookType
+{
+}
+#typev drivermain_cpp353 30 "%0MasterHide successfully loaded!" //   LEVEL=TRACE_LEVEL_INFORMATION EVENT=GENERAL FUNC=DriverEntry
+{
+}
+#typev drivermain_cpp328 29 "%0winlogon.exe not found!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=DriverEntry
+{
+}
+#typev drivermain_cpp319 28 "%0Hook type was not set or invalid, defaulting to infinityhook." //   LEVEL=TRACE_LEVEL_INFORMATION EVENT=GENERAL FUNC=DriverEntry
+{
+}
+#typev drivermain_cpp301 27 "%0IoCreateSymbolicLink returned %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=DriverEntry
+{
+status, ItemNTSTATUS -- 10
+}
+#typev drivermain_cpp294 26 "%0IoCreateDevice returned %10!s!" //   LEVEL=TRACE_LEVEL_ERROR EVENT=GENERAL FUNC=DriverEntry
+{
+status, ItemNTSTATUS -- 10
+}
+#typev drivermain_cpp284 25 "%0MasterHide driver is loading" //   LEVEL=TRACE_LEVEL_INFORMATION EVENT=GENERAL FUNC=DriverEntry
+{
+}

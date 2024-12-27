@@ -26,6 +26,9 @@
     <Filter Include="Header Files\infinityhook\hde">
       <UniqueIdentifier>{27574ec6-ab53-4c6f-a20b-9a5ebc0db643}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\shared">
+      <UniqueIdentifier>{7abbcebf-eca4-4bce-9d2d-73b68b3fd090}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="drivermain.cpp">
@@ -140,6 +143,9 @@
     </ClInclude>
     <ClInclude Include="hde\table64.h">
       <Filter>Header Files\infinityhook\hde</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\shared.hpp">
+      <Filter>Header Files\shared</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

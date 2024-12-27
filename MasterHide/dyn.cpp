@@ -14,12 +14,13 @@ static NTSTATUS GetOffsets()
     case WINDOWS_11_VERSION_22H2:
     case WINDOWS_11_VERSION_23H2:
     case WINDOWS_11_VERSION_24H2: {
-        DynCtx.Offsets.BypassProcessFreezeFlagOffset = 0x74;
-        DynCtx.Offsets.ThreadHideFromDebuggerFlagOffset = 0x560;
-        DynCtx.Offsets.ThreadBreakOnTerminationFlagOffset = 0x560;
-        DynCtx.Offsets.PicoContextOffset = 0x630;
-        DynCtx.Offsets.RestrictSetThreadContextOffset = 0x460;
-        DynCtx.Offsets.SeAuditProcessCreationInfoOffset = 0x5c0;
+        DynCtx.Offsets.BypassProcessFreezeFlag = 0x74;
+        DynCtx.Offsets.ThreadHideFromDebuggerFlag = 0x560;
+        DynCtx.Offsets.ThreadBreakOnTerminationFlag = 0x560;
+        DynCtx.Offsets.PicoContext = 0x630;
+        DynCtx.Offsets.RestrictSetThreadContext = 0x460;
+        DynCtx.Offsets.SeAuditProcessCreationInfo = 0x5c0;
+        DynCtx.Offsets.SystemCallNumber = 0x80;
         break;
     }
     case WINDOWS_10_VERSION_22H2:
@@ -27,113 +28,125 @@ static NTSTATUS GetOffsets()
     case WINDOWS_10_VERSION_21H2:
     case WINDOWS_10_VERSION_20H2:
     case WINDOWS_10_VERSION_20H1: {
-        DynCtx.Offsets.BypassProcessFreezeFlagOffset = 0x74;
-        DynCtx.Offsets.ThreadHideFromDebuggerFlagOffset = 0x510;
-        DynCtx.Offsets.ThreadBreakOnTerminationFlagOffset = 0x510;
-        DynCtx.Offsets.PicoContextOffset = 0x5e0;
-        DynCtx.Offsets.RestrictSetThreadContextOffset = 0x460;
-        DynCtx.Offsets.SeAuditProcessCreationInfoOffset = 0x5c0;
+        DynCtx.Offsets.BypassProcessFreezeFlag = 0x74;
+        DynCtx.Offsets.ThreadHideFromDebuggerFlag = 0x510;
+        DynCtx.Offsets.ThreadBreakOnTerminationFlag = 0x510;
+        DynCtx.Offsets.PicoContext = 0x5e0;
+        DynCtx.Offsets.RestrictSetThreadContext = 0x460;
+        DynCtx.Offsets.SeAuditProcessCreationInfo = 0x5c0;
+        DynCtx.Offsets.SystemCallNumber = 0x80;
         break;
     }
     case WINDOWS_10_VERSION_19H2:
     case WINDOWS_10_VERSION_19H1: {
-        DynCtx.Offsets.BypassProcessFreezeFlagOffset = 0x74;
-        DynCtx.Offsets.ThreadHideFromDebuggerFlagOffset = 0x6e0;
-        DynCtx.Offsets.ThreadBreakOnTerminationFlagOffset = 0x6e0;
-        DynCtx.Offsets.PicoContextOffset = 0x7a8;
-        DynCtx.Offsets.RestrictSetThreadContextOffset = 0x308;
-        DynCtx.Offsets.SeAuditProcessCreationInfoOffset = 0x468;
+        DynCtx.Offsets.BypassProcessFreezeFlag = 0x74;
+        DynCtx.Offsets.ThreadHideFromDebuggerFlag = 0x6e0;
+        DynCtx.Offsets.ThreadBreakOnTerminationFlag = 0x6e0;
+        DynCtx.Offsets.PicoContext = 0x7a8;
+        DynCtx.Offsets.RestrictSetThreadContext = 0x308;
+        DynCtx.Offsets.SeAuditProcessCreationInfo = 0x468;
+        DynCtx.Offsets.SystemCallNumber = 0x80;
         break;
     }
     case WINDOWS_10_VERSION_REDSTONE5: {
-        DynCtx.Offsets.BypassProcessFreezeFlagOffset = 0;
-        DynCtx.Offsets.ThreadHideFromDebuggerFlagOffset = 0x6d0;
-        DynCtx.Offsets.ThreadBreakOnTerminationFlagOffset = 0x6d0;
-        DynCtx.Offsets.PicoContextOffset = 0x798;
-        DynCtx.Offsets.RestrictSetThreadContextOffset = 0x300;
-        DynCtx.Offsets.SeAuditProcessCreationInfoOffset = 0x468;
+        DynCtx.Offsets.BypassProcessFreezeFlag = 0;
+        DynCtx.Offsets.ThreadHideFromDebuggerFlag = 0x6d0;
+        DynCtx.Offsets.ThreadBreakOnTerminationFlag = 0x6d0;
+        DynCtx.Offsets.PicoContext = 0x798;
+        DynCtx.Offsets.RestrictSetThreadContext = 0x300;
+        DynCtx.Offsets.SeAuditProcessCreationInfo = 0x468;
+        DynCtx.Offsets.SystemCallNumber = 0x80;
         break;
     }
     case WINDOWS_10_VERSION_REDSTONE4: {
-        DynCtx.Offsets.BypassProcessFreezeFlagOffset = 0;
-        DynCtx.Offsets.ThreadHideFromDebuggerFlagOffset = 0x6d0;
-        DynCtx.Offsets.ThreadBreakOnTerminationFlagOffset = 0x6d0;
-        DynCtx.Offsets.PicoContextOffset = 0x7a0;
-        DynCtx.Offsets.RestrictSetThreadContextOffset = 0x300;
-        DynCtx.Offsets.SeAuditProcessCreationInfoOffset = 0x468;
+        DynCtx.Offsets.BypassProcessFreezeFlag = 0;
+        DynCtx.Offsets.ThreadHideFromDebuggerFlag = 0x6d0;
+        DynCtx.Offsets.ThreadBreakOnTerminationFlag = 0x6d0;
+        DynCtx.Offsets.PicoContext = 0x7a0;
+        DynCtx.Offsets.RestrictSetThreadContext = 0x300;
+        DynCtx.Offsets.SeAuditProcessCreationInfo = 0x468;
+        DynCtx.Offsets.SystemCallNumber = 0x80;
         break;
     }
     case WINDOWS_10_VERSION_REDSTONE3: {
-        DynCtx.Offsets.BypassProcessFreezeFlagOffset = 0;
-        DynCtx.Offsets.ThreadHideFromDebuggerFlagOffset = 0x6d0;
-        DynCtx.Offsets.ThreadBreakOnTerminationFlagOffset = 0x6d0;
-        DynCtx.Offsets.PicoContextOffset = 0x7a0;
-        DynCtx.Offsets.RestrictSetThreadContextOffset = 0x300;
-        DynCtx.Offsets.SeAuditProcessCreationInfoOffset = 0x468;
+        DynCtx.Offsets.BypassProcessFreezeFlag = 0;
+        DynCtx.Offsets.ThreadHideFromDebuggerFlag = 0x6d0;
+        DynCtx.Offsets.ThreadBreakOnTerminationFlag = 0x6d0;
+        DynCtx.Offsets.PicoContext = 0x7a0;
+        DynCtx.Offsets.RestrictSetThreadContext = 0x300;
+        DynCtx.Offsets.SeAuditProcessCreationInfo = 0x468;
+        DynCtx.Offsets.SystemCallNumber = 0x80;
         break;
     }
     case WINDOWS_10_VERSION_REDSTONE2: {
-        DynCtx.Offsets.BypassProcessFreezeFlagOffset = 0;
-        DynCtx.Offsets.ThreadHideFromDebuggerFlagOffset = 0x6c8;
-        DynCtx.Offsets.ThreadBreakOnTerminationFlagOffset = 0x6c8;
-        DynCtx.Offsets.PicoContextOffset = 0x798;
-        DynCtx.Offsets.RestrictSetThreadContextOffset = 0x810;
-        DynCtx.Offsets.SeAuditProcessCreationInfoOffset = 0x468;
+        DynCtx.Offsets.BypassProcessFreezeFlag = 0;
+        DynCtx.Offsets.ThreadHideFromDebuggerFlag = 0x6c8;
+        DynCtx.Offsets.ThreadBreakOnTerminationFlag = 0x6c8;
+        DynCtx.Offsets.PicoContext = 0x798;
+        DynCtx.Offsets.RestrictSetThreadContext = 0x810;
+        DynCtx.Offsets.SeAuditProcessCreationInfo = 0x468;
+        DynCtx.Offsets.SystemCallNumber = 0x80;
         break;
     }
     case WINDOWS_10_VERSION_REDSTONE1: {
-        DynCtx.Offsets.BypassProcessFreezeFlagOffset = 0;
-        DynCtx.Offsets.ThreadHideFromDebuggerFlagOffset = 0x6c0;
-        DynCtx.Offsets.ThreadBreakOnTerminationFlagOffset = 0x6c0;
-        DynCtx.Offsets.PicoContextOffset = 0x790;
-        DynCtx.Offsets.RestrictSetThreadContextOffset = 0;
-        DynCtx.Offsets.SeAuditProcessCreationInfoOffset = 0x468;
+        DynCtx.Offsets.BypassProcessFreezeFlag = 0;
+        DynCtx.Offsets.ThreadHideFromDebuggerFlag = 0x6c0;
+        DynCtx.Offsets.ThreadBreakOnTerminationFlag = 0x6c0;
+        DynCtx.Offsets.PicoContext = 0x790;
+        DynCtx.Offsets.RestrictSetThreadContext = 0;
+        DynCtx.Offsets.SeAuditProcessCreationInfo = 0x468;
+        DynCtx.Offsets.SystemCallNumber = 0x80;
         break;
     }
     case WINDOWS_10_VERSION_THRESHOLD2: {
-        DynCtx.Offsets.BypassProcessFreezeFlagOffset = 0;
-        DynCtx.Offsets.ThreadHideFromDebuggerFlagOffset = 0x6bc;
-        DynCtx.Offsets.ThreadBreakOnTerminationFlagOffset = 0x6bc;
-        DynCtx.Offsets.PicoContextOffset = 0x788;
-        DynCtx.Offsets.RestrictSetThreadContextOffset = 0;
-        DynCtx.Offsets.SeAuditProcessCreationInfoOffset = 0x468;
+        DynCtx.Offsets.BypassProcessFreezeFlag = 0;
+        DynCtx.Offsets.ThreadHideFromDebuggerFlag = 0x6bc;
+        DynCtx.Offsets.ThreadBreakOnTerminationFlag = 0x6bc;
+        DynCtx.Offsets.PicoContext = 0x788;
+        DynCtx.Offsets.RestrictSetThreadContext = 0;
+        DynCtx.Offsets.SeAuditProcessCreationInfo = 0x468;
+        DynCtx.Offsets.SystemCallNumber = 0x80;
         break;
     }
     case WINDOWS_10_VERSION_THRESHOLD1: {
-        DynCtx.Offsets.BypassProcessFreezeFlagOffset = 0;
-        DynCtx.Offsets.ThreadHideFromDebuggerFlagOffset = 0x6bc;
-        DynCtx.Offsets.ThreadBreakOnTerminationFlagOffset = 0x6bc;
-        DynCtx.Offsets.PicoContextOffset = 0x788;
-        DynCtx.Offsets.RestrictSetThreadContextOffset = 0;
-        DynCtx.Offsets.SeAuditProcessCreationInfoOffset = 0x460;
+        DynCtx.Offsets.BypassProcessFreezeFlag = 0;
+        DynCtx.Offsets.ThreadHideFromDebuggerFlag = 0x6bc;
+        DynCtx.Offsets.ThreadBreakOnTerminationFlag = 0x6bc;
+        DynCtx.Offsets.PicoContext = 0x788;
+        DynCtx.Offsets.RestrictSetThreadContext = 0;
+        DynCtx.Offsets.SeAuditProcessCreationInfo = 0x460;
+        DynCtx.Offsets.SystemCallNumber = 0x80;
         break;
     }
     case WINDOWS_8_1: {
-        DynCtx.Offsets.BypassProcessFreezeFlagOffset = 0;
-        DynCtx.Offsets.ThreadHideFromDebuggerFlagOffset = 0x6b4;
-        DynCtx.Offsets.ThreadBreakOnTerminationFlagOffset = 0x6b4;
-        DynCtx.Offsets.PicoContextOffset = 0x770;
-        DynCtx.Offsets.RestrictSetThreadContextOffset = 0;
-        DynCtx.Offsets.SeAuditProcessCreationInfoOffset = 0x450;
+        DynCtx.Offsets.BypassProcessFreezeFlag = 0;
+        DynCtx.Offsets.ThreadHideFromDebuggerFlag = 0x6b4;
+        DynCtx.Offsets.ThreadBreakOnTerminationFlag = 0x6b4;
+        DynCtx.Offsets.PicoContext = 0x770;
+        DynCtx.Offsets.RestrictSetThreadContext = 0;
+        DynCtx.Offsets.SeAuditProcessCreationInfo = 0x450;
+        DynCtx.Offsets.SystemCallNumber = 0x80;
         break;
     }
     case WINDOWS_8: {
-        DynCtx.Offsets.BypassProcessFreezeFlagOffset = 0;
-        DynCtx.Offsets.ThreadHideFromDebuggerFlagOffset = 0x42c;
-        DynCtx.Offsets.ThreadBreakOnTerminationFlagOffset = 0x42c;
-        DynCtx.Offsets.PicoContextOffset = 0x770;
-        DynCtx.Offsets.RestrictSetThreadContextOffset = 0;
-        DynCtx.Offsets.SeAuditProcessCreationInfoOffset = 0x450;
+        DynCtx.Offsets.BypassProcessFreezeFlag = 0;
+        DynCtx.Offsets.ThreadHideFromDebuggerFlag = 0x42c;
+        DynCtx.Offsets.ThreadBreakOnTerminationFlag = 0x42c;
+        DynCtx.Offsets.PicoContext = 0x770;
+        DynCtx.Offsets.RestrictSetThreadContext = 0;
+        DynCtx.Offsets.SeAuditProcessCreationInfo = 0x450;
+        DynCtx.Offsets.SystemCallNumber = 0x80;
         break;
     }
     case WINDOWS_7_SP1:
     case WINDOWS_7: {
-        DynCtx.Offsets.BypassProcessFreezeFlagOffset = 0;
-        DynCtx.Offsets.ThreadHideFromDebuggerFlagOffset = 0x448;
-        DynCtx.Offsets.ThreadBreakOnTerminationFlagOffset = 0x448;
-        DynCtx.Offsets.PicoContextOffset = 0;
-        DynCtx.Offsets.RestrictSetThreadContextOffset = 0;
-        DynCtx.Offsets.SeAuditProcessCreationInfoOffset = 0x390;
+        DynCtx.Offsets.BypassProcessFreezeFlag = 0;
+        DynCtx.Offsets.ThreadHideFromDebuggerFlag = 0x448;
+        DynCtx.Offsets.ThreadBreakOnTerminationFlag = 0x448;
+        DynCtx.Offsets.PicoContext = 0;
+        DynCtx.Offsets.RestrictSetThreadContext = 0;
+        DynCtx.Offsets.SeAuditProcessCreationInfo = 0x390;
+        DynCtx.Offsets.SystemCallNumber = 0x1f8;
         break;
     }
     default: {
@@ -143,93 +156,6 @@ static NTSTATUS GetOffsets()
 
     return STATUS_SUCCESS;
 }
-
-static PULONG_PTR GetKeServiceDescriptorTable(PULONG_PTR *KeServiceDescriptorTableShadow)
-{
-    // this code was stolen from BE.
-    ULONG64 KiSystemCall64;      // r9
-    ULONG64 KiSystemCall64_;     // rdx
-    ULONG64 v5;                  // r10
-    bool i;                      // cf
-    __int64 KiSystemServiceUser; // rax
-    ULONG64 v8;                  // rcx
-
-    ULONG64 *KeServiceDescriptorTable = NULL;
-
-    KiSystemCall64 = __readmsr(IA32_LSTAR_MSR);
-    KiSystemCall64_ = KiSystemCall64;
-    v5 = KiSystemCall64 + 0x1000;
-
-    for (i = KiSystemCall64 < KiSystemCall64 + 0x1000; i; i = KiSystemCall64_ < v5)
-    {
-        if (*(UCHAR *)KiSystemCall64_ == 0x4C && *(UCHAR *)(KiSystemCall64_ + 1) == 0x8D &&
-            *(UCHAR *)(KiSystemCall64_ + 2) == 0x15 && *(UCHAR *)(KiSystemCall64_ + 7) == 0x4C &&
-            *(UCHAR *)(KiSystemCall64_ + 8) == 0x8D && *(UCHAR *)(KiSystemCall64_ + 9) == 0x1D)
-        {
-            KeServiceDescriptorTable = (ULONG64 *)(*(INT32 *)(KiSystemCall64_ + 3) + KiSystemCall64_ + 7);
-
-            if (KeServiceDescriptorTable)
-            {
-                if (KeServiceDescriptorTableShadow)
-                {
-                    KiSystemCall64_ += 7;
-                    *KeServiceDescriptorTableShadow =
-                        (ULONG64 *)(*(INT32 *)(KiSystemCall64_ + 3) + KiSystemCall64_ + 7);
-                }
-
-                goto Exit;
-            }
-
-            break;
-        }
-        ++KiSystemCall64_;
-    }
-
-    if (KERNEL_BUILD_VERSION > WINDOWS_10_VERSION_REDSTONE4)
-    {
-        while (KiSystemCall64 < v5)
-        {
-            if (*(UCHAR *)KiSystemCall64 == 0xE9 && *(UCHAR *)(KiSystemCall64 + 5) == 0xC3 &&
-                !*(UCHAR *)(KiSystemCall64 + 6))
-            {
-                KiSystemServiceUser = *(INT32 *)(KiSystemCall64 + 1);
-
-                v8 = KiSystemServiceUser + KiSystemCall64 + 5;
-                if (v8)
-                {
-                    while (v8 < KiSystemServiceUser + KiSystemCall64 + 0x1005)
-                    {
-                        if (*(UCHAR *)v8 == 0x4C && *(UCHAR *)(v8 + 1) == 0x8D && *(UCHAR *)(v8 + 2) == 0x15 &&
-                            *(UCHAR *)(v8 + 7) == 0x4C && *(UCHAR *)(v8 + 8) == 0x8D && *(UCHAR *)(v8 + 9) == 0x1D)
-                        {
-                            KeServiceDescriptorTable = (ULONG64 *)(*(INT32 *)(v8 + 3) + v8 + 7);
-
-                            if (KeServiceDescriptorTable)
-                            {
-                                if (KeServiceDescriptorTableShadow)
-                                {
-                                    v8 += 7;
-                                    *KeServiceDescriptorTableShadow = (ULONG64 *)(*(INT32 *)(v8 + 3) + v8 + 7);
-                                }
-
-                                goto Exit;
-                            }
-
-                            return NULL;
-                        }
-                        ++v8;
-                    }
-                }
-
-                return NULL;
-            }
-            ++KiSystemCall64;
-        }
-    }
-
-Exit:
-    return KeServiceDescriptorTable;
-};
 
 NTSTATUS Initialize()
 {
@@ -269,82 +195,83 @@ NTSTATUS Initialize()
 
     DBGPRINT("Windows major %d minor %d build %d", KERNEL_BUILD_MAJOR, KERNEL_BUILD_MINOR, KERNEL_BUILD_VERSION);
 
-    if (KERNEL_BUILD_VERSION < WINDOWS_7 || KERNEL_BUILD_VERSION > WINDOWS_11_VERSION_24H2)
+    if (KERNEL_BUILD_VERSION < WINDOWS_7_SP1 || KERNEL_BUILD_VERSION > WINDOWS_11_VERSION_24H2)
     {
         WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Unsupported windows version!");
 
         return STATUS_NOT_SUPPORTED;
     }
 
-#if (MASTERHIDE_MODE == MASTERHIDE_MODE_INFINITYHOOK)
-    if (KERNEL_BUILD_VERSION >= WINDOWS_11_VERSION_21H2)
+    if (MASTERHIDE_HOOK_TYPE == HookTypeInfinityHook)
     {
-        DynCtx.Offsets.GetCpuClock = 0x18;
-    }
-    else
-    {
-        DynCtx.Offsets.GetCpuClock = 0x28;
-    }
+        if (KERNEL_BUILD_VERSION <= WINDOWS_7_SP1 || KERNEL_BUILD_VERSION >= WINDOWS_11_VERSION_21H2)
+        {
+            DynCtx.Offsets.GetCpuClock = 0x18;
+        }
+        else
+        {
+            DynCtx.Offsets.GetCpuClock = 0x28;
+        }
 
-    PUCHAR EtwpDebuggerData = tools::FindPattern(KERNEL_BASE, ".data", "2C 08 04 38 0C");
-    if (!EtwpDebuggerData)
-    {
-        EtwpDebuggerData = tools::FindPattern(KERNEL_BASE, ".rdata", "2C 08 04 38 0C");
+        PUCHAR EtwpDebuggerData = tools::FindPattern(KERNEL_BASE, ".rdata", "2C 08 04 38 0C");
         if (!EtwpDebuggerData)
         {
-            EtwpDebuggerData = tools::FindPattern(KERNEL_BASE, ".text", "2C 08 04 38 0C");
+            EtwpDebuggerData = tools::FindPattern(KERNEL_BASE, ".data", "2C 08 04 38 0C");
             if (!EtwpDebuggerData)
             {
-                WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "EtwpDebuggerData not found!");
-                return STATUS_PROCEDURE_NOT_FOUND;
+                EtwpDebuggerData = tools::FindPattern(KERNEL_BASE, ".text", "2C 08 04 38 0C");
+                if (!EtwpDebuggerData)
+                {
+                    WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "EtwpDebuggerData not found!");
+                    return STATUS_PROCEDURE_NOT_FOUND;
+                }
             }
         }
-    }
 
-    EtwpDebuggerData -= 2;
+        EtwpDebuggerData -= 2;
 
-    if (!MmIsAddressValid(EtwpDebuggerData))
-    {
-        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Invalid EtwpDebuggerData at 0x%p", EtwpDebuggerData);
-        return STATUS_PROCEDURE_NOT_FOUND;
-    }
-
-    DBGPRINT("EtwpDebuggerData = 0x%p", EtwpDebuggerData);
-    DynCtx.Kernel.EtwpDebuggerData = reinterpret_cast<ULONG_PTR>(EtwpDebuggerData);
-
-    // Starting Win10 1909 a new method to achieve infinityhook is necessary
-    //
-    if (KERNEL_BUILD_VERSION > WINDOWS_10_VERSION_19H2)
-    {
-        const PUCHAR HvlpReferenceTscPage =
-            tools::FindPattern(KERNEL_BASE, ".text", "48 8B 05 ?? ?? ?? ?? 48 8B 40 08 48 8B 0D");
-        if (!HvlpReferenceTscPage)
+        if (!MmIsAddressValid(EtwpDebuggerData))
         {
-            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "HvlpReferenceTscPage not found!");
+            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Invalid EtwpDebuggerData at 0x%p", EtwpDebuggerData);
             return STATUS_PROCEDURE_NOT_FOUND;
         }
 
-        DBGPRINT("HvlpReferenceTscPageRef = 0x%p", HvlpReferenceTscPage);
-        DynCtx.Kernel.HvlpReferenceTscPage = reinterpret_cast<ULONG_PTR>(HvlpReferenceTscPage);
+        DBGPRINT("EtwpDebuggerData = 0x%p", EtwpDebuggerData);
+        DynCtx.Kernel.EtwpDebuggerData = reinterpret_cast<ULONG_PTR>(EtwpDebuggerData);
 
-        PUCHAR HvlGetQpcBias = tools::FindPattern(KERNEL_BASE, ".text",
-                                                  "48 89 5C 24 08 57 48 83 EC 20 48 8B 05 ?? ?? ?? ?? 48 8B F9 48 85");
-        if (!HvlGetQpcBias)
+        // Starting Win10 1909 a new method to achieve infinityhook is necessary
+        //
+        if (KERNEL_BUILD_VERSION > WINDOWS_10_VERSION_19H2)
         {
-            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "HvlGetQpcBias not found!");
-            return STATUS_PROCEDURE_NOT_FOUND;
+            const PUCHAR HvlpReferenceTscPage =
+                tools::FindPattern(KERNEL_BASE, ".text", "48 8B 05 ?? ?? ?? ?? 48 8B 40 08 48 8B 0D");
+            if (!HvlpReferenceTscPage)
+            {
+                WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "HvlpReferenceTscPage not found!");
+                return STATUS_PROCEDURE_NOT_FOUND;
+            }
+
+            DBGPRINT("HvlpReferenceTscPageRef = 0x%p", HvlpReferenceTscPage);
+            DynCtx.Kernel.HvlpReferenceTscPage = reinterpret_cast<ULONG_PTR>(HvlpReferenceTscPage);
+
+            PUCHAR HvlGetQpcBias = tools::FindPattern(
+                KERNEL_BASE, ".text", "48 89 5C 24 08 57 48 83 EC 20 48 8B 05 ?? ?? ?? ?? 48 8B F9 48 85");
+            if (!HvlGetQpcBias)
+            {
+                WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "HvlGetQpcBias not found!");
+                return STATUS_PROCEDURE_NOT_FOUND;
+            }
+
+            HvlGetQpcBias += 0x22;
+
+            DBGPRINT("HvlGetQpcBiasRef = 0x%p", HvlGetQpcBias);
+            DynCtx.Kernel.HvlGetQpcBias = reinterpret_cast<ULONG_PTR>(HvlGetQpcBias);
         }
-
-        HvlGetQpcBias += 0x22;
-
-        DBGPRINT("HvlGetQpcBiasRef = 0x%p", HvlGetQpcBias);
-        DynCtx.Kernel.HvlGetQpcBias = reinterpret_cast<ULONG_PTR>(HvlGetQpcBias);
     }
-#endif
 
-    if (KERNEL_BUILD_VERSION > WINDOWS_10_VERSION_THRESHOLD2)
+    if (KERNEL_BUILD_VERSION >= 14322 /*Win10 August 2016*/)
     {
-        WppTracePrint(TRACE_LEVEL_INFORMATION, GENERAL, "Windows 10 Threshold 2+ detect, initializing debugger block");
+        WppTracePrint(TRACE_LEVEL_INFORMATION, GENERAL, "Initializing debugger block to obtain PTE information");
 
         auto InitializeDebuggerBlock = []() -> bool {
             CONTEXT context = {0};
@@ -382,21 +309,6 @@ NTSTATUS Initialize()
 
         return status;
     }
-
-    PULONG_PTR KeServiceDescriptorTableShadow = NULL;
-    PULONG_PTR KeServiceDescriptorTable = GetKeServiceDescriptorTable(&KeServiceDescriptorTableShadow);
-    if (!KeServiceDescriptorTable)
-    {
-        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "KeServiceDescriptorTable not found!");
-
-        return STATUS_PROCEDURE_NOT_FOUND;
-    }
-
-    DynCtx.Kernel.KeServiceDescriptorTable = KeServiceDescriptorTable;
-    DynCtx.Kernel.KeServiceDescriptorTableShadow = KeServiceDescriptorTableShadow;
-
-    DBGPRINT("KeServiceDescriptorTable = 0x%p", DynCtx.Kernel.KeServiceDescriptorTable);
-    DBGPRINT("KeServiceDescriptorTableShadow = 0x%p", DynCtx.Kernel.KeServiceDescriptorTableShadow);
 
     g_initialized = true;
 

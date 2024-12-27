@@ -19,17 +19,6 @@ void Deinitialize();
 //
 NTSTATUS NTAPI hkNtQuerySystemInformation(SYSTEM_INFORMATION_CLASS SystemInformationClass, PVOID Buffer, ULONG Length,
                                           PULONG ReturnLength);
-NTSTATUS NTAPI hkNtOpenProcess(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes,
-                               PCLIENT_ID ClientId);
-NTSTATUS NTAPI hkNtAllocateVirtualMemory(HANDLE ProcessHandle, PVOID *BaseAddress, ULONG_PTR ZeroBits,
-                                         PSIZE_T RegionSize, ULONG AllocationType, ULONG Protect);
-NTSTATUS NTAPI hkNtFreeVirtualMemory(HANDLE ProcessHandle, PVOID *BaseAddress, PSIZE_T RegionSize, ULONG FreeType);
-NTSTATUS NTAPI hkNtWriteVirtualMemory(HANDLE ProcessHandle, PVOID BaseAddress, PVOID Buffer, ULONG NumberOfBytesToWrite,
-                                      PULONG NumberOfBytesWritten);
-NTSTATUS NTAPI hkNtDeviceIoControlFile(HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE ApcRoutine, PVOID ApcContext,
-                                       PIO_STATUS_BLOCK IoStatusBlock, ULONG IoControlCode, PVOID InputBuffer,
-                                       ULONG InputBufferLength, PVOID OutputBuffer, ULONG OutputBufferLength);
-NTSTATUS NTAPI hkNtLoadDriver(PUNICODE_STRING DriverServiceName);
 NTSTATUS NTAPI hkNtSetInformationThread(HANDLE ThreadHandle, THREADINFOCLASS ThreadInformationClass,
                                         PVOID ThreadInformation, ULONG ThreadInformationLength);
 NTSTATUS NTAPI hkNtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS ProcessInformationClass,
@@ -47,8 +36,6 @@ NTSTATUS NTAPI hkNtCreateThreadEx(PHANDLE ThreadHandle, ACCESS_MASK DesiredAcces
 NTSTATUS NTAPI hkNtGetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext);
 NTSTATUS NTAPI hkNtSetContextThread(HANDLE ThreadHandle, PCONTEXT ThreadContext);
 NTSTATUS NTAPI hkNtContinue(PCONTEXT Context, ULONG64 TestAlert);
-NTSTATUS NTAPI hkNtOpenThread(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes,
-                              PCLIENT_ID ClientId);
 NTSTATUS NTAPI hkNtYieldExecution();
 NTSTATUS NTAPI hkNtClose(HANDLE Handle);
 NTSTATUS NTAPI hkNtSystemDebugControl(SYSDBG_COMMAND Command, PVOID InputBuffer, ULONG InputBufferLength,
@@ -57,6 +44,15 @@ NTSTATUS NTAPI hkNtQuerySystemTime(PLARGE_INTEGER SystemTime);
 NTSTATUS NTAPI hkNtQueryPerformanceCounter(PLARGE_INTEGER PerformanceCounter, PLARGE_INTEGER PerformanceFrequency);
 NTSTATUS NTAPI hkNtQueryInformationJobObject(HANDLE JobHandle, JOBOBJECTINFOCLASS JobInformationClass,
                                              PVOID JobInformation, ULONG JobInformationLength, PULONG ReturnLength);
+NTSTATUS NTAPI hkNtGetNextProcess(HANDLE ProcessHandle, ACCESS_MASK DesiredAccess, ULONG HandleAttributes, ULONG Flags,
+                                  PHANDLE NewProcessHandle);
+NTSTATUS NTAPI hkNtCreateUserProcess(PHANDLE ProcessHandle, PHANDLE ThreadHandle, ACCESS_MASK ProcessDesiredAccess,
+                                     ACCESS_MASK ThreadDesiredAccess, POBJECT_ATTRIBUTES ProcessObjectAttributes,
+                                     POBJECT_ATTRIBUTES ThreadObjectAttributes, ULONG ProcessFlags, ULONG ThreadFlags,
+                                     PRTL_USER_PROCESS_PARAMETERS ProcessParameters,
+                                     PVOID CreateInfo,   // PPS_CREATE_INFO
+                                     PVOID AttributeList // PPS_ATTRIBUTE_LIST
+);
 
 // Shadow SSDT hooks
 //
@@ -69,21 +65,44 @@ NTSTATUS NTAPI hkNtUserBuildHwndList_Win7(HDESK hdesk, HWND hwndNext, ULONG fEnu
 NTSTATUS NTAPI hkNtUserBuildHwndList(HDESK hDesktop, HWND hwndParent, BOOLEAN bChildren, BOOLEAN bUnknownFlag,
                                      ULONG dwThreadId, ULONG lParam, HWND *pWnd, PULONG pBufSize);
 HWND NTAPI hkNtUserGetForegroundWindow(VOID);
+HWND NTAPI NtUserGetThreadState(ThreadStateRoutines Routine);
 
 typedef struct _HOOK_ENTRY
 {
-    BOOLEAN Win32k;
-    CHAR ServiceName[64];
-    PVOID Original;
-    PVOID New;
-    USHORT ServiceIndex;
     KEVENT Event;
+    PVOID OriginalFunc;
+    PVOID NewFunc;
+    CHAR ServiceName[64];
+    BOOLEAN Win32k;
     ReferenceGuard RefCount;
-#if (MASTERHIDE_MODE == MASTERHIDE_MODE_SSDTHOOK)
-    LONG OldSsdt;
-    LONG NewSsdt;
+    USHORT ServiceIndex;
     UCHAR OriginalBytes[12];
-#endif
+
+    _HOOK_ENTRY()
+    {
+        RtlZeroMemory(this, sizeof(*this));
+    }
+
+    constexpr _HOOK_ENTRY(const char *serviceName, BOOLEAN win32k, PVOID newFunc)
+        : Event{}, OriginalFunc(nullptr), NewFunc(newFunc), Win32k(win32k), RefCount{}, ServiceIndex(MAXUSHORT),
+          OriginalBytes{}
+    {
+        size_t length = 0;
+
+        while (serviceName[length] != '\0' && length < ARRAYSIZE(ServiceName) - 1)
+        {
+            ServiceName[length] = serviceName[length];
+            ++length;
+        }
+
+        ServiceName[length] = '\0';
+
+        for (size_t i = length + 1; i < sizeof(ServiceName); ++i)
+        {
+            ServiceName[i] = '\0';
+        }
+    }
+
 } HOOK_ENTRY, *PHOOK_ENTRY;
 
 extern HOOK_ENTRY g_HookList[];

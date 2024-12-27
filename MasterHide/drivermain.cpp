@@ -1,55 +1,8 @@
 #include "includes.hpp"
 
-#define MASTERHIDE_GUID L"{EDC00A52-CBB9-490E-89A3-69E3FFF137BA}"
-
-static UNICODE_STRING g_deviceName = RTL_CONSTANT_STRING(L"\\Device\\" MASTERHIDE_GUID);
-static UNICODE_STRING g_symbolicLinkName = RTL_CONSTANT_STRING(L"\\DosDevices\\" MASTERHIDE_GUID);
-static PDEVICE_OBJECT g_deviceObject = nullptr;
-
-#define IOCTL_MASTERHIDE_ADD_RULE CTL_CODE(FILE_DEVICE_UNKNOWN, 0, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
-#define IOCTL_MASTERHIDE_REMOVE_RULE CTL_CODE(FILE_DEVICE_UNKNOWN, 1, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
-#define IOCTL_MASTERHIDE_UPDATE_RULE CTL_CODE(FILE_DEVICE_UNKNOWN, 2, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
-#define IOCTL_MASTERHIDE_PROCESS_RESUME CTL_CODE(FILE_DEVICE_UNKNOWN, 3, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
-#define IOCTL_MASTERHIDE_PROCESS_STOP CTL_CODE(FILE_DEVICE_UNKNOWN, 4, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
-
-void Test()
-{
-    {
-        UNICODE_STRING imageFileName =
-            RTL_CONSTANT_STRING(L"\\??\\C:\\Users\\LAPTOP\\Desktop\\x64dbg\\release\\x64\\x64dbg.exe");
-
-        if (!NT_SUCCESS(process::rules::AddProcessRuleEntry(&imageFileName, PROCESS_POLICY_PROTECTED)))
-        {
-            return;
-        }
-
-        WppTracePrint(TRACE_LEVEL_VERBOSE, DEBUG, "Created protected policy rule %wZ", &imageFileName);
-    }
-    /*{
-        UNICODE_STRING imageFileName =
-            RTL_CONSTANT_STRING(L"\\??\\C:\\Program Files\\Cheat Engine 7.5\\cheatengine-x86_64.exe");
-
-        if (!NT_SUCCESS(process::rules::AddProcessRuleEntry(&imageFileName, PROCESS_POLICY_HIDE_FROM_DEBUGGER)))
-        {
-            return;
-        }
-
-        WppTracePrint(TRACE_LEVEL_VERBOSE, DEBUG, "Created hidden from debugger rule for %wZ", &imageFileName);
-    }*/
-    {
-        UNICODE_STRING imageFileName =
-            RTL_CONSTANT_STRING(L"\\??\\C:\\Users\\LAPTOP\\Desktop\\History Reborn 3.0\\Ragnarok.exe");
-
-        if (!NT_SUCCESS(process::rules::AddProcessRuleEntry(&imageFileName, PROCESS_POLICY_HIDE_FROM_DEBUGGER |
-                                                                                PROCESS_POLICY_FLAG_MONITORED)))
-        {
-            return;
-        }
-
-        WppTracePrint(TRACE_LEVEL_VERBOSE, DEBUG, "Created hidden from debugger rule for %wZ", &imageFileName);
-    }
-    //
-}
+UNICODE_STRING g_deviceName = RTL_CONSTANT_STRING(L"\\Device\\" MASTERHIDE_GUID);
+UNICODE_STRING g_symbolicLinkName = RTL_CONSTANT_STRING(L"\\DosDevices\\" MASTERHIDE_GUID);
+PDEVICE_OBJECT g_deviceObject = nullptr;
 
 static void OnDriverUnload()
 {
@@ -97,21 +50,12 @@ static NTSTATUS DispatchCreateClose(_In_ PDEVICE_OBJECT deviceObject, _Inout_ PI
     return STATUS_SUCCESS;
 }
 
-typedef struct _PROCESS_RULE
-{
-    UNICODE_STRING ImageFileName;
-    ULONG ProcessId;
-    BOOLEAN UseProcessId;
-    LONG64 PolicyFlags;
-
-} PROCESS_RULE, *PPROCESS_RULE;
-
 static NTSTATUS DispatchDeviceControl(_In_ PDEVICE_OBJECT deviceObject, _Inout_ PIRP irp)
 {
     UNREFERENCED_PARAMETER(deviceObject);
 
     PIO_STACK_LOCATION irpStack = IoGetCurrentIrpStackLocation(irp);
-    ULONG controlCode = irpStack->Parameters.DeviceIoControl.IoControlCode;
+    const ULONG controlCode = irpStack->Parameters.DeviceIoControl.IoControlCode;
 
     NTSTATUS status = STATUS_SUCCESS;
 
@@ -128,7 +72,13 @@ static NTSTATUS DispatchDeviceControl(_In_ PDEVICE_OBJECT deviceObject, _Inout_ 
                 if (!NT_SUCCESS(
                         process::AddProcessEntry(UlongToHandle(processRule->ProcessId), processRule->PolicyFlags)))
                 {
+                    WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to add process entry");
                     status = STATUS_UNSUCCESSFUL;
+                }
+                else
+                {
+                    WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Successfully created rule for pid %u",
+                                  processRule->ProcessId);
                 }
             }
             else
@@ -136,7 +86,13 @@ static NTSTATUS DispatchDeviceControl(_In_ PDEVICE_OBJECT deviceObject, _Inout_ 
                 if (!NT_SUCCESS(
                         process::rules::AddProcessRuleEntry(&processRule->ImageFileName, processRule->PolicyFlags)))
                 {
+                    WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to add process rule entry");
                     status = STATUS_UNSUCCESSFUL;
+                }
+                else
+                {
+                    WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Successfully created rule for image %wZ",
+                                  &processRule->ImageFileName);
                 }
             }
 
@@ -153,6 +109,11 @@ static NTSTATUS DispatchDeviceControl(_In_ PDEVICE_OBJECT deviceObject, _Inout_ 
                 {
                     status = STATUS_UNSUCCESSFUL;
                 }
+                else
+                {
+                    WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Successfully update rule for pid %u",
+                                  processRule->ProcessId);
+                }
             }
             else
             {
@@ -160,6 +121,11 @@ static NTSTATUS DispatchDeviceControl(_In_ PDEVICE_OBJECT deviceObject, _Inout_ 
                         process::rules::UpdateProcessRuleEntry(&processRule->ImageFileName, processRule->PolicyFlags)))
                 {
                     status = STATUS_UNSUCCESSFUL;
+                }
+                else
+                {
+                    WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Successfully update rule for image %wZ",
+                                  &processRule->ImageFileName);
                 }
             }
 
@@ -175,12 +141,22 @@ static NTSTATUS DispatchDeviceControl(_In_ PDEVICE_OBJECT deviceObject, _Inout_ 
                 {
                     status = STATUS_UNSUCCESSFUL;
                 }
+                else
+                {
+                    WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Successfully removed rule for pid %u",
+                                  processRule->ProcessId);
+                }
             }
             else
             {
                 if (!NT_SUCCESS(process::rules::RemoveProcessRuleEntry(&processRule->ImageFileName)))
                 {
                     status = STATUS_UNSUCCESSFUL;
+                }
+                else
+                {
+                    WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Successfully removed rule for image %wZ",
+                                  &processRule->ImageFileName);
                 }
             }
 
@@ -232,6 +208,7 @@ static NTSTATUS DispatchDeviceControl(_In_ PDEVICE_OBJECT deviceObject, _Inout_ 
         }
         default:
             status = STATUS_INVALID_DEVICE_REQUEST;
+            WppTracePrint(TRACE_LEVEL_VERBOSE, GENERAL, "Unrecognized IOCTL request 0x%08X", status);
             break;
         }
     }
@@ -247,15 +224,66 @@ static NTSTATUS DispatchDeviceControl(_In_ PDEVICE_OBJECT deviceObject, _Inout_ 
     return status;
 }
 
-extern "C" NTSTATUS NTAPI DriverEntry(PDRIVER_OBJECT driverObject, PUNICODE_STRING registryPath)
+static ULONG QueryHookType(_In_ PUNICODE_STRING registryPath)
 {
-    UNREFERENCED_PARAMETER(registryPath);
+    PAGED_CODE();
+    NT_ASSERT(registryPath);
 
+    ULONG hookType = HookTypeInfinityHook;
+
+    NTSTATUS status;
+
+    UNICODE_STRING registryPathParameters{};
+    registryPathParameters.Length = 0;
+    registryPathParameters.MaximumLength = NTSTRSAFE_UNICODE_STRING_MAX_CCH;
+    registryPathParameters.Buffer = tools::AllocatePoolZero<PWCH>(
+        NonPagedPool, registryPathParameters.MaximumLength * sizeof(WCHAR), tags::TAG_STRING);
+    if (!registryPathParameters.Buffer)
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to allocate memory for registry path");
+        return hookType;
+    }
+
+    SCOPE_EXIT
+    {
+        RtlFreeUnicodeString(&registryPathParameters);
+    };
+
+    RtlCopyUnicodeString(&registryPathParameters, registryPath);
+
+    status = RtlAppendUnicodeToString(&registryPathParameters, L"\\Parameters");
+    if (!NT_SUCCESS(status))
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "RtlAppendUnicodeToString returned %!STATUS!", status);
+        return hookType;
+    }
+
+    RTL_QUERY_REGISTRY_TABLE query[2]{};
+    query[0].Flags = RTL_QUERY_REGISTRY_DIRECT;
+    query[0].Name = (PWSTR)L"HookType";
+    query[0].EntryContext = &hookType;
+    query[0].DefaultType = REG_DWORD;
+    query[0].DefaultData = &hookType;
+    query[0].DefaultLength = sizeof(ULONG);
+
+    status = RtlQueryRegistryValues(RTL_REGISTRY_ABSOLUTE, registryPathParameters.Buffer, query, NULL, NULL);
+    if (!NT_SUCCESS(status))
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "RtlQueryRegistryValues returned %!STATUS!", status);
+    }
+
+    return hookType;
+}
+
+extern "C" NTSTATUS NTAPI DriverEntry(_In_ PDRIVER_OBJECT driverObject, _In_ PUNICODE_STRING registryPath)
+{
     NTSTATUS status = STATUS_UNSUCCESSFUL;
     PEPROCESS winlogon = nullptr;
 
     WPP_INIT_TRACING(driverObject, registryPath);
     WppTracePrint(TRACE_LEVEL_INFORMATION, GENERAL, "MasterHide driver is loading");
+
+    DBGPRINT("RegistryPath %wZ", registryPath);
 
     // (1) Setup driver object
     //
@@ -279,6 +307,18 @@ extern "C" NTSTATUS NTAPI DriverEntry(PDRIVER_OBJECT driverObject, PUNICODE_STRI
     driverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = DispatchDeviceControl;
     driverObject->DriverUnload = &DriverUnload;
     driverObject->Flags |= DO_BUFFERED_IO;
+
+    // Query the type of hook that should be used
+    //
+    MASTERHIDE_HOOK_TYPE = QueryHookType(registryPath);
+
+    if (MASTERHIDE_HOOK_TYPE <= HookTypeInvalid || MASTERHIDE_HOOK_TYPE >= HookTypeMax)
+    {
+        MASTERHIDE_HOOK_TYPE = HookTypeInfinityHook;
+
+        WppTracePrint(TRACE_LEVEL_INFORMATION, GENERAL,
+                      "Hook type was not set or invalid, defaulting to infinityhook.");
+    }
 
     // (2) Attach to Win32K process memory space
     //
@@ -309,10 +349,6 @@ extern "C" NTSTATUS NTAPI DriverEntry(PDRIVER_OBJECT driverObject, PUNICODE_STRI
     INITIALIZE_INTERFACE(hooks);
 
 #undef INITIALIZE_INTERFACE
-
-#if DBG
-    Test();
-#endif
 
     WppTracePrint(TRACE_LEVEL_INFORMATION, GENERAL, "MasterHide successfully loaded!");
 

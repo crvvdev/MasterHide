@@ -29,10 +29,13 @@ NTSTATUS Initialize()
         return STATUS_UNSUCCESSFUL;
     }
 
+    g_initialized = true;
+
     status = PsCreateSystemThread(&g_counterThreadHandle, THREAD_ALL_ACCESS, nullptr, nullptr, nullptr, CounterUpdater,
                                   nullptr);
     if (!NT_SUCCESS(status))
     {
+        g_initialized = false;
         g_processResource.Deinitialize();
 
         WppTracePrint(TRACE_LEVEL_VERBOSE, GENERAL, "PsCreateSystemThread returned %!STATUS!", status);
@@ -48,8 +51,6 @@ NTSTATUS Initialize()
     typeInfo.Delete = DeleteProcessEntry;
     typeInfo.Free = FreeProcessEntry;
     object::CreateObjectType(&g_processEntryObjectName, &typeInfo, &g_objTypeProcessEntry);
-
-    g_initialized = true;
 
     return STATUS_SUCCESS;
 }
@@ -341,7 +342,7 @@ bool ClearBypassProcessFreezeFlag(_In_ PPROCESS_ENTRY processEntry)
                 PETHREAD thread = nullptr;
                 if (NT_SUCCESS(PsLookupThreadByThreadId(entry->Threads[i].ClientId.UniqueThread, &thread)))
                 {
-                    *(ULONG *)((ULONG64)thread + dyn::DynCtx.Offsets.BypassProcessFreezeFlagOffset) &= ~(1 << 21);
+                    *(ULONG *)((ULONG64)thread + dyn::DynCtx.Offsets.BypassProcessFreezeFlag) &= ~(1 << 21);
 
                     ObDereferenceObject(thread);
                 }
@@ -382,7 +383,7 @@ bool ClearThreadHideFromDebuggerFlag(_In_ PPROCESS_ENTRY processEntry)
                 PETHREAD thread = nullptr;
                 if (NT_SUCCESS(PsLookupThreadByThreadId(entry->Threads[i].ClientId.UniqueThread, &thread)))
                 {
-                    if (*(ULONG *)((ULONG64)thread + dyn::DynCtx.Offsets.ThreadHideFromDebuggerFlagOffset) & 0x4)
+                    if (*(ULONG *)((ULONG64)thread + dyn::DynCtx.Offsets.ThreadHideFromDebuggerFlag) & 0x4)
                     {
                         PTHREAD_ENTRY threadEntry = processEntry->AppendThreadList(thread);
                         if (threadEntry)
@@ -390,7 +391,7 @@ bool ClearThreadHideFromDebuggerFlag(_In_ PPROCESS_ENTRY processEntry)
                             threadEntry->Flags.IsThreadHidden = TRUE;
                         }
 
-                        *(ULONG *)((ULONG64)thread + dyn::DynCtx.Offsets.ThreadHideFromDebuggerFlagOffset) &= ~0x4LU;
+                        *(ULONG *)((ULONG64)thread + dyn::DynCtx.Offsets.ThreadHideFromDebuggerFlag) &= ~0x4LU;
                     }
                     ObDereferenceObject(thread);
                 }
@@ -522,14 +523,13 @@ bool ClearThreadBreakOnTerminationFlags(_In_ PPROCESS_ENTRY processEntry)
                         ObDereferenceObject(thread);
                     };
 
-                    if (*(ULONG *)((ULONG64)thread + dyn::DynCtx.Offsets.ThreadBreakOnTerminationFlagOffset) & 0x20)
+                    if (*(ULONG *)((ULONG64)thread + dyn::DynCtx.Offsets.ThreadBreakOnTerminationFlag) & 0x20)
                     {
                         PTHREAD_ENTRY threadEntry = processEntry->AppendThreadList(thread);
                         if (threadEntry)
                         {
                             threadEntry->Flags.BreakOnTermination = TRUE;
-                            *(ULONG *)((ULONG64)thread + dyn::DynCtx.Offsets.ThreadBreakOnTerminationFlagOffset) &=
-                                ~0x20;
+                            *(ULONG *)((ULONG64)thread + dyn::DynCtx.Offsets.ThreadBreakOnTerminationFlag) &= ~0x20;
 
                             return true;
                         }
@@ -1426,9 +1426,9 @@ NTSTATUS AddProcessRuleEntry(_In_ PUNICODE_STRING imageFileName, _In_ ProcessPol
 
     processRuleEntry->PolicyFlags = flags;
     processRuleEntry->ImageFileName.Length = 0;
-    processRuleEntry->ImageFileName.MaximumLength = NTSTRSAFE_UNICODE_STRING_MAX_CCH * sizeof(WCHAR);
-    processRuleEntry->ImageFileName.Buffer =
-        tools::AllocatePoolZero<PWCH>(NonPagedPool, processRuleEntry->ImageFileName.MaximumLength, tags::TAG_STRING);
+    processRuleEntry->ImageFileName.MaximumLength = NTSTRSAFE_UNICODE_STRING_MAX_CCH;
+    processRuleEntry->ImageFileName.Buffer = tools::AllocatePoolZero<PWCH>(
+        NonPagedPool, processRuleEntry->ImageFileName.MaximumLength * sizeof(WCHAR), tags::TAG_STRING);
     if (!processRuleEntry->ImageFileName.Buffer)
     {
         object::DereferenceObject(processRuleEntry);
@@ -1438,16 +1438,7 @@ NTSTATUS AddProcessRuleEntry(_In_ PUNICODE_STRING imageFileName, _In_ ProcessPol
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
-    status = RtlUnicodeStringCopy(&processRuleEntry->ImageFileName, imageFileName);
-    if (!NT_SUCCESS(status))
-    {
-        object::DereferenceObject(processRuleEntry);
-
-        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "RtlUnicodeStringCopy returned %!STATUS!", status);
-
-        return status;
-    }
-
+    RtlCopyUnicodeString(&processRuleEntry->ImageFileName, imageFileName);
     InsertTailList(&g_processRuleListHead, &processRuleEntry->ListEntry);
 
     return STATUS_SUCCESS;
