@@ -49,12 +49,12 @@ HOOK_ENTRY g_HookList[] = {
     //{"NtCreateFile", FALSE, &hkNtCreateFile},
     // Win32K
     //
-    //{"NtUserWindowFromPoint", TRUE, &hkNtUserWindowFromPoint},
+    {"NtUserWindowFromPoint", TRUE, &hkNtUserWindowFromPoint},
     {"NtUserQueryWindow", TRUE, &hkNtUserQueryWindow},
-    //{"NtUserFindWindowEx", TRUE, &hkNtUserFindWindowEx},
-    //{"NtUserBuildHwndList", TRUE, &hkNtUserBuildHwndList},
-    //{"NtUserGetForegroundWindow", TRUE, &hkNtUserGetForegroundWindow},
-    //{"NtUserGetThreadState", TRUE, nullptr},
+    {"NtUserFindWindowEx", TRUE, &hkNtUserFindWindowEx},
+    {"NtUserBuildHwndList", TRUE, &hkNtUserBuildHwndList},
+    {"NtUserGetForegroundWindow", TRUE, &hkNtUserGetForegroundWindow},
+    {"NtUserGetThreadState", TRUE, nullptr},
 };
 
 FORCEINLINE PHOOK_ENTRY FindHookEntry(_In_ FNV1A_t serviceNameHash)

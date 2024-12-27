@@ -38,10 +38,6 @@ extern "C"
 #endif
 #endif
 
-#ifndef BIT
-#define BIT(x) (1LL << (x))
-#endif
-
 #include "kaspersky.hpp"
 #include "infinityhook.hpp"
 
