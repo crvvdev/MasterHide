@@ -1,11 +1,13 @@
+## NOTE
 
+This project is currently in WIP state and the `master` branch will be superseded by `v2` branch, for more details checkout https://github.com/crvvdev/MasterHide/pull/11
 
 # MasterHide
 
 MasterHide is a x64 Windows Driver created to monitor/hide or block access from processes, objects, files ( whatever you want, your imagination is the limit here ) using SSDT/Shadow SSDT hooks. 
 It can also manipulate another driver ( klhk.sys ) which the original idea and implementation came from [KasperskyHook](https://github.com/iPower/KasperskyHook/) by [iPower](https://github.com/iPower), i'm using a submodule from the latest commit as i'm writing this.
 
-# KasperskyHook
+### KasperskyHook
 
 This techniques modifies klhk.sys aka "Kaspersky Lab service driver".
 This driver is the antivirus legitimate driver, more information can be found on the [original repo](https://github.com/iPower/KasperskyHook/).
