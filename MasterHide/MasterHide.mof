@@ -1,0 +1,28 @@
+#pragma autorecover
+#pragma classflags("forceupdate")
+#pragma namespace("\\\\.\\root\\WMI")
+//
+// WPP Generated File
+// PDB:  A:\work\MasterHide\bin\Debug\MasterHide.pdb
+// PDB:  Last Updated :2024-12-26:18:17:16:454 (UTC) [tracepdb]
+//
+
+//ModuleName = MasterHideMasterHideCtrlGUID	 (Init called in Function WPP_CONTROL_ANNOTATION)
+[Dynamic,
+ Description("MasterHide_MasterHideCtrlGUID"),
+ guid("{EDC00A52-CBB9-490E-89A3-69E3FFF137BA}"),
+ locale("MS\\0x409")]
+class MasterHideMasterHideCtrlGUID : EventTrace
+{
+    [Description ("Enable Flags") : amended,
+        ValueDescriptions{
+             "GENERAL Flag"},
+        DefineValues{
+             "GENERAL"},
+        Values{
+             "GENERAL"},
+        ValueMap{
+             "0x00000001"}: amended
+    ]
+    uint32 Flags;
+};

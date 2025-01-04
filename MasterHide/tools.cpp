@@ -1,586 +1,748 @@
-﻿#include "stdafx.h"
-
-PUCHAR ntdll = nullptr;
-PUCHAR win32u = nullptr;
+﻿#include "includes.hpp"
 
 namespace masterhide
 {
-	namespace tools
-	{
-		bool GetProcessName( HANDLE PID, PUNICODE_STRING ProcessImageName )
-		{
-			KAPC_STATE apc{ };
-			bool bReturn = false;
-
-			if ( !ProcessImageName )
-				return false;
-
-			PEPROCESS Process = nullptr;
-			auto status = PsLookupProcessByProcessId( PID, &Process );
-			if ( !NT_SUCCESS( status ) )
-				return false;
-
-			KeStackAttachProcess( Process, &apc );
-
-			//
-			// Credits: iPower
-			//
-			wchar_t lpModuleName[ MAX_PATH ];
-			status = ZwQueryVirtualMemory( NtCurrentProcess(), PsGetProcessSectionBaseAddress( Process ), ( MEMORY_INFORMATION_CLASS )2, lpModuleName, sizeof( lpModuleName ), NULL );
-			if ( NT_SUCCESS( status ) )
-			{
-				PUNICODE_STRING pModuleName = ( PUNICODE_STRING )lpModuleName;
-				if ( pModuleName->Length > 0 )
-				{
-					AllocateUnicodeString( ProcessImageName, pModuleName->MaximumLength );
-					RtlCopyUnicodeString( ProcessImageName, pModuleName );
-					bReturn = true;
-				}
-			}
-
-			KeUnstackDetachProcess( &apc );
-			ObDereferenceObject( Process );
-
-			return bReturn;
-		}
-
-		bool GetProcessNameByPEPROCESS( PEPROCESS Process, PUNICODE_STRING ProcessImageName )
-		{
-			KAPC_STATE apc{ };
-			bool bReturn = false;
-			bool bAttached = false;
-
-			if ( !ProcessImageName )
-				return false;
-
-			if ( Process != PsGetCurrentProcess() )
-			{
-				KeStackAttachProcess( Process, &apc );
-				bAttached = true;
-			}
-
-			wchar_t lpModuleName[ MAX_PATH ];
-			auto status = ZwQueryVirtualMemory( NtCurrentProcess(), PsGetProcessSectionBaseAddress( Process ), ( MEMORY_INFORMATION_CLASS )2, lpModuleName, sizeof( lpModuleName ), NULL );
-			if ( NT_SUCCESS( status ) )
-			{
-				PUNICODE_STRING pModuleName = ( PUNICODE_STRING )lpModuleName;
-				if ( pModuleName->Length > 0 )
-				{
-					AllocateUnicodeString( ProcessImageName, pModuleName->MaximumLength );
-					RtlCopyUnicodeString( ProcessImageName, pModuleName );
-					bReturn = true;
-				}
-			}
-
-			if ( bAttached )
-				KeUnstackDetachProcess( &apc );
-
-			return bReturn;
-		}
-
-		PEPROCESS FindPEPROCESSById( PWCH wsName )
-		{
-			if ( !wsName )
-				return nullptr;
-
-			for ( unsigned i = 4; i < 0xFFFF; i += 0x4 )
-			{
-				PEPROCESS Process = nullptr;
-				if ( !NT_SUCCESS( PsLookupProcessByProcessId( HANDLE( i ), &Process ) ) )
-					continue;
-
-				UNICODE_STRING wsProcName{ };
-				if ( !GetProcessNameByPEPROCESS( Process, &wsProcName ) )
-				{
-					ObDereferenceObject( Process );
-					continue;
-				}
-
-				if ( wsProcName.Buffer && wcsstr( wsProcName.Buffer, wsName ) )
-					return Process;
-
-				ObDereferenceObject( Process );
-			}
-			return nullptr;
-		}
-
-		bool DumpMZ( PUCHAR pImageBase )
-		{
-			__try
-			{
-				if ( !pImageBase )
-				{
-					DBGPRINT( "[ DumpMZ ] Invalid image base!\n" );
-					return false;
-				}
-
-				ProbeForRead( pImageBase, sizeof( pImageBase ), __alignof( pImageBase ) );
-
-				PIMAGE_DOS_HEADER dos = PIMAGE_DOS_HEADER( pImageBase );
-				if ( dos->e_magic != IMAGE_DOS_SIGNATURE )
-				{
-					DBGPRINT( "[ DumpMZ ] Invalid DOS signature!\n" );
-					return false;
-				}
-
-				PIMAGE_NT_HEADERS32 nt32 = PIMAGE_NT_HEADERS32( pImageBase + dos->e_lfanew );
-				if ( nt32->Signature != IMAGE_NT_SIGNATURE )
-				{
-					DBGPRINT( "[ DumpMZ ] Invalid NT signature!\n" );
-					return false;
-				}
-
-				ULONG uImageSize = NULL;
-
-				if ( nt32->FileHeader.Machine == IMAGE_FILE_MACHINE_I386 )
-				{
-					uImageSize = nt32->OptionalHeader.SizeOfImage;
-				}
-				else
-				{
-					PIMAGE_NT_HEADERS64 nt64 = PIMAGE_NT_HEADERS64( pImageBase + dos->e_lfanew );
-					uImageSize = nt64->OptionalHeader.SizeOfImage;
-				}
-
-				if ( KeGetCurrentIrql() != PASSIVE_LEVEL )
-				{
-					DBGPRINT( "[ DumpMZ ] Curerent IRQL too high for IO operations!\n" );
-					return false;
-				}
-
-				DBGPRINT( "[ DumpMZ ] ImageBase: 0x%p\n", pImageBase );
-				DBGPRINT( "[ DumpMZ ] ImageSize: 0x%X\n", uImageSize );
-
-				wchar_t wsFilePath[ MAX_PATH ]{ };
-				RtlStringCbPrintfW( wsFilePath, sizeof( wsFilePath ), L"\\SystemRoot\\Dumped_%p.dll", pImageBase );
-
-				DBGPRINT( "[ DumpMZ ] Save Location: %ws\n", wsFilePath );
-
-				UNICODE_STRING wsFinalPath{ };
-				RtlInitUnicodeString( &wsFinalPath, wsFilePath );
-
-				OBJECT_ATTRIBUTES oa{ };
-				InitializeObjectAttributes( &oa, &wsFinalPath, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, NULL, NULL );
-
-				IO_STATUS_BLOCK io{ };
-				HANDLE hFile{ };
-
-				auto res = ZwCreateFile( &hFile, GENERIC_WRITE, &oa, &io, NULL,
-					FILE_ATTRIBUTE_NORMAL,
-					0,
-					FILE_OVERWRITE_IF,
-					FILE_SYNCHRONOUS_IO_NONALERT,
-					NULL, 0 );
-
-				if ( !NT_SUCCESS( res ) )
-				{
-					DBGPRINT( "[ DumpMZ ] ZwCreateFile failed 0x%X\n", res );
-					return false;
-				}
-
-				res = ZwWriteFile( hFile, NULL, NULL, NULL, &io, pImageBase, uImageSize, NULL, NULL );
-				if ( !NT_SUCCESS( res ) )
-				{
-					ZwClose( hFile );
-					DBGPRINT( "[ DumpMZ ] ZwWriteFile failed 0x%X\n", res );
-					return false;
-				}
-
-				DBGPRINT( "[ DumpMZ ] Dump success!\n" );
-				ZwClose( hFile );
-				return false;
-			}
-			__except ( EXCEPTION_EXECUTE_HANDLER )
-			{
-				return false;
-			}
-		}
-
-		PIMAGE_SECTION_HEADER GetSectionHeader( const ULONG64 image_base, const char* section_name )
-		{
-			if ( !image_base || !section_name )
-				return nullptr;
-
-			const auto pimage_dos_header = reinterpret_cast< PIMAGE_DOS_HEADER >( image_base );
-			const auto pimage_nt_headers = reinterpret_cast< PIMAGE_NT_HEADERS64 >( image_base + pimage_dos_header->e_lfanew );
-
-			auto psection = IMAGE_FIRST_SECTION( pimage_nt_headers );
-
-			PIMAGE_SECTION_HEADER psection_hdr = nullptr;
-
-			const auto NumberOfSections = pimage_nt_headers->FileHeader.NumberOfSections;
-
-			for ( auto i = 0; i < NumberOfSections; ++i )
-			{
-				if ( strstr( ( char* )psection->Name, section_name ) )
-				{
-					psection_hdr = psection;
-					break;
-				}
-
-				++psection;
-			}
-
-			return psection_hdr;
-		}
-
-		bool bDataCompare( const char* pdata, const char* bmask, const char* szmask )
-		{
-			for ( ; *szmask; ++szmask, ++pdata, ++bmask )
-			{
-				if ( *szmask == 'x' && *pdata != *bmask )
-					return false;
-			}
-
-			return !*szmask;
-		}
-
-		ULONG64 InternalFindPattern( const ULONG64 base, const ULONG size, const char* bmask, const char* szmask )
-		{
-			for ( auto i = 0ul; i < size; ++i )
-				if ( bDataCompare( PCHAR( base + i ), bmask, szmask ) )
-					return base + i;
-
-			return 0;
-		}
-
-		ULONG64 FindPatternKM( const char* szModuleName, const char* szsection, const char* bmask, const char* szmask )
-		{
-			if ( !szModuleName || !szsection || !bmask || !szmask )
-				return 0;
-
-			const auto module_base = ULONG64( GetModuleBase( szModuleName ) );
-
-			if ( !module_base )
-				return 0;
-
-			const auto psection = GetSectionHeader( module_base, szsection );
-
-			return psection ? InternalFindPattern( module_base + psection->VirtualAddress, psection->Misc.VirtualSize, bmask, szmask ) : 0;
-		}
-
-		PVOID GetImageTextSection( const ULONG64 uImageBase, ULONG* ulSectionSize )
-		{
-			if ( !uImageBase )
-				return nullptr;
-
-			const auto pText = GetSectionHeader( uImageBase, ".text" );
-			if ( !pText )
-				return nullptr;
-
-			if ( ulSectionSize )
-				*ulSectionSize = pText->Misc.VirtualSize;
-
-			return PVOID( uImageBase + pText->VirtualAddress );
-		}
-
-		PVOID GetNtKernelBase()
-		{
-			return GetModuleBase( "\\SystemRoot\\System32\\ntoskrnl.exe" );
-		}
-
-		PVOID GetModuleBase( const char* szModule )
-		{
-			PSYSTEM_MODULE_INFORMATION pSystemInfoBuffer = nullptr;
-			ULONG ulBytes = 0;
-			PVOID pImageBase = nullptr;
-
-			__try
-			{
-				auto status = ZwQuerySystemInformation( SystemModuleInformation, 0, ulBytes, &ulBytes );
-				if ( !ulBytes )
-				{
-					DBGPRINT( "[ GetModuleBase ] ZwQuerySystemInformation failed 0x%X\n", status );
-					return nullptr;
-				}
-
-				pSystemInfoBuffer = PSYSTEM_MODULE_INFORMATION( ExAllocatePoolWithTag( PagedPool, ulBytes, TAG ) );
-				if ( !pSystemInfoBuffer )
-				{
-					DBGPRINT( "[ GetModuleBase ] ExAllocatePoolWithTag failed!\n" );
-					return nullptr;
-				}
-
-				status = ZwQuerySystemInformation( SystemModuleInformation, pSystemInfoBuffer, ulBytes, &ulBytes );
-				if ( !NT_SUCCESS( status ) )
-				{
-					DBGPRINT( "[ GetModuleBase ] ZwQuerySystemInformation[1] failed 0x%X\n", status );
-					ExFreePoolWithTag( pSystemInfoBuffer, TAG );
-					return nullptr;
-				}
-
-				for ( unsigned i = 0; i < pSystemInfoBuffer->ModulesCount; ++i )
-				{
-					auto Buff = &pSystemInfoBuffer->Modules[ i ];
-
-					if ( !_stricmp( Buff->ImageName, szModule ) )
-					{
-						pImageBase = Buff->Base;
-						break;
-					}
-				}
-			}
-			__finally
-			{
-				if ( pSystemInfoBuffer )
-					ExFreePoolWithTag( pSystemInfoBuffer, TAG );
-			}
-
-			return pImageBase;
-		}
-
-		NTSTATUS LoadFile( PUNICODE_STRING FileName, PUCHAR* pImageBase )
-		{
-			if ( !FileName )
-				return STATUS_INVALID_PARAMETER;
-
-			OBJECT_ATTRIBUTES oa{ };
-			InitializeObjectAttributes( &oa, FileName, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, NULL, NULL );
-
-			if ( KeGetCurrentIrql() != PASSIVE_LEVEL )
-			{
-				DBGPRINT( "[ LoadFile ] IRQL too high for IO operations!\n" );
-				return STATUS_UNSUCCESSFUL;
-			}
-
-			HANDLE FileHandle = NULL;
-
-			IO_STATUS_BLOCK IoStatusBlock{ };
-			auto res = ZwCreateFile( &FileHandle,
-				GENERIC_READ,
-				&oa,
-				&IoStatusBlock, NULL,
-				FILE_ATTRIBUTE_NORMAL,
-				FILE_SHARE_READ,
-				FILE_OPEN,
-				FILE_SYNCHRONOUS_IO_NONALERT,
-				NULL, 0 );
-
-			if ( !NT_SUCCESS( res ) )
-			{
-				DBGPRINT( "[ LoadFile ] ZwCreateFile failed 0x%X\n", res );
-				return STATUS_UNSUCCESSFUL;
-			}
-
-			FILE_STANDARD_INFORMATION StandardInformation{ };
-			res = ZwQueryInformationFile( FileHandle, &IoStatusBlock, &StandardInformation, sizeof( FILE_STANDARD_INFORMATION ), FileStandardInformation );
-			if ( !NT_SUCCESS( res ) )
-			{
-				DBGPRINT( "[ LoadFile ] ZwQueryInformationFile failed 0x%X\n", res );
-				ZwClose( FileHandle );
-				return STATUS_UNSUCCESSFUL;
-			}
-
-			auto FileSize = StandardInformation.EndOfFile.LowPart;
-			auto FileBuffer = PUCHAR( ExAllocatePoolWithTag( NonPagedPool, FileSize, TAG ) );
-
-			if ( !FileBuffer )
-			{
-				DBGPRINT( "[ LoadFile ] ExAllocatePoolWithTag failed\n" );
-				ZwClose( FileHandle );
-				return STATUS_SUCCESS;
-			}
-
-			LARGE_INTEGER li{ };
-			res = ZwReadFile( FileHandle,
-				NULL, NULL, NULL,
-				&IoStatusBlock,
-				FileBuffer,
-				FileSize,
-				&li, NULL );
-			if ( !NT_SUCCESS( res ) )
-			{
-				DBGPRINT( "[ LoadFile ] ZwReadFile failed 0x%X\n", res );
-				ExFreePoolWithTag( FileBuffer, TAG );
-				ZwClose( FileHandle );
-				return STATUS_SUCCESS;
-			}
-
-			auto dos = PIMAGE_DOS_HEADER( FileBuffer );
-			if ( dos->e_magic != IMAGE_DOS_SIGNATURE )
-			{
-				DBGPRINT( "[ LoadFile ] Invalid DOS signature!\n" );
-				ExFreePoolWithTag( FileBuffer, TAG );
-				ZwClose( FileHandle );
-				return STATUS_SUCCESS;
-			}
-
-			auto nt = PIMAGE_NT_HEADERS64( FileBuffer + dos->e_lfanew );
-			if ( nt->Signature != IMAGE_NT_SIGNATURE )
-			{
-				DBGPRINT( "[ LoadFile ] Invalid NT signature!\n" );
-				ExFreePoolWithTag( FileBuffer, TAG );
-				ZwClose( FileHandle );
-				return STATUS_SUCCESS;
-			}
-
-			auto Image = PUCHAR( ExAllocatePoolWithTag( NonPagedPool, nt->OptionalHeader.SizeOfImage, TAG ) );
-			if ( !Image )
-			{
-				DBGPRINT( "[ LoadFile ] ExAllocatePoolWithTag[1] failed!\n" );
-				ExFreePoolWithTag( FileBuffer, TAG );
-				ZwClose( FileHandle );
-				return STATUS_SUCCESS;
-			}
-
-			memcpy( Image, FileBuffer, nt->OptionalHeader.SizeOfHeaders );
-
-			auto pISH = IMAGE_FIRST_SECTION( nt );
-			for ( unsigned i = 0; i < nt->FileHeader.NumberOfSections; i++ )
-				memcpy(
-					Image + pISH[ i ].VirtualAddress,
-					FileBuffer + pISH[ i ].PointerToRawData,
-					pISH[ i ].SizeOfRawData );
-
-			if ( pImageBase )
-				*pImageBase = Image;
-
-			ExFreePoolWithTag( FileBuffer, TAG );
-			ZwClose( FileHandle );
-			return STATUS_SUCCESS;
-		}
-
-		PVOID GetFunctionAddress( PVOID Module, LPCSTR FunctionName )
-		{
-			PIMAGE_DOS_HEADER pIDH;
-			PIMAGE_NT_HEADERS pINH;
-			PIMAGE_EXPORT_DIRECTORY pIED;
-
-			PULONG Address, Name;
-			PUSHORT Ordinal;
-
-			ULONG i;
-
-			pIDH = ( PIMAGE_DOS_HEADER )Module;
-			pINH = ( PIMAGE_NT_HEADERS )( ( PUCHAR )Module + pIDH->e_lfanew );
-
-			pIED = ( PIMAGE_EXPORT_DIRECTORY )( ( PUCHAR )Module + pINH->OptionalHeader.DataDirectory[ IMAGE_DIRECTORY_ENTRY_EXPORT ].VirtualAddress );
-
-			Address = ( PULONG )( ( PUCHAR )Module + pIED->AddressOfFunctions );
-			Name = ( PULONG )( ( PUCHAR )Module + pIED->AddressOfNames );
-
-			Ordinal = ( PUSHORT )( ( PUCHAR )Module + pIED->AddressOfNameOrdinals );
-
-			for ( i = 0; i < pIED->AddressOfFunctions; i++ )
-			{
-				if ( !strcmp( FunctionName, ( char* )Module + Name[ i ] ) )
-				{
-					return ( PVOID )( ( PUCHAR )Module + Address[ Ordinal[ i ] ] );
-				}
-			}
-
-			return NULL;
-		}
-
-		ULONG GetNtSyscall( LPCSTR FunctionName )
-		{
-			if ( !ntdll )
-			{
-				UNICODE_STRING FileName = RTL_CONSTANT_STRING( L"\\SystemRoot\\System32\\ntdll.dll" );
-
-				auto res = LoadFile( &FileName, &ntdll );
-				if ( !NT_SUCCESS( res ) )
-					DBGPRINT( "[ GetNtSyscall ] Failed to load ntdll.dll 0x%X\n", res )
-			}
-
-			if ( ntdll )
-			{
-				auto Fn = PUCHAR( GetFunctionAddress( ntdll, FunctionName ) );
-				if ( Fn )
-				{
-					for ( int i = 0; i < 24; ++i )
-					{
-						if ( Fn[ i ] == 0xC2 || Fn[ i ] == 0xC3 )
-							break;
-
-						if ( Fn[ i ] == 0xB8 )
-							return *( PULONG )( Fn + i + 1 );
-					}
-				}
-			}
-			return 0;
-		}
-
-		ULONG GetWin32Syscall( LPCSTR FunctionName )
-		{
-			if ( !win32u )
-			{
-				UNICODE_STRING FileName = RTL_CONSTANT_STRING( L"\\SystemRoot\\System32\\win32u.dll" );
-
-				auto res = LoadFile( &FileName, &win32u );
-				if ( !NT_SUCCESS( res ) )
-					DBGPRINT( "[ GetWin32Syscall ] Failed to load win32u.dll 0x%X\n", res )
-			}
-
-			if ( win32u )
-			{
-				auto Fn = PUCHAR( GetFunctionAddress( win32u, FunctionName ) );
-				if ( Fn )
-				{
-					for ( int i = 0; i < 24; ++i )
-					{
-						if ( Fn[ i ] == 0xC2 || Fn[ i ] == 0xC3 )
-							break;
-
-						if ( Fn[ i ] == 0xB8 )
-							return *( PULONG )( Fn + i + 1 );
-					}
-				}
-			}
-			return 0;
-		}
-
-		void UnloadImages()
-		{
-			if ( ntdll )
-				ExFreePoolWithTag( ntdll, TAG );
-
-			if ( win32u )
-				ExFreePoolWithTag( win32u, TAG );
-		}
-	};
-};
-
-namespace masterhide
+namespace mutex
 {
-	namespace utils
-	{
-		KIRQL WPOFF()
-		{
-			KIRQL Irql = KeRaiseIrqlToDpcLevel();
-			UINT_PTR cr0 = __readcr0();
+NTSTATUS EResource::Initialize()
+{
+    PAGED_CODE();
+    NT_ASSERT(!_initialized);
 
-			cr0 &= ~0x10000;
-			__writecr0( cr0 );
-			_disable();
+    if (_initialized)
+    {
+        return STATUS_ALREADY_INITIALIZED;
+    }
 
-			return Irql;
-		}
+    KeInitializeEvent(&_event, NotificationEvent, TRUE);
+    _refCount.SetEvent(&_event);
 
-		void WPON( KIRQL Irql )
-		{
-			UINT_PTR cr0 = __readcr0();
+    _eresource = tools::AllocatePoolZero<PERESOURCE>(NonPagedPool, sizeof(ERESOURCE), tags::TAG_ERESOURCE);
+    if (!_eresource)
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to allocate memory for resource!");
 
-			cr0 |= 0x10000;
-			_enable();
-			__writecr0( cr0 );
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
 
-			KeLowerIrql( Irql );
-		}
+    const NTSTATUS status = ExInitializeResourceLite(_eresource);
+    if (!NT_SUCCESS(status))
+    {
+        ExFreePool(_eresource);
 
-		const PUCHAR FindCodeCave( PUCHAR Code, ULONG ulCodeSize, size_t CaveLength )
-		{
-			for ( unsigned i = 0, j = 0; i < ulCodeSize; i++ )
-			{
-				if ( Code[ i ] == 0x90 || Code[ i ] == 0xCC )
-					j++;
-				else
-					j = 0;
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "ExInitializeResource returned %!STATUS!", status);
 
-				if ( j == CaveLength )
-					return PUCHAR( ( ULONG_PTR )Code + i - CaveLength + 1 );
-			}
-			return nullptr;
-		}
-	}
+        return status;
+    }
+
+    _initialized = true;
+
+    return status;
+}
+
+NTSTATUS EResource::Deinitialize()
+{
+    PAGED_CODE();
+    NT_ASSERT(_initialized);
+
+    if (!_initialized)
+    {
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    // Wait until there are no references left to the resource
+    //
+    _refCount.Wait();
+
+    _initialized = false;
+
+    ExDeleteResourceLite(_eresource);
+    ExFreePool(_eresource);
+
+    return STATUS_SUCCESS;
+}
+
+BOOLEAN EResource::LockExclusive(_In_ BOOLEAN wait)
+{
+    PAGED_CODE();
+    NT_ASSERT(_initialized && "Possible bug, resource is not initialized but LockExclusive was called.");
+
+    _refCount.IncRef();
+    KeEnterCriticalRegion();
+    return ExAcquireResourceExclusiveLite(_eresource, wait);
+}
+
+BOOLEAN EResource::LockShared(_In_ BOOLEAN wait)
+{
+    PAGED_CODE();
+    NT_ASSERT(_initialized && "Possible bug, resource is not initialized but LockShared was called.");
+
+    _refCount.IncRef();
+    KeEnterCriticalRegion();
+    return ExAcquireResourceSharedLite(_eresource, wait);
+}
+
+void EResource::Unlock()
+{
+    PAGED_CODE();
+    NT_ASSERT(_initialized && "Possible bug, resource is not initialized but Unlock was called.");
+
+    ExReleaseResourceAndLeaveCriticalRegion(_eresource);
+    _refCount.DecRef();
+}
+
+} // namespace mutex
+
+namespace tools
+{
+HANDLE GetProcessIDFromProcessHandle(_In_ HANDLE ProcessHandle)
+{
+    PAGED_CODE();
+
+    if (ProcessHandle == ZwCurrentProcess())
+    {
+        return PsGetCurrentProcessId();
+    }
+
+    HANDLE Pid = (HANDLE)(LONG_PTR)-1;
+    PEPROCESS Process = nullptr;
+
+    const NTSTATUS status =
+        ObReferenceObjectByHandle(ProcessHandle, PROCESS_QUERY_INFORMATION, *PsProcessType, ExGetPreviousMode(),
+                                  reinterpret_cast<PVOID *>(&Process), nullptr);
+    if (NT_SUCCESS(status))
+    {
+        Pid = PsGetProcessId(Process);
+        ObDereferenceObject(Process);
+    }
+    return Pid;
+}
+
+HANDLE GetProcessIDFromThreadHandle(_In_ HANDLE ThreadHandle)
+{
+    PAGED_CODE();
+
+    if (ThreadHandle == ZwCurrentThread())
+    {
+        return PsGetThreadProcessId(PsGetCurrentThread());
+    }
+
+    HANDLE Pid = (HANDLE)(LONG_PTR)-1;
+    PETHREAD Thread = nullptr;
+
+    const NTSTATUS status = ObReferenceObjectByHandle(ThreadHandle, THREAD_QUERY_INFORMATION, *PsThreadType,
+                                                      ExGetPreviousMode(), reinterpret_cast<PVOID *>(&Thread), nullptr);
+    if (NT_SUCCESS(status))
+    {
+        Pid = PsGetThreadProcessId(Thread);
+        ObDereferenceObject(Thread);
+    }
+    return Pid;
+}
+
+bool HasDebugPrivilege()
+{
+    LUID SeDebugPrivilege = RtlConvertLongToLuid(SE_DEBUG_PRIVILEGE);
+
+    if (SeSinglePrivilegeCheck(SeDebugPrivilege, ExGetPreviousMode()) == FALSE)
+    {
+        return false;
+    }
+    return true;
+}
+
+void DelayThread(_In_ LONG64 milliseconds, _In_ BOOLEAN alertable)
+{
+    PAGED_CODE();
+
+    LARGE_INTEGER Delay;
+    Delay.QuadPart = -milliseconds * 10000;
+    KeDelayExecutionThread(KernelMode, alertable, &Delay);
+}
+
+bool GetProcessFileName(_In_ PEPROCESS process, _Out_ PUNICODE_STRING processImageName)
+{
+    PAGED_CODE();
+    NT_ASSERT(processImageName);
+
+    HANDLE processHandle{};
+
+    NTSTATUS status =
+        ObOpenObjectByPointer(process, OBJ_KERNEL_HANDLE, nullptr, 0, *PsProcessType, KernelMode, &processHandle);
+    if (!NT_SUCCESS(status))
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "ObOpenObjectByPointer returned %!STATUS!", status);
+        return false;
+    }
+
+    SCOPE_EXIT
+    {
+        ObCloseHandle(processHandle, KernelMode);
+    };
+
+    ULONG returnedLength = 0;
+
+    status = ZwQueryInformationProcess(processHandle, ProcessImageFileName, nullptr, 0, &returnedLength);
+    if (status != STATUS_INFO_LENGTH_MISMATCH)
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "ZwQueryInformationProcess returned %!STATUS!", status);
+        return false;
+    }
+
+    returnedLength *= 2;
+
+    void *buffer = tools::AllocatePoolZero(NonPagedPool, returnedLength, tags::TAG_DEFAULT);
+    if (!buffer)
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to allocate memory for ZwQueryInformationProcess!");
+        return false;
+    }
+
+    SCOPE_EXIT
+    {
+        ExFreePool(buffer);
+    };
+
+    status = ZwQueryInformationProcess(processHandle, ProcessImageFileName, buffer, returnedLength, &returnedLength);
+    if (!NT_SUCCESS(status))
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "ZwQueryInformationProcess returned %!STATUS!", status);
+        return false;
+    }
+
+    processImageName->Length = 0;
+    processImageName->MaximumLength = NTSTRSAFE_UNICODE_STRING_MAX_CCH * sizeof(WCHAR);
+    processImageName->Buffer =
+        tools::AllocatePoolZero<PWCH>(NonPagedPool, processImageName->MaximumLength, tags::TAG_STRING);
+    if (!processImageName->Buffer)
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to allocate memory for process image file name!");
+        return false;
+    }
+
+    auto imageName = reinterpret_cast<PCUNICODE_STRING>(buffer);
+    RtlCopyUnicodeString(processImageName, imageName);
+
+    return true;
+}
+
+bool GetProcessFileName(_In_ HANDLE processId, _Out_ PUNICODE_STRING processImageName)
+{
+    NT_ASSERT(processImageName);
+
+    PEPROCESS process = nullptr;
+    NTSTATUS status = PsLookupProcessByProcessId(processId, &process);
+    if (!NT_SUCCESS(status))
+    {
+        return false;
+    }
+
+    const bool result = GetProcessFileName(process, processImageName);
+    ObDereferenceObject(process);
+
+    return result;
+}
+
+PEPROCESS GetProcessByName(_In_ LPCWSTR processName)
+{
+    NT_ASSERT(processName);
+
+    for (ULONG i = 4;   // Ignore system process
+         i < 0xFFFFFFF; // Try to go tru all possible PIDs
+         i += sizeof(ULONG))
+    {
+        PEPROCESS process = nullptr;
+        if (!NT_SUCCESS(PsLookupProcessByProcessId(UlongToHandle(i), &process)))
+        {
+            continue;
+        }
+
+        UNICODE_STRING processFileName{};
+        if (!GetProcessFileName(process, &processFileName))
+        {
+            ObDereferenceObject(process);
+            continue;
+        }
+
+        SCOPE_EXIT
+        {
+            RtlFreeUnicodeString(&processFileName);
+        };
+
+        // safe operation because GetProcessFileName returns a null terminated string.
+        //
+        PWSTR moduleName = wcsrchr(processFileName.Buffer, L'\\');
+        if (moduleName)
+        {
+            ++moduleName;
+
+            if (!_wcsicmp(moduleName, processName))
+            {
+                // Process was found.
+                return process;
+            }
+        }
+
+        ObDereferenceObject(process);
+    }
+    return nullptr;
+}
+
+bool DumpPE(PUCHAR moduleBase, PUNICODE_STRING saveFileName)
+{
+    PAGED_CODE();
+    NT_ASSERT(moduleBase);
+    NT_ASSERT(saveFileName);
+
+    __try
+    {
+        PIMAGE_DOS_HEADER dos = PIMAGE_DOS_HEADER(moduleBase);
+        if (dos->e_magic != IMAGE_DOS_SIGNATURE)
+        {
+            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Invalid DOS signature!");
+            return false;
+        }
+
+        PIMAGE_NT_HEADERS64 nth64 = PIMAGE_NT_HEADERS64(moduleBase + dos->e_lfanew);
+        if (nth64->Signature != IMAGE_NT_SIGNATURE)
+        {
+            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Invalid PE signature!");
+            return false;
+        }
+
+        PIMAGE_NT_HEADERS32 nth32 = nullptr;
+        ULONG imageSize = 0;
+
+        if (nth64->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
+        {
+            nth32 = PIMAGE_NT_HEADERS32(nth64);
+            imageSize = nth32->OptionalHeader.SizeOfImage;
+        }
+        else if (nth64->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
+        {
+            imageSize = nth64->OptionalHeader.SizeOfImage;
+        }
+        else
+        {
+            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Unsupported image architecture!");
+            return false;
+        }
+
+        auto imageBuffer = tools::AllocatePoolZero<PUCHAR>(NonPagedPool, imageSize, tags::TAG_DEFAULT);
+        if (!imageBuffer)
+        {
+            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to allocate %d bytes to dump module!", imageSize);
+            return false;
+        }
+
+        SCOPE_EXIT
+        {
+            ExFreePool(imageBuffer);
+        };
+
+        PIMAGE_SECTION_HEADER section = nullptr;
+
+        //
+        // Write headers
+        //
+        if (nth32)
+        {
+            RtlCopyMemory(imageBuffer, moduleBase, nth32->OptionalHeader.SizeOfHeaders);
+        }
+        else
+        {
+            RtlCopyMemory(imageBuffer, moduleBase, nth64->OptionalHeader.SizeOfHeaders);
+        }
+
+        //
+        // Fix sections
+        //
+        if (nth32)
+        {
+            ULONG i = 0;
+
+            for (section = IMAGE_FIRST_SECTION(nth32); i < nth32->FileHeader.NumberOfSections; ++i, ++section)
+            {
+                RtlCopyMemory(imageBuffer + section->PointerToRawData, moduleBase + section->VirtualAddress,
+                              section->SizeOfRawData);
+            }
+        }
+        else
+        {
+            ULONG i = 0;
+
+            for (section = IMAGE_FIRST_SECTION(nth64); i < nth64->FileHeader.NumberOfSections; ++i, ++section)
+            {
+                RtlCopyMemory(imageBuffer + section->PointerToRawData, moduleBase + section->VirtualAddress,
+                              section->SizeOfRawData);
+            }
+        }
+
+        OBJECT_ATTRIBUTES oa{};
+        InitializeObjectAttributes(&oa, saveFileName, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, nullptr, nullptr);
+
+        IO_STATUS_BLOCK iosb{};
+
+        HANDLE fileHandle{};
+
+        //
+        // Write fixed PE file to disk
+        //
+        NTSTATUS status = ZwCreateFile(&fileHandle, FILE_ALL_ACCESS, &oa, &iosb, nullptr, FILE_ATTRIBUTE_NORMAL,
+                                       FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_OVERWRITE_IF,
+                                       FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT, nullptr, 0);
+        if (!NT_SUCCESS(status))
+        {
+            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "ZwCreateFile returned %!STATUS!", status);
+            return false;
+        }
+
+        SCOPE_EXIT
+        {
+            ZwClose(fileHandle);
+        };
+
+        RtlZeroMemory(&iosb, sizeof(iosb));
+
+        status = ZwWriteFile(fileHandle, nullptr, nullptr, nullptr, &iosb, imageBuffer, imageSize, nullptr, nullptr);
+        if (!NT_SUCCESS(status))
+        {
+            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "ZwWriteFile returned %!STATUS!", status);
+            return false;
+        }
+
+        WppTracePrint(TRACE_LEVEL_VERBOSE, GENERAL, "Image dump saved at %wZ", saveFileName);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Exception while trying to dump image %!STATUS!", GetExceptionCode());
+        return false;
+    }
+    return true;
+}
+
+PIMAGE_SECTION_HEADER GetModuleSection(_In_ PIMAGE_NT_HEADERS nth, _In_ const char *secName)
+{
+    PAGED_CODE();
+    NT_ASSERT(nth);
+    NT_ASSERT(secName);
+
+    PIMAGE_SECTION_HEADER sec = IMAGE_FIRST_SECTION(nth);
+
+    for (auto i = 0; i < nth->FileHeader.NumberOfSections; i++, sec++)
+    {
+        if (!strncmp((const CHAR *)sec->Name, secName, IMAGE_SIZEOF_SHORT_NAME))
+        {
+            return sec;
+        }
+    }
+    return nullptr;
+}
+
+#define INRANGE(x, a, b) (x >= a && x <= b)
+#define getBits(x) (INRANGE(x, '0', '9') ? (x - '0') : ((x & (~0x20)) - 'A' + 0xa))
+#define getByte(x) (getBits(x[0]) << 4 | getBits(x[1]))
+
+PUCHAR FindPattern(PUCHAR searchAddress, const size_t searchSize, const char *pattern)
+{
+    NT_ASSERT(searchAddress);
+    NT_ASSERT(pattern);
+
+    auto pat = reinterpret_cast<const unsigned char *>(pattern);
+    PUCHAR firstMatch = nullptr;
+
+    for (PUCHAR cur = searchAddress; cur < searchAddress + searchSize; ++cur)
+    {
+        if (*(PUCHAR)pat == static_cast<UCHAR>('\?') || *cur == getByte(pat))
+        {
+            if (!firstMatch)
+            {
+                firstMatch = cur;
+            }
+
+            pat += (*(USHORT *)pat == static_cast<USHORT>(16191) || *(PUCHAR)pat != static_cast<UCHAR>('\?')) ? 2 : 1;
+
+            if (!*pat)
+            {
+                return firstMatch;
+            }
+
+            pat++;
+
+            if (!*pat)
+            {
+                return firstMatch;
+            }
+        }
+        else if (firstMatch)
+        {
+            cur = firstMatch;
+            pat = reinterpret_cast<const unsigned char *>(pattern);
+            firstMatch = nullptr;
+        }
+    }
+    return NULL;
+}
+
+PUCHAR FindPattern(_In_ void *moduleAddress, _In_ const char *secName, _In_ const char *pattern)
+{
+    NT_ASSERT(secName);
+    NT_ASSERT(pattern);
+
+    __try
+    {
+        PIMAGE_NT_HEADERS nth = RtlImageNtHeader(moduleAddress);
+        if (!nth)
+        {
+            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Failed to parse NT headers!");
+
+            return nullptr;
+        }
+
+        PIMAGE_SECTION_HEADER sec = GetModuleSection(nth, secName);
+        if (!sec)
+        {
+            WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "Section %s not found!", secName);
+
+            return nullptr;
+        }
+
+        auto *searchAddress = reinterpret_cast<PUCHAR>(moduleAddress) + sec->VirtualAddress;
+
+        return FindPattern(searchAddress, sec->Misc.VirtualSize, pattern);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        return nullptr;
+    }
+}
+
+NTSTATUS
+QuerySystemInformation(_In_ SYSTEM_INFORMATION_CLASS systemInfoClass,
+                       _Outptr_result_maybenull_ _At_(*systemInfo,
+                                                      _Pre_maybenull_ _Post_notnull_ _Post_writable_byte_size_(return))
+                           PVOID *systemInfo)
+{
+    PAGED_CODE();
+    NT_ASSERT(systemInfo);
+
+    *systemInfo = nullptr;
+
+    NTSTATUS status;
+    ULONG bufferSize = 0x10000;
+    PVOID buffer = nullptr;
+
+    // This will recursively call ZwQuerySystemInformation until all information is acquired.
+    //
+    while (true)
+    {
+        if (buffer)
+        {
+            ExFreePool(buffer);
+            buffer = nullptr;
+        }
+
+        buffer = tools::AllocatePoolZero(NonPagedPool, bufferSize, tags::TAG_DEFAULT);
+        if (!buffer)
+        {
+            return STATUS_INSUFFICIENT_RESOURCES;
+        }
+
+        status = ZwQuerySystemInformation(systemInfoClass, buffer, bufferSize, &bufferSize);
+        if (NT_SUCCESS(status))
+        {
+            *systemInfo = buffer;
+            break;
+        }
+        else if (status == STATUS_INFO_LENGTH_MISMATCH || status == STATUS_BUFFER_TOO_SMALL)
+        {
+            bufferSize *= 2;
+            continue;
+        }
+        else
+        {
+            if (buffer)
+            {
+                ExFreePool(buffer);
+                buffer = nullptr;
+            }
+            break;
+        }
+    }
+    return status;
+}
+
+bool GetModuleInformation(_In_ const char *moduleName, _Out_ PVOID *moduleBase, _Out_opt_ PULONG moduleSize)
+{
+    PAGED_CODE();
+    NT_ASSERT(moduleName);
+    NT_ASSERT(moduleBase);
+
+    PRTL_PROCESS_MODULES systemModules = nullptr;
+
+    NTSTATUS status = QuerySystemInformation(SystemModuleInformation, reinterpret_cast<PVOID *>(&systemModules));
+    if (!NT_SUCCESS(status))
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "ZwQuerySystemInformation returned %!STATUS!", status);
+        return false;
+    }
+
+    SCOPE_EXIT
+    {
+        ExFreePool(systemModules);
+    };
+
+    for (ULONG i = 0; i < systemModules->NumberOfModules; ++i)
+    {
+        const RTL_PROCESS_MODULE_INFORMATION *systemModule = &systemModules->Modules[i];
+
+        if (!_stricmp((PCHAR)systemModule->FullPathName + systemModule->OffsetToFileName, moduleName))
+        {
+            *moduleBase = systemModule->ImageBase;
+
+            if (moduleSize)
+            {
+                *moduleSize = systemModule->ImageSize;
+            }
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool GetNtoskrnl(_Out_ PVOID *moduleBase, _Out_opt_ PULONG moduleSize)
+{
+    PAGED_CODE();
+    NT_ASSERT(moduleBase);
+
+    PRTL_PROCESS_MODULES systemModules = nullptr;
+
+    NTSTATUS status = QuerySystemInformation(SystemModuleInformation, reinterpret_cast<PVOID *>(&systemModules));
+    if (!NT_SUCCESS(status))
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "ZwQuerySystemInformation returned %!STATUS!", status);
+        return false;
+    }
+
+    SCOPE_EXIT
+    {
+        ExFreePool(systemModules);
+    };
+
+    const RTL_PROCESS_MODULE_INFORMATION *systemModule = &systemModules->Modules[0];
+
+    *moduleBase = systemModule->ImageBase;
+
+    if (moduleSize)
+    {
+        *moduleSize = systemModule->ImageSize;
+    }
+
+    return true;
+}
+
+NTSTATUS MapFileInSystemSpace(_In_ PUNICODE_STRING FileName, _Out_ PVOID *MappedBase, _Out_opt_ SIZE_T *MappedSize)
+{
+    NT_ASSERT(FileName);
+    NT_ASSERT(MappedBase);
+
+    PAGED_CODE();
+
+    HANDLE fileHandle = NULL;
+    HANDLE sectionHandle = NULL;
+    PVOID sectionObject = nullptr;
+
+    PVOID ViewBase = nullptr;
+    SIZE_T ViewSize = 0;
+
+    IO_STATUS_BLOCK iosb{};
+
+    OBJECT_ATTRIBUTES oa{};
+    InitializeObjectAttributes(&oa, FileName, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, nullptr, nullptr);
+
+    NTSTATUS status =
+        ZwCreateFile(&fileHandle, FILE_READ_DATA, &oa, &iosb, NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_OPEN,
+                     FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0);
+    if (!NT_SUCCESS(status))
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "ZwCreateFile returned %!STATUS!", status);
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    SCOPE_EXIT
+    {
+        ZwClose(fileHandle);
+    };
+
+    OBJECT_ATTRIBUTES oa2{};
+    InitializeObjectAttributes(&oa2, nullptr, OBJ_KERNEL_HANDLE, nullptr, nullptr);
+
+    status = ZwCreateSection(&sectionHandle, SECTION_MAP_READ, &oa2, nullptr, PAGE_READONLY, SEC_IMAGE, fileHandle);
+    if (!NT_SUCCESS(status))
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "ZwCreateSection returned %!STATUS!", status);
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    SCOPE_EXIT
+    {
+        ZwClose(sectionHandle);
+    };
+
+    status = ObReferenceObjectByHandle(sectionHandle, 0, nullptr, KernelMode, &sectionObject, nullptr);
+    if (!NT_SUCCESS(status))
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "ObReferenceObjectByHandle returned %!STATUS!", status);
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    status = MmMapViewInSystemSpace(sectionObject, &ViewBase, &ViewSize);
+    ObDereferenceObject(sectionObject);
+
+    if (!NT_SUCCESS(status))
+    {
+        WppTracePrint(TRACE_LEVEL_ERROR, GENERAL, "MmMapViewInSystemSpace returned %!STATUS!", status);
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    *MappedBase = ViewBase;
+
+    if (MappedSize)
+    {
+        *MappedSize = ViewSize;
+    }
+
+    return STATUS_SUCCESS;
+}
+
+UCHAR *FindCodeCave(UCHAR *const startAddress, ULONG searchSize, ULONG sizeNeeded)
+{
+    for (ULONG i = 0, j = 0; i < searchSize; i++)
+    {
+        if (startAddress[i] == 0x90 || startAddress[i] == 0xCC)
+        {
+            if (++j == sizeNeeded)
+            {
+                return startAddress + i - sizeNeeded + 1;
+            }
+        }
+        else
+        {
+            j = 0;
+        }
+    }
+    return nullptr;
+}
+
+KPROCESSOR_MODE SetPreviousMode(KPROCESSOR_MODE NewMode, ULONG_PTR thread)
+{
+    auto ret = *(UCHAR *)(thread + 0x1f6);
+    *(UCHAR *)(thread + 0x1f6) = NewMode;
+
+    return ret;
 };
+
+} // namespace tools
+}; // namespace masterhide

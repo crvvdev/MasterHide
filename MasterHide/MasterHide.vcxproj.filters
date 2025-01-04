@@ -17,72 +17,135 @@
       <UniqueIdentifier>{8E41214B-6785-4CFE-B992-037D68949A14}</UniqueIdentifier>
       <Extensions>inf;inv;inx;mof;mc;</Extensions>
     </Filter>
-    <Filter Include="Header Files\Kaspersky">
+    <Filter Include="Header Files\KasperskyHook">
       <UniqueIdentifier>{6c5d2264-5690-4b45-b290-99996ca571c5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\infinityhook">
+      <UniqueIdentifier>{11a32ebc-6299-48de-ab64-db9b9aaca9d2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\infinityhook\hde">
+      <UniqueIdentifier>{27574ec6-ab53-4c6f-a20b-9a5ebc0db643}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\shared">
+      <UniqueIdentifier>{7abbcebf-eca4-4bce-9d2d-73b68b3fd090}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
+    <ClCompile Include="drivermain.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="tools.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="shadow_ssdt.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ssdt.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\KasperskyHook\KasperskyHookDrv\hooks.cpp">
-      <Filter>Header Files\Kaspersky</Filter>
+      <Filter>Header Files\KasperskyHook</Filter>
     </ClCompile>
     <ClCompile Include="..\KasperskyHook\KasperskyHookDrv\kaspersky.cpp">
-      <Filter>Header Files\Kaspersky</Filter>
+      <Filter>Header Files\KasperskyHook</Filter>
     </ClCompile>
     <ClCompile Include="..\KasperskyHook\KasperskyHookDrv\kernel_modules.cpp">
-      <Filter>Header Files\Kaspersky</Filter>
+      <Filter>Header Files\KasperskyHook</Filter>
     </ClCompile>
     <ClCompile Include="..\KasperskyHook\KasperskyHookDrv\pe.cpp">
-      <Filter>Header Files\Kaspersky</Filter>
+      <Filter>Header Files\KasperskyHook</Filter>
     </ClCompile>
     <ClCompile Include="..\KasperskyHook\KasperskyHookDrv\utils.cpp">
-      <Filter>Header Files\Kaspersky</Filter>
+      <Filter>Header Files\KasperskyHook</Filter>
     </ClCompile>
-    <ClCompile Include="mh_hooks.cpp">
+    <ClCompile Include="hooks.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\KasperskyHook\KasperskyHookDrv\driver.cpp">
+      <Filter>Header Files\KasperskyHook</Filter>
+    </ClCompile>
+    <ClCompile Include="process.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="syscalls.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="dyn.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="callbacks.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="object.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="infinityhook.cpp">
+      <Filter>Header Files\infinityhook</Filter>
+    </ClCompile>
+    <ClCompile Include="hde\hde64.cpp">
+      <Filter>Header Files\infinityhook\hde</Filter>
+    </ClCompile>
+    <ClCompile Include="ntfill.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="winnt.h">
+    <ClInclude Include="ntfill.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="stdafx.h">
+    <ClInclude Include="includes.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="tools.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="shadow_ssdt.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ssdt.h">
+    <ClInclude Include="tools.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\kernel_modules.hpp">
-      <Filter>Header Files\Kaspersky</Filter>
+      <Filter>Header Files\KasperskyHook</Filter>
     </ClInclude>
     <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\pe.hpp">
-      <Filter>Header Files\Kaspersky</Filter>
+      <Filter>Header Files\KasperskyHook</Filter>
     </ClInclude>
     <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\utils.hpp">
-      <Filter>Header Files\Kaspersky</Filter>
+      <Filter>Header Files\KasperskyHook</Filter>
     </ClInclude>
-    <ClInclude Include="mh_hooks.h">
+    <ClInclude Include="hooks.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="globals.hpp">
+    <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\hooks.hpp">
+      <Filter>Header Files\KasperskyHook</Filter>
+    </ClInclude>
+    <ClInclude Include="..\KasperskyHook\KasperskyHookDrv\kaspersky.hpp">
+      <Filter>Header Files\KasperskyHook</Filter>
+    </ClInclude>
+    <ClInclude Include="fnv1a.hpp">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="process.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="wpp_trace.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dyn.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="syscalls.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="callbacks.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="object.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="infinityhook.hpp">
+      <Filter>Header Files\infinityhook</Filter>
+    </ClInclude>
+    <ClInclude Include="hde\hde64.h">
+      <Filter>Header Files\infinityhook\hde</Filter>
+    </ClInclude>
+    <ClInclude Include="hde\pstdint.h">
+      <Filter>Header Files\infinityhook\hde</Filter>
+    </ClInclude>
+    <ClInclude Include="hde\table64.h">
+      <Filter>Header Files\infinityhook\hde</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\shared.hpp">
+      <Filter>Header Files\shared</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

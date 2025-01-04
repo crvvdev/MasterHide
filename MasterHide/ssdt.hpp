@@ -1,0 +1,13 @@
+#pragma once
+
+static UCHAR jmp_trampoline[] = {0x50, 0x48, 0xB8, 0xEF, 0xBE, 0xAD, 0xDE, 0xEF,
+                                 0xBE, 0xAD, 0xDE, 0x48, 0x87, 0x04, 0x24, 0xC3};
+
+namespace masterhide
+{
+namespace ssdt
+{
+extern bool Init();
+extern void Destroy();
+} // namespace ssdt
+}; // namespace masterhide
